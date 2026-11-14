@@ -4,6 +4,15 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~17:15 — Claude Code (for Nehemiah): merged `main` into `nehemiah`
+- Merged `origin/main` (up to `e81d0de`: TTS, AI coach incl. Claude/Groq providers, `MidiPianoReader`, JordanScene) into `nehemiah` (`79f877d`).
+- **Conflicts:** kept `nehemiah`'s `manifest.json` / `packages-lock.json` (MCP pinned `#v10.0.0`, no AI Assistant) over main's
+  MCP-on-`#main` entry; took main's `Assets/Scripts.meta` GUID (ARI's differs, so ARI→main will conflict on it: keep main's);
+  build settings = `Dev_Ari` (index 0, startup scene) + `JordanScene`, both enabled.
+- Added `Assets/Scenes/Dev_Nehemiah.unity` (empty: Main Camera + Directional Light).
+- **Works:** Unity recompiled with all merged scripts; Console 0 errors / 0 warnings (checked via UnityMCP). Not tested in Play mode or on device.
+- **Note for `main`:** main still lists `com.unity.ai.assistant` and MCP on `#main`; when ARI/nehemiah lands on main, take the pinned/removed version.
+
 ## 2026-11-14 — Claude Code (for Nehemiah): merged ARI into `nehemiah`, Unity MCP verified on Nehemiah's machine
 - **Merged `origin/ARI` into `nehemiah`** (commit `91b1cb2`). Discarded local uncommitted edits first: MCP on `#main` (ARI pins `#v10.0.0`)
   and an `OpenXRPackageSettings.asset` change that had turned Android XR Support / Hand Interaction / Foveation **off** (editor churn).
