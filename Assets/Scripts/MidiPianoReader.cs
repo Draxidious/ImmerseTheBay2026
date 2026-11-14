@@ -3,17 +3,17 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using UnityEngine;
 
 /// <summary>
-/// Reads MIDI from a USB keyboard (e.g. Yamaha P-71) via the Windows winmm API and logs
-/// notes, pedal and detected chords to the Unity console. Windows only, no packages needed.
-/// Add to any GameObject and press Play.
+/// Reads MIDI from a USB keyboard (e.g. Yamaha P-71) and logs notes, pedal and chords.
+///  - Windows (Editor/standalone): winmm.dll
+///  - Android / Android XR (XREAL Aura puck): android.media.midi through Assets/Plugins/Android/MidiBridge.java
+/// Other scripts (e.g. MidiLogUI) can subscribe to the events below.
 /// </summary>
 public class MidiPianoReader : MonoBehaviour
 {
-    [Tooltip("Substring of the MIDI device name to connect to. Leave empty to use the first device.")]
+    [Tooltip("Windows only: substring of the MIDI device name to connect to. Empty = first device.")]
     public string deviceNameContains = "";
     public bool logNotes = true;
     public bool logChords = true;
@@ -21,10 +21,30 @@ public class MidiPianoReader : MonoBehaviour
     [Tooltip("Seconds to wait after a note-on before naming the chord, so a rolled chord is grouped.")]
     public float chordWindow = 0.08f;
 
-    // Public state other scripts can read later.
     public readonly HashSet<int> HeldNotes = new HashSet<int>();
-    public event Action<int, int> NoteOn;   // note, velocity
-    public event Action<int> NoteOff;       // note
+    public event Action<int, int> NoteOn;     // note, velocity
+    public event Action<int> NoteOff;         // note
+    public event Action<string> ChordChanged; // "Am7/C [C3 E3 G3 A3]", or "" when released
+    public event Action<string> LogMessage;   // every line that is also sent to Debug.Log
+
+    private readonly ConcurrentQueue<uint> _queue = new ConcurrentQueue<uint>();
+    private readonly ConcurrentQueue<string> _statusQueue = new ConcurrentQueue<string>();
+    private static readonly string[] NoteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    private float _chordTimer = -1f;
+    private string _lastChord = "";
+
+    /// <summary>Recent log lines, so a UI that subscribes late can still show startup/error messages.</summary>
+    public readonly List<string> History = new List<string>();
+
+    private void Log(string line)
+    {
+        Debug.Log(line);
+        History.Add(line);
+        if (History.Count > 50) History.RemoveAt(0);
+        LogMessage?.Invoke(line);
+    }
+
+    // ------------------------------------------------------------------ Platform backends
 
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
     private delegate void MidiInProc(IntPtr hMidiIn, uint wMsg, IntPtr dwInstance, IntPtr dwParam1, IntPtr dwParam2);
@@ -52,18 +72,13 @@ public class MidiPianoReader : MonoBehaviour
 
     private IntPtr _handle = IntPtr.Zero;
     private MidiInProc _callback; // keep a reference so the GC doesn't collect it
-    private readonly ConcurrentQueue<uint> _queue = new ConcurrentQueue<uint>();
 
-    private static readonly string[] NoteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-    private float _chordTimer = -1f;
-    private string _lastChord = "";
-
-    private void OnEnable()
+    private void StartBackend()
     {
         uint count = midiInGetNumDevs();
         if (count == 0)
         {
-            Debug.LogWarning("[MIDI] No MIDI input devices found. Is the piano plugged in and powered on?");
+            Log("[MIDI] No MIDI input devices found. Is the piano plugged in and powered on?");
             return;
         }
 
@@ -78,42 +93,98 @@ public class MidiPianoReader : MonoBehaviour
                 caps.szPname.IndexOf(deviceNameContains, StringComparison.OrdinalIgnoreCase) >= 0))
                 chosen = (int)i;
         }
-        Debug.Log("[MIDI] Input devices: " + string.Join(" | ", names));
+        Log("[MIDI] Input devices: " + string.Join(" | ", names));
 
         if (chosen < 0)
         {
-            Debug.LogWarning("[MIDI] No device matched '" + deviceNameContains + "'.");
+            Log("[MIDI] No device matched '" + deviceNameContains + "'.");
             return;
         }
 
-        _callback = OnMidi;
+        _callback = OnWinMidi;
         uint r = midiInOpen(out _handle, (uint)chosen, _callback, IntPtr.Zero, CALLBACK_FUNCTION);
         if (r != 0)
         {
-            Debug.LogError("[MIDI] midiInOpen failed (code " + r + "). Another app may be using the device.");
+            Log("[MIDI] midiInOpen failed (code " + r + "). Another app may be using the device.");
             _handle = IntPtr.Zero;
             return;
         }
         midiInStart(_handle);
-        Debug.Log("[MIDI] Listening on: " + names[chosen]);
+        Log("[MIDI] Listening on: " + names[chosen]);
     }
 
-    private void OnDisable()
+    private void StopBackend()
     {
-        if (_handle != IntPtr.Zero)
-        {
-            midiInStop(_handle);
-            midiInReset(_handle);
-            midiInClose(_handle);
-            _handle = IntPtr.Zero;
-        }
-        HeldNotes.Clear();
+        if (_handle == IntPtr.Zero) return;
+        midiInStop(_handle);
+        midiInReset(_handle);
+        midiInClose(_handle);
+        _handle = IntPtr.Zero;
     }
 
     // Runs on a winmm thread: only enqueue, never touch Unity API here.
-    private void OnMidi(IntPtr hMidiIn, uint msg, IntPtr instance, IntPtr p1, IntPtr p2)
+    private void OnWinMidi(IntPtr hMidiIn, uint msg, IntPtr instance, IntPtr p1, IntPtr p2)
     {
         if (msg == MIM_DATA) _queue.Enqueue((uint)p1.ToInt64());
+    }
+
+#elif UNITY_ANDROID && !UNITY_EDITOR
+    private AndroidJavaObject _bridge;
+
+    private void StartBackend()
+    {
+        Log("[MIDI] Starting Android MIDI backend...");
+        try
+        {
+            using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
+            {
+                // The Java side reports back through UnitySendMessage to this GameObject.
+                _bridge = new AndroidJavaObject("com.jordan.midi.MidiBridge", activity, gameObject.name);
+                _bridge.Call("start");
+            }
+        }
+        catch (Exception e)
+        {
+            Log("[MIDI] Android MIDI bridge failed: " + e.Message);
+        }
+    }
+
+    private void StopBackend()
+    {
+        if (_bridge == null) return;
+        try { _bridge.Call("stop"); } catch { }
+        _bridge.Dispose();
+        _bridge = null;
+    }
+#else
+    private void StartBackend() { Log("[MIDI] MidiPianoReader supports Windows and Android only."); }
+    private void StopBackend() { }
+#endif
+
+    // Called by MidiBridge.java through UnitySendMessage (main thread). Format: "status,data1,data2"
+    public void OnAndroidMidi(string csv)
+    {
+        var p = csv.Split(',');
+        if (p.Length < 3) return;
+        uint status = uint.Parse(p[0]), d1 = uint.Parse(p[1]), d2 = uint.Parse(p[2]);
+        _queue.Enqueue(status | (d1 << 8) | (d2 << 16));
+    }
+
+    // Called by MidiBridge.java for connection / error messages.
+    public void OnAndroidStatus(string text)
+    {
+        Log("[MIDI] " + text);
+    }
+
+    // ------------------------------------------------------------------ Shared logic
+
+    private void OnEnable() => StartBackend();
+
+    private void OnDisable()
+    {
+        StopBackend();
+        HeldNotes.Clear();
     }
 
     private void Update()
@@ -138,40 +209,45 @@ public class MidiPianoReader : MonoBehaviour
         {
             case 0x90 when d2 > 0:
                 HeldNotes.Add(d1);
-                if (logNotes) Debug.Log($"[MIDI] Note ON  {NoteName(d1)} (#{d1}) vel {d2} ch {channel}");
+                if (logNotes) Log($"[MIDI] Note ON  {NoteName(d1)} (#{d1}) vel {d2} ch {channel}");
                 NoteOn?.Invoke(d1, d2);
                 _chordTimer = Time.unscaledTime + chordWindow;
                 break;
             case 0x80:
             case 0x90: // note-on with velocity 0 == note-off
                 HeldNotes.Remove(d1);
-                if (logNotes) Debug.Log($"[MIDI] Note OFF {NoteName(d1)} (#{d1}) ch {channel}");
+                if (logNotes) Log($"[MIDI] Note OFF {NoteName(d1)} (#{d1}) ch {channel}");
                 NoteOff?.Invoke(d1);
-                if (HeldNotes.Count == 0) _lastChord = "";
+                if (HeldNotes.Count == 0 && _lastChord != "")
+                {
+                    _lastChord = "";
+                    ChordChanged?.Invoke("");
+                }
                 break;
             case 0xB0:
                 if (logPedalAndOther)
                 {
                     string label = d1 == 64 ? "Sustain pedal" : "CC " + d1;
-                    Debug.Log($"[MIDI] {label}: {d2}" + (d1 == 64 ? (d2 >= 64 ? " (down)" : " (up)") : ""));
+                    Log($"[MIDI] {label}: {d2}" + (d1 == 64 ? (d2 >= 64 ? " (down)" : " (up)") : ""));
                 }
                 break;
             default:
-                if (logPedalAndOther) Debug.Log($"[MIDI] status 0x{status:X2} data {d1},{d2}");
+                if (logPedalAndOther) Log($"[MIDI] status 0x{status:X2} data {d1},{d2}");
                 break;
         }
     }
 
     private void AnnounceChord()
     {
-        if (!logChords || HeldNotes.Count < 2) return;
+        if (HeldNotes.Count < 2) return;
         var sorted = HeldNotes.OrderBy(n => n).ToList();
         string notes = string.Join(" ", sorted.Select(NoteName));
         string name = IdentifyChord(sorted);
         string line = name != null ? $"{name}  [{notes}]" : $"[{notes}]";
         if (line == _lastChord) return;
         _lastChord = line;
-        Debug.Log("[MIDI] Chord: " + line);
+        if (logChords) Log("[MIDI] Chord: " + line);
+        ChordChanged?.Invoke(line);
     }
 
     private static readonly (string suffix, int[] intervals)[] ChordTypes =
@@ -196,15 +272,15 @@ public class MidiPianoReader : MonoBehaviour
         foreach (int root in pcs)
         {
             var rel = new HashSet<int>(pcs.Select(p => (p - root + 12) % 12));
-            foreach (var (suffix, intervals) in ChordTypes)
+            for (int i = 0; i < ChordTypes.Length; i++)
             {
-                if (!rel.SetEquals(intervals)) continue;
+                if (!rel.SetEquals(ChordTypes[i].intervals)) continue;
                 // Prefer root == bass note, then simpler chords (earlier in list).
-                int score = (root == bass ? 0 : 100) + Array.FindIndex(ChordTypes, c => c.suffix == suffix);
+                int score = (root == bass ? 0 : 100) + i;
                 if (score < bestScore)
                 {
                     bestScore = score;
-                    best = NoteNames[root] + suffix + (root != bass ? "/" + NoteNames[bass] : "");
+                    best = NoteNames[root] + ChordTypes[i].suffix + (root != bass ? "/" + NoteNames[bass] : "");
                 }
             }
         }
@@ -212,10 +288,4 @@ public class MidiPianoReader : MonoBehaviour
     }
 
     private static string NoteName(int note) => NoteNames[note % 12] + (note / 12 - 1);
-#else
-    private void OnEnable()
-    {
-        Debug.LogWarning("[MIDI] MidiPianoReader currently supports Windows only.");
-    }
-#endif
 }
