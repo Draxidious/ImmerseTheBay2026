@@ -29,10 +29,22 @@ public class PianoCalibrator : MonoBehaviour
     public XRBaseInteractable recalibrateButton;
     [Tooltip("Floating instruction text. Optional.")]
     public TMP_Text promptLabel;
+    [Tooltip("Hidden while calibrating (Recalibrate button, its label, the grab handle) so a pinch on the end keys " +
+             "can't hit them and restart calibration.")]
+    public GameObject[] hideWhileCalibrating;
+    [Tooltip("Optical see-through: the real hands are visible, so the rig's hand meshes only cover the fingers and keys. " +
+             "Kept hidden every frame because XR Hands re-enables them when tracking changes. Tracking/pinch still work.")]
+    public bool hideHandMeshes = true;
+    public Renderer[] handMeshRenderers;
 
     [Header("Pinch detection (meters between thumb tip and index tip)")]
     public float pinchStartDistance = 0.02f;
     public float pinchEndDistance = 0.04f;
+    [Tooltip("Calibrate with one pinch per hand at the same time (left hand on the lowest key, right hand on the highest). " +
+             "A single stray pinch can't finish calibration. Off = the old two-step, one-hand flow.")]
+    public bool twoHandCalibration = true;
+    [Tooltip("Both hands must pinch within this many seconds of each other.")]
+    public float twoHandWindowSeconds = 1.0f;
     [Tooltip("The thumb/index midpoint sits above the key surface when pinching a key edge; lower both points by this much (m).")]
     public float pinchHeightOffset = 0.008f;
     [Tooltip("Reject a calibration whose two points are closer/farther than this fraction of the expected keyboard width.")]
@@ -94,6 +106,8 @@ public class PianoCalibrator : MonoBehaviour
     bool _promptSnapped;     // prompt has been placed at least once with a tracked head
     float _clearPreviewAt = -1f;
     float _messageUntil = -1f;       // a temporary message (error / done) is showing until then
+    float _leftPinchTime = -10f, _rightPinchTime = -10f;
+    Vector3 _leftPinchPoint, _rightPinchPoint;
     float _trackedSince = -1f;       // when the head pose became valid
     float _promptOutOfViewSince = -1f;
     Vector3 _promptGlideTarget; Quaternion _promptGlideRot; bool _promptGliding;
@@ -164,8 +178,34 @@ public class PianoCalibrator : MonoBehaviour
         _lowMarker.SetActive(false);
         _highMarker.SetActive(false);
         _promptSnapped = false; // snap (not lerp) to the head on the next tracked frame
+        _leftPinchTime = _rightPinchTime = -10f;
         SetPhase(Phase.WaitingForLow);
         ShowCalibrationPreview();
+    }
+
+    /// <summary>
+    /// Two-hand flow: record one hand's pinch; when the other hand pinches within <see cref="twoHandWindowSeconds"/>,
+    /// calibrate from both (left = lowest key, right = highest). A lone pinch only shows its marker.
+    /// </summary>
+    public void SubmitHandPinch(bool isLeft, Vector3 worldPoint)
+    {
+        if (!IsCalibrating) return;
+        if (isLeft) { _leftPinchTime = Time.time; _leftPinchPoint = worldPoint; ShowMarker(_lowMarker, worldPoint); }
+        else { _rightPinchTime = Time.time; _rightPinchPoint = worldPoint; ShowMarker(_highMarker, worldPoint); }
+
+        if (Mathf.Abs(_leftPinchTime - _rightPinchTime) <= twoHandWindowSeconds)
+        {
+            _leftPinchTime = _rightPinchTime = -10f;
+            _phase = Phase.WaitingForHigh; // reuse the two-point path (sanity check, swap, calibrate)
+            _lowPoint = _leftPinchPoint;
+            SubmitPoint(_rightPinchPoint);
+        }
+        else
+        {
+            ShowMessage(isLeft ? "Got the LEFT hand.\nPinch with your RIGHT hand too,\nboth within a second."
+                               : "Got the RIGHT hand.\nPinch with your LEFT hand too,\nboth within a second.",
+                        twoHandWindowSeconds + 0.5f);
+        }
     }
 
     /// <summary>Feed a pinch point manually (world space). Used by hand tracking and the Editor debug keys.</summary>
@@ -225,7 +265,10 @@ public class PianoCalibrator : MonoBehaviour
         return Mathf.Max(0.1f, (whites - 1) * overlay.whiteKeyWidth);
     }
 
-    static string PromptFor(Phase p) => p switch
+    string PromptFor(Phase p) => twoHandCalibration && p != Phase.Idle
+        ? "<b>Calibrate</b>\nLEFT hand on the far-LEFT key,\nRIGHT hand on the far-RIGHT key.\n" +
+          "Palms down, pinch both FRONT EDGES together."
+        : p switch
     {
         Phase.WaitingForLow => "<b>Step 1 of 2</b>\nPinch thumb + index finger on the FRONT EDGE of the\n<b>far-LEFT key</b> (the lowest note). Keep your palm facing down.",
         Phase.WaitingForHigh => "<b>Step 2 of 2</b>\nNow pinch the FRONT EDGE of the\n<b>far-RIGHT key</b> (the highest note), about 1.2 m to the right.",
@@ -242,6 +285,12 @@ public class PianoCalibrator : MonoBehaviour
     }
 
     // ---------- Hand tracking ----------
+
+    void LateUpdate()
+    {
+        if (!hideHandMeshes || handMeshRenderers == null) return;
+        foreach (var r in handMeshRenderers) if (r && r.enabled) r.enabled = false;
+    }
 
     void Update()
     {
@@ -270,8 +319,8 @@ public class PianoCalibrator : MonoBehaviour
 
         if (!EnsureHandSubsystem()) { DebugKeys(); return; }
 
-        PollHand(_hands.leftHand, MetaAimHand.left, ref _leftPinching);
-        PollHand(_hands.rightHand, MetaAimHand.right, ref _rightPinching);
+        PollHand(_hands.leftHand, MetaAimHand.left, true, ref _leftPinching);
+        PollHand(_hands.rightHand, MetaAimHand.right, false, ref _rightPinching);
         DebugKeys();
     }
 
@@ -293,7 +342,7 @@ public class PianoCalibrator : MonoBehaviour
         return _hands != null;
     }
 
-    void PollHand(XRHand hand, MetaAimHand aim, ref bool pinching)
+    void PollHand(XRHand hand, MetaAimHand aim, bool isLeft, ref bool pinching)
     {
         if (!hand.isTracked) { pinching = false; return; }
         if (!hand.GetJoint(XRHandJointID.ThumbTip).TryGetPose(out var thumb) ||
@@ -305,7 +354,11 @@ public class PianoCalibrator : MonoBehaviour
         {
             pinching = true; // rising edge = one pinch (also latched for system/palm-up pinches so they never count)
             if (IsCalibrating && Time.time >= _ignoreUntil && !IsSystemGesture(aim) && PalmFacesDown(hand))
-                SubmitPoint(ToWorld((thumb.position + index.position) * 0.5f));
+            {
+                Vector3 p = ToWorld((thumb.position + index.position) * 0.5f);
+                if (twoHandCalibration) SubmitHandPinch(isLeft, p);
+                else SubmitPoint(p);
+            }
         }
         else if (pinching && d > pinchEndDistance)
         {
@@ -339,6 +392,8 @@ public class PianoCalibrator : MonoBehaviour
     {
         _phase = p;
         if (overlayGrab) overlayGrab.enabled = p == Phase.Idle; // no nudging mid-calibration
+        if (hideWhileCalibrating != null)
+            foreach (var go in hideWhileCalibrating) if (go) go.SetActive(p == Phase.Idle);
 
         if (!promptLabel) return;
         promptLabel.gameObject.SetActive(p != Phase.Idle);

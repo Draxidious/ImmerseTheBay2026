@@ -4,6 +4,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~14:55 — Claude Code (for Ari): visible keyboard + two-hand calibration
+- On-device run of the 14:11 build: saved calibration scale 0.548 (points ~66 cm apart) → a stray 2nd pinch ended calibration early.
+  (That build predates the span check.)
+- **Off keys now drawn faintly** (white 10% grey, black 3–5%) so the whole keyboard is visible on the additive display;
+  `upcomingColor` brightened (0.15,0.35,0.6 → 0.25,0.55,1). `SetIdleKeysVisible(bool)` to toggle.
+- **Two-hand calibration (default):** left hand on the far-left key, right hand on the far-right key, pinch both within 1 s.
+  A lone pinch only shows its marker + a hint. Span check / swap still apply. One-hand flow kept behind `twoHandCalibration = false`.
+- Prompt re-wrapped: 29° wide. Verified in Editor Play mode (scripted): lone pinch ignored, pair calibrates at scale 1.000,
+  pinches 2 s apart ignored, 30 cm pair rejected.
+- **Glasses screenshots work:** `adb shell screencap -d <XREAL display id> -p` (display "XREAL 1 Ultra") captures the composited
+  passthrough + app view, so the overlay can be checked from the PC.
+
 ## 2026-11-14 ~14:45 — Claude Code (for Ari): calibration robustness (tiny keyboard), geometry assessment
 - **Tiny keyboard root cause:** a bad calibration was accepted and saved (PlayerPrefs on the puck: scale 0.0497, yaw ~174°, i.e. the two
   pinches were ~6 cm apart, right before left). Geometry was not the problem.

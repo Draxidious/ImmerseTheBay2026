@@ -34,7 +34,11 @@ public class PianoOverlay : MonoBehaviour
 
     [Header("Look")]
     public Material keyMaterial; // e.g. URP/Unlit (uses _BaseColor). Leave empty to auto-create.
-    public Color upcomingColor = new Color(0.15f, 0.35f, 0.6f);
+    [Tooltip("Draw Off keys faintly so the whole keyboard outline is visible (black would be invisible on the Aura).")]
+    public bool showIdleKeys = true;
+    public Color idleWhiteColor = new Color(0.10f, 0.10f, 0.12f);
+    public Color idleBlackColor = new Color(0.03f, 0.03f, 0.05f);
+    public Color upcomingColor = new Color(0.25f, 0.55f, 1f);
     public Color nextColor = new Color(0.3f, 0.85f, 1f);
     public Color correctColor = new Color(0.3f, 1f, 0.45f);
     public Color wrongColor = new Color(1f, 0.25f, 0.25f);
@@ -78,6 +82,13 @@ public class PianoOverlay : MonoBehaviour
         if (state == KeyState.Correct || state == KeyState.Wrong)
             _flashUntil[midiNote] = Time.time + flashSeconds;
         Paint(midiNote, 1f);
+    }
+
+    /// <summary>Show or hide the faint outline of Off keys at runtime.</summary>
+    public void SetIdleKeysVisible(bool visible)
+    {
+        showIdleKeys = visible;
+        foreach (var n in new List<int>(_keys.Keys)) Paint(n, 1f);
     }
 
     public void ClearAll()
@@ -226,7 +237,8 @@ public class PianoOverlay : MonoBehaviour
             KeyState.Next => nextColor * intensity,
             KeyState.Correct => correctColor,
             KeyState.Wrong => wrongColor,
-            _ => Color.black, // additive display: black = invisible
+            _ => !showIdleKeys ? Color.black // additive display: black = invisible
+                 : IsBlack(n) ? idleBlackColor : idleWhiteColor,
         };
         c.a = 1f;
         var r = _keys[n];

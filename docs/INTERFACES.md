@@ -31,6 +31,7 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 | `Vector3 GetKeyWorldCenter(int midiNote)` | World position of a key's drawn area (for sheet-to-key lines, effects). |
 | `void CalibrateFromTwoKeys(Vector3 lowFront, Vector3 highFront)` | Snap onto the real piano from two pinched points: the front-edge center of the lowest and highest key. |
 | `static bool IsBlack(int midiNote)` | Helper. |
+| `void SetIdleKeysVisible(bool visible)` | Off keys are drawn faintly (`idleWhiteColor` / `idleBlackColor`) so the keyboard outline is visible; turn off to hide them (e.g. during a demo shot). |
 | `void SaveCalibration()` | Persist the current pose/scale to PlayerPrefs. Called automatically after calibration and after a grab-handle nudge. |
 
 Editor debug: `1` = Next on C4 with Upcoming E4/G4, `2` = Correct C4, `3` = Wrong C#4, `0` = clear.
@@ -49,6 +50,7 @@ Disables the overlay grab while calibrating; saves the overlay pose when the gra
 |---|---|
 | `void Recalibrate()` | Forget the points and wait for two new pinches. Also wired to the `RecalibrateButton` interactable. |
 | `void SubmitPoint(Vector3 worldPoint)` | Feed a calibration point manually (non-hand input, tests). Rejects spans outside 60–160% of `ExpectedSpanMeters()` and swaps right-then-left input. |
+| `void SubmitHandPinch(bool isLeft, Vector3 worldPoint)` | Two-hand flow (default, `twoHandCalibration`): left hand on the lowest key + right hand on the highest, pinched within `twoHandWindowSeconds`. A lone pinch never calibrates. |
 | `float ExpectedSpanMeters()` | Real-size distance between the lowest and highest key's front centers (≈1.20 m for 88 keys). |
 | `event Action Calibrated` | Raised after a successful calibration. |
 | `bool IsCalibrating` / `Phase CurrentPhase` | `Phase { Idle, WaitingForLow, WaitingForHigh }`. |
