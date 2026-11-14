@@ -32,7 +32,7 @@ public class GroqCoach : ICoachProvider
 
     public GroqCoach(AIConfig cfg, AISecrets keys) { this.cfg = cfg; this.keys = keys; }
 
-    public async Task<string> GetCoachJson(string metricsJson)
+    public async Task<string> GetCoachJson(string systemPrompt, string userJson)
     {
         if (!Groq.HasKey(keys)) return null;
 
@@ -42,8 +42,8 @@ public class GroqCoach : ICoachProvider
             "\"temperature\":0.7," +
             "\"response_format\":{\"type\":\"json_object\"}," +
             "\"messages\":[" +
-            "{\"role\":\"system\",\"content\":" + AIHttp.Quote(cfg.coachSystemPrompt) + "}," +
-            "{\"role\":\"user\",\"content\":" + AIHttp.Quote(metricsJson) + "}]}";
+            "{\"role\":\"system\",\"content\":" + AIHttp.Quote(systemPrompt) + "}," +
+            "{\"role\":\"user\",\"content\":" + AIHttp.Quote(userJson) + "}]}";
 
         var r = await AIHttp.PostJson("Coach Groq (" + cfg.groqCoachModel + ")", Groq.ChatUrl, body,
             cfg.coachRequestTimeout, ("Authorization", "Bearer " + keys.GROQ_API_KEY));

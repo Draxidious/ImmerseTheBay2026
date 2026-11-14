@@ -73,6 +73,24 @@ public class AIDebugPanel : MonoBehaviour
         }
     }
 
+    async void AskCoach(string question)
+    {
+        if (busy) return;
+        busy = true;
+        try
+        {
+            var sw = Stopwatch.StartNew();
+            var r = await coach.Ask(question);
+            Print($"Coach ({sw.ElapsedMilliseconds} ms): \"{r.say}\"  action={r.action} bar={r.bar}");
+            busy = false;
+            await voiceOutput.Speak(r.say);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
     async void SpeakTestLine()
     {
         Print("TTS: speaking test line...");
@@ -99,6 +117,7 @@ public class AIDebugPanel : MonoBehaviour
     {
         Print($"Voice: {command}  (\"{transcript}\")");
         if (command == VoiceCommand.HowDidIDo) SendFakeMetrics(speakCoachReplies);
+        else if (command == VoiceCommand.Unknown && !string.IsNullOrWhiteSpace(transcript)) AskCoach(transcript);
     }
 
     void Update()

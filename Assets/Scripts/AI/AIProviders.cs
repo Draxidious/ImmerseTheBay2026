@@ -9,7 +9,7 @@ public interface ICoachProvider
 {
     string Name { get; }
     // Returns the raw JSON text of the {say, action, bar} object, or null on failure.
-    Task<string> GetCoachJson(string metricsJson);
+    Task<string> GetCoachJson(string systemPrompt, string userJson);
 }
 
 public interface ISttProvider
@@ -32,18 +32,23 @@ public static class AIProviders
     public static ICoachProvider Coach(CoachProviderType type, AIConfig cfg, AISecrets keys)
     {
         if (type == CoachProviderType.Groq) return new GroqCoach(cfg, keys);
+        if (type == CoachProviderType.Claude) return new ClaudeCoach(cfg, keys);
         return new GeminiCoach(cfg, keys);
+    }
+
+    // The selected coach provider first, then the others as fallbacks.
+    public static CoachProviderType[] CoachOrder(CoachProviderType selected)
+    {
+        var order = new System.Collections.Generic.List<CoachProviderType> { selected };
+        foreach (var type in new[] { CoachProviderType.Claude, CoachProviderType.Gemini, CoachProviderType.Groq })
+            if (type != selected) order.Add(type);
+        return order.ToArray();
     }
 
     public static ISttProvider Stt(SttProviderType type, AIConfig cfg, AISecrets keys)
     {
         if (type == SttProviderType.Gemini) return new GeminiStt(cfg, keys);
         return new GroqStt(cfg, keys);
-    }
-
-    public static CoachProviderType Other(CoachProviderType type)
-    {
-        return type == CoachProviderType.Gemini ? CoachProviderType.Groq : CoachProviderType.Gemini;
     }
 
     public static SttProviderType Other(SttProviderType type)

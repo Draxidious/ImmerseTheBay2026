@@ -66,13 +66,13 @@ public class GeminiCoach : ICoachProvider
 
     public GeminiCoach(AIConfig cfg, AISecrets keys) { this.cfg = cfg; this.keys = keys; }
 
-    public async Task<string> GetCoachJson(string metricsJson)
+    public async Task<string> GetCoachJson(string systemPrompt, string userJson)
     {
         if (!Gemini.HasKey(keys)) return null;
 
         string body =
-            "{\"systemInstruction\":{\"parts\":[{\"text\":" + AIHttp.Quote(cfg.coachSystemPrompt) + "}]}," +
-            "\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":" + AIHttp.Quote(metricsJson) + "}]}]," +
+            "{\"systemInstruction\":{\"parts\":[{\"text\":" + AIHttp.Quote(systemPrompt) + "}]}," +
+            "\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":" + AIHttp.Quote(userJson) + "}]}]," +
             "\"generationConfig\":{\"temperature\":0.7,\"responseMimeType\":\"application/json\",\"responseSchema\":" + Schema + "}}";
 
         var r = await AIHttp.PostJson("Coach Gemini (" + cfg.geminiCoachModel + ")", Gemini.Url(cfg.geminiCoachModel), body,
