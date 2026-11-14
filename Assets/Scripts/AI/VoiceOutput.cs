@@ -12,7 +12,7 @@ public class VoiceOutput : MonoBehaviour
 
     public bool IsSpeaking { get; private set; }
 
-    GeminiTts gemini;
+    GroqTts groq;
     readonly NativeTts native = new NativeTts();
     int speakId;
 
@@ -44,10 +44,10 @@ public class VoiceOutput : MonoBehaviour
             var sw = System.Diagnostics.Stopwatch.StartNew();
             bool spoken = false;
 
-            if (cfg.ttsProvider == TtsProviderType.GeminiTts)
+            if (cfg.ttsProvider == TtsProviderType.Groq)
             {
-                if (gemini == null) gemini = new GeminiTts(cfg, await AISecrets.Load());
-                if (!cancelled()) spoken = await gemini.Speak(text, source, cancelled);
+                if (groq == null) groq = new GroqTts(cfg, await AISecrets.Load());
+                if (!cancelled()) spoken = await groq.Speak(text, source, cancelled);
             }
 
             if (!spoken && !cancelled() && (cfg.ttsProvider == TtsProviderType.Native || cfg.useFallbackProviders))

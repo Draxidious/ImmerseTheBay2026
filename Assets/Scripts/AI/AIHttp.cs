@@ -11,6 +11,7 @@ public static class AIHttp
         public bool ok;
         public long status;
         public string text;
+        public byte[] data;
         public long ms;
     }
 
@@ -47,6 +48,7 @@ public static class AIHttp
                 ok = req.result == UnityWebRequest.Result.Success,
                 status = req.responseCode,
                 text = req.downloadHandler != null ? req.downloadHandler.text : "",
+                data = req.downloadHandler != null ? req.downloadHandler.data : null,
                 ms = sw.ElapsedMilliseconds
             };
 

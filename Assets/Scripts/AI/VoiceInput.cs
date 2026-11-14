@@ -93,22 +93,11 @@ public class VoiceInput : MonoBehaviour
         OnCommand?.Invoke(command, transcript);
     }
 
-    // Selected provider first, then the other one. Returns null if both fail.
+    // Returns null on failure.
     async Task<string> Transcribe(byte[] wav)
     {
         var cfg = Cfg;
-        var keys = await AISecrets.Load();
-
-        var order = cfg.useFallbackProviders
-            ? new[] { cfg.sttProvider, AIProviders.Other(cfg.sttProvider) }
-            : new[] { cfg.sttProvider };
-
-        foreach (var type in order)
-        {
-            string text = await AIProviders.Stt(type, cfg, keys).Transcribe(wav);
-            if (text != null) return text;
-        }
-        return null;
+        return await new GroqStt(cfg, await AISecrets.Load()).Transcribe(wav);
     }
 
     // Simple keyword matching, no LLM call.

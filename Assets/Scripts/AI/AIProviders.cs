@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using UnityEngine;
 
-// Provider interfaces. Implementations: GeminiProviders.cs, GroqProviders.cs, NativeTts.cs.
+// Provider interfaces. Implementations: ClaudeProviders.cs, GroqProviders.cs, NativeTts.cs.
 // All of them return null / false on failure instead of throwing, so callers can fall back.
 
 public interface ICoachProvider
@@ -32,27 +32,13 @@ public static class AIProviders
     public static ICoachProvider Coach(CoachProviderType type, AIConfig cfg, AISecrets keys)
     {
         if (type == CoachProviderType.Groq) return new GroqCoach(cfg, keys);
-        if (type == CoachProviderType.Claude) return new ClaudeCoach(cfg, keys);
-        return new GeminiCoach(cfg, keys);
+        return new ClaudeCoach(cfg, keys);
     }
 
-    // The selected coach provider first, then the others as fallbacks.
+    // The selected coach provider first, then the other one as the fallback.
     public static CoachProviderType[] CoachOrder(CoachProviderType selected)
     {
-        var order = new System.Collections.Generic.List<CoachProviderType> { selected };
-        foreach (var type in new[] { CoachProviderType.Claude, CoachProviderType.Gemini, CoachProviderType.Groq })
-            if (type != selected) order.Add(type);
-        return order.ToArray();
-    }
-
-    public static ISttProvider Stt(SttProviderType type, AIConfig cfg, AISecrets keys)
-    {
-        if (type == SttProviderType.Gemini) return new GeminiStt(cfg, keys);
-        return new GroqStt(cfg, keys);
-    }
-
-    public static SttProviderType Other(SttProviderType type)
-    {
-        return type == SttProviderType.Groq ? SttProviderType.Gemini : SttProviderType.Groq;
+        var other = selected == CoachProviderType.Claude ? CoachProviderType.Groq : CoachProviderType.Claude;
+        return new[] { selected, other };
     }
 }

@@ -1,28 +1,26 @@
 using UnityEngine;
 
-public enum CoachProviderType { Gemini, Groq, Claude }
-public enum SttProviderType { Groq, Gemini }
-public enum TtsProviderType { GeminiTts, Native } // Native = Android TextToSpeech on device, log (+ macOS "say") in the Editor
+public enum CoachProviderType { Claude, Groq }
+public enum TtsProviderType { Groq, Native } // Native = Android TextToSpeech on device, log (+ macOS "say") in the Editor
 
 // One place to switch providers and model names. The asset lives at Assets/Resources/AIConfig.asset.
 [CreateAssetMenu(menuName = "AI Coach/AI Config", fileName = "AIConfig")]
 public class AIConfig : ScriptableObject
 {
     [Header("Providers")]
-    public CoachProviderType coachProvider = CoachProviderType.Gemini;
-    public SttProviderType sttProvider = SttProviderType.Groq;
-    public TtsProviderType ttsProvider = TtsProviderType.GeminiTts;
-    [Tooltip("If the selected provider fails, try the other ones (TTS falls back to Native).")]
+    public CoachProviderType coachProvider = CoachProviderType.Claude;
+    public TtsProviderType ttsProvider = TtsProviderType.Groq;
+    [Tooltip("If the selected provider fails, try the other one (TTS falls back to Native). Speech-to-text is always Groq Whisper.")]
     public bool useFallbackProviders = true;
 
     [Header("Model names (swap here if a call logs a 404)")]
-    public string geminiCoachModel = "gemini-3.8-flash";
     public string claudeCoachModel = "claude-haiku-5-5";
     public string groqCoachModel = "openai/gpt-oss-120b";
     public string groqSttModel = "whisper-large-v3-turbo";
-    public string geminiSttModel = "gemini-3.8-flash";
-    public string geminiTtsModel = "gemini-2.5-flash-preview-tts";
-    public string geminiTtsVoice = "Kore";
+    public string groqTtsModel = "canopylabs/orpheus-v1-english";
+    public string groqTtsVoice = "hannah";
+    [Tooltip("The Groq speech model only accepts short inputs, so longer lines are split at sentence breaks.")]
+    public int groqTtsMaxChars = 200;
 
     [Header("Timeouts (seconds)")]
     [Tooltip("Per coach HTTP request.")]

@@ -9,7 +9,6 @@ using UnityEngine.Networking;
 [Serializable]
 public class AISecrets
 {
-    public string GEMINI_API_KEY = "";
     public string GROQ_API_KEY = "";
     public string ANTHROPIC_API_KEY = "";
 
@@ -42,7 +41,6 @@ public class AISecrets
             try
             {
                 var secrets = JsonUtility.FromJson<AISecrets>(req.downloadHandler.text) ?? new AISecrets();
-                secrets.GEMINI_API_KEY = (secrets.GEMINI_API_KEY ?? "").Trim();
                 secrets.GROQ_API_KEY = (secrets.GROQ_API_KEY ?? "").Trim();
                 secrets.ANTHROPIC_API_KEY = (secrets.ANTHROPIC_API_KEY ?? "").Trim();
                 return secrets;
