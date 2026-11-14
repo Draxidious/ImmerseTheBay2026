@@ -4,6 +4,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~17:45 — Claude Code (for Nehemiah): CoachOrb (floating coach orb + text)
+- **Added** `Assets/Scripts/Coach/CoachOrb.cs` (implements the INTERFACES `CoachOrb` contract + `ShowText`/`HideText`) and
+  `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs` (Tools ▸ Coach ▸ Add Coach Orb / Add Aura XR Rig to Scene), material
+  `Assets/Scripts/Coach/Materials/CoachOrbUnlit.mat` (URP Unlit). Put in `Scripts/Coach/`, not `Scripts/UI/` (Ari's folder).
+- **Dev_Nehemiah scene:** replaced the plain camera with the project's hands XR rig + AR Session + ARCameraManager (passthrough, locomotion off,
+  same as Dev_Ari) and added the CoachOrb.
+- **Verified in Editor Play mode (via UnityMCP):** compiles with 0 errors/warnings; orb places itself at eye level, 0.68 m away, 36° right;
+  text wraps beside the orb, faces the player, long text truncated at 116 chars; Speaking color/pulse works.
+- **Untested on the Aura:** readability of 0.18 text at ~0.7 m, whether 36° right is comfortable/in view, colors on the additive display,
+  piano-anchored placement (Dev_Nehemiah has no PianoOverlay; it anchors automatically in a scene that has one).
+- **Next:** AI coach calls `SetState(Thinking)` while waiting, `SetState(Speaking)` + `SetVoiceLevel` during TTS, and `ShowText(response.say)`.
+
 ## 2026-11-14 ~17:15 — Claude Code (for Nehemiah): merged `main` into `nehemiah`
 - Merged `origin/main` (up to `e81d0de`: TTS, AI coach incl. Claude/Groq providers, `MidiPianoReader`, JordanScene) into `nehemiah` (`79f877d`).
 - **Conflicts:** kept `nehemiah`'s `manifest.json` / `packages-lock.json` (MCP pinned `#v10.0.0`, no AI Assistant) over main's

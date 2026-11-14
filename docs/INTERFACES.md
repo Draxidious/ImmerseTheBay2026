@@ -11,7 +11,7 @@ Status legend: ✅ implemented · 🚧 in progress · 📝 agreed, not built yet
 
 ```csharp
 public enum KeyState { Off, Upcoming, Next, Correct, Wrong }   // ✅ defined in PianoOverlay.cs
-public enum OrbState { Idle, Listening, Thinking, Speaking }   // 📝 CoachOrb.cs
+public enum OrbState { Idle, Listening, Thinking, Speaking }   // ✅ defined in Assets/Scripts/Coach/CoachOrb.cs
 ```
 
 MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
@@ -62,11 +62,23 @@ Editor debug: `C` = fake both pinches in front of the camera, `R` = recalibrate.
 | `void HighlightMeasure(int measureIndex)` | Highlight the current measure; turns the page if needed. |
 | `Vector3 GetNoteWorldPosition(int measureIndex, int noteIndex)` | (stretch) For drawing a line from a note to its key. |
 
-### CoachOrb (`Assets/Scripts/UI/CoachOrb.cs`) 📝
+### CoachOrb (`Assets/Scripts/Coach/CoachOrb.cs`) ✅ — built by Nehemiah (kept out of `Assets/Scripts/UI/`, Ari's folder)
+Glowing 7 cm orb + text beside it. World-locked at the player's eye level on their right side of the piano:
+anchored to `PianoOverlay` when one is present and not calibrating (follows recalibration / grab nudges),
+otherwise placed once ~0.55 m ahead / 0.4 m right of the head after tracking settles. Re-places on tracking-origin changes.
+No dependency on the AI scripts.
+
 | Member | Purpose |
 |---|---|
-| `void SetState(OrbState state)` | Idle / Listening / Thinking / Speaking visuals. |
-| `void SetVoiceLevel(float level01)` | 0 to 1 loudness of the AI voice; drives the pulse while Speaking. Call every frame during speech. |
+| `void SetState(OrbState state)` | Idle (slow breathing blue) / Listening (green-cyan) / Thinking (violet↔blue shimmer) / Speaking (cyan, pulses with voice). |
+| `void SetVoiceLevel(float level01)` | 0 to 1 loudness of the AI voice; drives the pulse while Speaking. Call every frame during speech (decays to 0 if not called for 0.25 s). |
+| `void ShowText(string text, float seconds = -1)` | Show a message beside the orb, replacing any current one. `seconds <= 0` = auto (0.3 s/word, min 3 s). Over 120 chars is cut at a word with "...". Fades in/out. Typical use: `orb.ShowText(coachResponse.say)`. |
+| `void HideText()` | Fade the message out now. |
+| `void Replace()` | Re-measure eye height and re-place on the next tracked frame. |
+| `OrbState State`, `bool IsTextVisible` | Current state. |
+
+Editor debug: `T` = sample text, `Y` = cycle state, `H` = hide text, `V` = toggle fake voice level.
+Menu: **Tools ▸ Coach ▸ Add Coach Orb** (adds it to the open scene), **Tools ▸ Coach ▸ Add Aura XR Rig to Scene**.
 
 ---
 
