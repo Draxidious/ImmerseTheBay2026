@@ -33,6 +33,11 @@ public class PianoCalibrator : MonoBehaviour
     [Header("Pinch detection (meters between thumb tip and index tip)")]
     public float pinchStartDistance = 0.02f;
     public float pinchEndDistance = 0.04f;
+    [Tooltip("The thumb/index midpoint sits above the key surface when pinching a key edge; lower both points by this much (m).")]
+    public float pinchHeightOffset = 0.008f;
+    [Tooltip("Reject a calibration whose two points are closer/farther than this fraction of the expected keyboard width.")]
+    public float minSpanFraction = 0.6f;
+    public float maxSpanFraction = 1.6f;
     [Tooltip("Ignore pinches for this long after (re)starting, so the pinch that pressed Recalibrate doesn't count.")]
     public float startCooldownSeconds = 0.6f;
     [Tooltip("Only count pinches with the palm facing down (how you pinch a key edge). A palm-toward-you pinch is the " +
@@ -88,6 +93,7 @@ public class PianoCalibrator : MonoBehaviour
     bool _overlayPlaced;     // initial head-relative placement done (or calibrated)
     bool _promptSnapped;     // prompt has been placed at least once with a tracked head
     float _clearPreviewAt = -1f;
+    float _messageUntil = -1f;       // a temporary message (error / done) is showing until then
     float _trackedSince = -1f;       // when the head pose became valid
     float _promptOutOfViewSince = -1f;
     Vector3 _promptGlideTarget; Quaternion _promptGlideRot; bool _promptGliding;
@@ -174,16 +180,65 @@ public class PianoCalibrator : MonoBehaviour
                 break;
 
             case Phase.WaitingForHigh:
-                if (Vector3.Distance(worldPoint, _lowPoint) < 0.05f) return; // same spot twice: ignore
-                ShowMarker(_highMarker, worldPoint);
-                if (overlay) overlay.CalibrateFromTwoKeys(_lowPoint, worldPoint);
+            {
+                if (Vector3.Distance(worldPoint, _lowPoint) < 0.05f) return; // same spot twice (pinch bounce): ignore
+                Vector3 low = _lowPoint, high = worldPoint;
+
+                // If the user did right-then-left, swap instead of flipping the keyboard around.
+                var head = HeadTransform();
+                if (head && Vector3.Dot(high - low, head.right) < 0f) { var t = low; low = high; high = t; }
+
+                float span = Vector3.Distance(low, high), expected = ExpectedSpanMeters();
+                if (span < expected * minSpanFraction || span > expected * maxSpanFraction)
+                {
+                    Debug.Log($"[PianoCalibrator] Rejected: points {span * 100f:F0} cm apart, expected ~{expected * 100f:F0} cm.");
+                    Recalibrate();
+                    ShowMessage($"Those two pinches were {span * 100f:F0} cm apart, but the ends of the\n" +
+                                $"keyboard are about {expected * 100f:F0} cm apart. Let's try again.\n\n" + PromptFor(Phase.WaitingForLow),
+                                6f);
+                    return;
+                }
+
+                ShowMarker(_lowMarker, low);
+                ShowMarker(_highMarker, high);
+                Vector3 drop = Vector3.down * pinchHeightOffset; // pinch midpoint → key surface
+                if (overlay) overlay.CalibrateFromTwoKeys(low + drop, high + drop);
+                Debug.Log($"[PianoCalibrator] Calibrated: low {low}, high {high}, span {span * 100f:F0} cm (expected ~{expected * 100f:F0}), scale {(overlay ? overlay.transform.localScale.x : 0f):F3}.");
                 _overlayPlaced = true;
                 if (hideMarkersAfter > 0f) _hideMarkersAt = Time.time + hideMarkersAfter;
                 SetPhase(Phase.Idle);
                 ShowAlignmentPreview();
+                ShowMessage("<b>Calibrated!</b>\nThe blue bars should sit on every C key.\n" +
+                            "Pinch and drag the blue ball to nudge. Tap the orange tile to redo.", previewSecondsAfterCalibration);
                 Calibrated?.Invoke();
                 break;
+            }
         }
+    }
+
+    /// <summary>Distance between the front-centers of the lowest and highest key at real size (≈1.2 m for 88 keys).</summary>
+    public float ExpectedSpanMeters()
+    {
+        if (!overlay) return 1.2f;
+        int whites = 0;
+        for (int n = overlay.lowestNote; n <= overlay.highestNote; n++) if (!PianoOverlay.IsBlack(n)) whites++;
+        return Mathf.Max(0.1f, (whites - 1) * overlay.whiteKeyWidth);
+    }
+
+    static string PromptFor(Phase p) => p switch
+    {
+        Phase.WaitingForLow => "<b>Step 1 of 2</b>\nPinch thumb + index finger on the FRONT EDGE of the\n<b>far-LEFT key</b> (the lowest note). Keep your palm facing down.",
+        Phase.WaitingForHigh => "<b>Step 2 of 2</b>\nNow pinch the FRONT EDGE of the\n<b>far-RIGHT key</b> (the highest note), about 1.2 m to the right.",
+        _ => "",
+    };
+
+    void ShowMessage(string text, float seconds)
+    {
+        if (!promptLabel) return;
+        promptLabel.text = text;
+        promptLabel.gameObject.SetActive(true);
+        _messageUntil = seconds > 0f ? Time.time + seconds : -1f;
+        _promptSnapped = false; // put it in front of the user
     }
 
     // ---------- Hand tracking ----------
@@ -196,10 +251,19 @@ public class PianoCalibrator : MonoBehaviour
             _highMarker.SetActive(false);
             _hideMarkersAt = -1f;
         }
+        if (_messageUntil > 0f && Time.time >= _messageUntil)
+        {
+            _messageUntil = -1f;
+            if (promptLabel)
+            {
+                promptLabel.text = PromptFor(_phase);
+                promptLabel.gameObject.SetActive(IsCalibrating);
+            }
+        }
         if (_clearPreviewAt > 0f && Time.time >= _clearPreviewAt)
         {
             _clearPreviewAt = -1f;
-            if (overlay && !IsCalibrating) overlay.ClearAll();
+            if (!IsCalibrating) ClearPreviewKeys();
         }
 
         UpdateHeadRelativePlacement();
@@ -278,12 +342,8 @@ public class PianoCalibrator : MonoBehaviour
 
         if (!promptLabel) return;
         promptLabel.gameObject.SetActive(p != Phase.Idle);
-        promptLabel.text = p switch
-        {
-            Phase.WaitingForLow => "Pinch the FRONT EDGE of the LOWEST key",
-            Phase.WaitingForHigh => "Now pinch the FRONT EDGE of the HIGHEST key",
-            _ => "",
-        };
+        _messageUntil = -1f; // a phase change replaces any temporary message
+        promptLabel.text = PromptFor(p);
     }
 
     Transform HeadTransform() =>
@@ -319,13 +379,14 @@ public class PianoCalibrator : MonoBehaviour
         {
             // Center the keyboard (middle C) at the head-relative offset, keys running left-to-right.
             overlay.transform.rotation = yaw;
+            overlay.transform.localScale = Vector3.one; // real size; ignore any stale saved calibration
             Vector3 target = head.position + yaw * initialOverlayOffset;
             Vector3 centerOffset = overlay.GetKeyWorldCenter(60) - overlay.transform.position;
             overlay.transform.position = target - centerOffset;
             _overlayPlaced = true;
         }
 
-        if (IsCalibrating && promptLabel)
+        if ((IsCalibrating || _messageUntil > 0f) && promptLabel)
         {
             var t = promptLabel.transform;
             Vector3 target = head.position + fwd * promptDistance + Vector3.down * 0.1f;
@@ -362,23 +423,38 @@ public class PianoCalibrator : MonoBehaviour
         }
     }
 
+    // The preview only touches keys it lit itself, so it never wipes highlights set by the lesson logic.
+    readonly List<int> _previewLit = new List<int>();
+
+    void LightPreviewKey(int note, KeyState state)
+    {
+        overlay.SetKey(note, state);
+        if (!_previewLit.Contains(note)) _previewLit.Add(note);
+    }
+
+    void ClearPreviewKeys()
+    {
+        if (overlay) foreach (var n in _previewLit) overlay.SetKey(n, KeyState.Off);
+        _previewLit.Clear();
+    }
+
     void ShowCalibrationPreview()
     {
         if (!previewKeys || !overlay) return;
         _clearPreviewAt = -1f;
-        overlay.ClearAll();
-        overlay.SetKey(overlay.lowestNote, KeyState.Next);  // pulse the two keys to pinch
-        overlay.SetKey(overlay.highestNote, KeyState.Next);
+        ClearPreviewKeys();
+        LightPreviewKey(overlay.lowestNote, KeyState.Next);  // pulse the two keys to pinch
+        LightPreviewKey(overlay.highestNote, KeyState.Next);
     }
 
     void ShowAlignmentPreview()
     {
         if (!previewKeys || !overlay) return;
-        overlay.ClearAll();
+        ClearPreviewKeys();
         for (int n = overlay.lowestNote; n <= overlay.highestNote; n++)
-            if (n % 12 == 0) overlay.SetKey(n, KeyState.Upcoming); // every C, to check alignment along the keyboard
-        overlay.SetKey(overlay.lowestNote, KeyState.Next);
-        overlay.SetKey(overlay.highestNote, KeyState.Next);
+            if (n % 12 == 0) LightPreviewKey(n, KeyState.Upcoming); // every C, to check alignment along the keyboard
+        LightPreviewKey(overlay.lowestNote, KeyState.Next);
+        LightPreviewKey(overlay.highestNote, KeyState.Next);
         _clearPreviewAt = previewSecondsAfterCalibration > 0f ? Time.time + previewSecondsAfterCalibration : -1f;
     }
 

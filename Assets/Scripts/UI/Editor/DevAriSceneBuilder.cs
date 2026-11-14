@@ -121,7 +121,8 @@ public static class DevAriSceneBuilder
         calib.overlayGrab = grab;
         calib.recalibrateButton = buttonInteractable;
         calib.markerMaterial = markerMat;
-        var prompt = CreateLabel("CalibrationPrompt", "Pinch the FRONT EDGE of the LOWEST key", 0.25f);
+        // 0.135 keeps the longest 3-line instruction ≈35° wide at 0.6 m (fits the Aura's field of view).
+        var prompt = CreateLabel("CalibrationPrompt", "Pinch the FRONT EDGE of the LOWEST key", 0.135f);
         prompt.transform.SetParent(calibGo.transform, false);
         prompt.transform.position = new Vector3(0f, 1.2f, 0.6f);
         calib.promptLabel = prompt;

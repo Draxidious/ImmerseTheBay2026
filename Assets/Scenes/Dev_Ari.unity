@@ -184,8 +184,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 0.25
-  m_fontSizeBase: 0.25
+  m_fontSize: 0.135
+  m_fontSizeBase: 0.135
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -336,6 +336,9 @@ MonoBehaviour:
   promptLabel: {fileID: 24793726}
   pinchStartDistance: 0.02
   pinchEndDistance: 0.04
+  pinchHeightOffset: 0.008
+  minSpanFraction: 0.6
+  maxSpanFraction: 1.6
   startCooldownSeconds: 0.6
   requirePalmDown: 1
   palmDownThreshold: 0.35
@@ -793,6 +796,7 @@ MonoBehaviour:
   keyGap: 0.0015
   hoverHeight: 0.004
   thickness: 0.001
+  maxTiltDegrees: 5
   frontClearFraction: 0.35
   keyMaterial: {fileID: 2100000, guid: f18b067129337a8488a1821a2e4781fb, type: 2}
   upcomingColor: {r: 0.15, g: 0.35, b: 0.6, a: 1}

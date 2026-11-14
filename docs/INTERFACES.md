@@ -35,6 +35,9 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 
 Editor debug: `1` = Next on C4 with Upcoming E4/G4, `2` = Correct C4, `3` = Wrong C#4, `0` = clear.
 
+`CalibrateFromTwoKeys` keeps the keyboard's tilt along its length (up to `maxTiltDegrees`, default 5°); front-to-back stays level.
+The calibrator's post-calibration preview only clears keys it lit itself, so lesson highlights set meanwhile are kept.
+
 Keys never have colliders. The only grabbable part is the `GrabHandle` child (an `XRGrabInteractable` on the overlay root, position-only).
 
 ### PianoCalibrator (`Assets/Scripts/UI/PianoCalibrator.cs`) ✅
@@ -45,7 +48,8 @@ Disables the overlay grab while calibrating; saves the overlay pose when the gra
 | Member | Purpose |
 |---|---|
 | `void Recalibrate()` | Forget the points and wait for two new pinches. Also wired to the `RecalibrateButton` interactable. |
-| `void SubmitPoint(Vector3 worldPoint)` | Feed a calibration point manually (non-hand input, tests). |
+| `void SubmitPoint(Vector3 worldPoint)` | Feed a calibration point manually (non-hand input, tests). Rejects spans outside 60–160% of `ExpectedSpanMeters()` and swaps right-then-left input. |
+| `float ExpectedSpanMeters()` | Real-size distance between the lowest and highest key's front centers (≈1.20 m for 88 keys). |
 | `event Action Calibrated` | Raised after a successful calibration. |
 | `bool IsCalibrating` / `Phase CurrentPhase` | `Phase { Idle, WaitingForLow, WaitingForHigh }`. |
 

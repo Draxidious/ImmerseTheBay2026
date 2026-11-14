@@ -26,6 +26,9 @@ public class PianoOverlay : MonoBehaviour
     public float hoverHeight = 0.004f;      // float slightly above the key tops
     public float thickness = 0.001f;
 
+    [Tooltip("Calibration keeps the keyboard's tilt along its length up to this angle; steeper is treated as noise (level).")]
+    public float maxTiltDegrees = 5f;
+
     [Tooltip("Fraction of each key's front left undrawn so the overlay doesn't sit on the player's fingers.")]
     [Range(0f, 0.8f)] public float frontClearFraction = 0.35f;
 
@@ -98,13 +101,18 @@ public class PianoOverlay : MonoBehaviour
         float modelSpan = Vector3.Distance(localLow, localHigh);
 
         Vector3 right = worldHighFront - worldLowFront;
-        right.y = 0f; // keep the overlay level
         float worldSpan = right.magnitude;
         if (worldSpan < 0.05f || modelSpan < 0.001f) return; // ignore accidental double-pinch
-
         right /= worldSpan;
-        Vector3 forward = Vector3.Cross(right, Vector3.up); // toward the fallboard
-        Quaternion rot = Quaternion.LookRotation(forward, Vector3.up);
+
+        // Keep the real tilt along the keyboard (a 1° slope is ±1 cm at the ends), but treat anything steeper
+        // than maxTiltDegrees as pinch noise and stay level. Front-to-back tilt can't be measured from two
+        // front-edge points, so "forward" stays horizontal.
+        float tilt = Mathf.Asin(Mathf.Clamp(right.y, -1f, 1f)) * Mathf.Rad2Deg;
+        if (Mathf.Abs(tilt) > maxTiltDegrees) { right.y = 0f; right.Normalize(); }
+        Vector3 forward = Vector3.Cross(right, Vector3.up).normalized; // toward the fallboard
+        Vector3 up = Vector3.Cross(forward, right);
+        Quaternion rot = Quaternion.LookRotation(forward, up);
         float s = worldSpan / modelSpan;
 
         transform.rotation = rot;
