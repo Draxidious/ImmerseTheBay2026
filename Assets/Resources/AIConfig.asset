@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a0dcdcfad6b44b978b6e7500de42426, type: 3}
+  m_Name: AIConfig
+  m_EditorClassIdentifier: Assembly-CSharp::AIConfig
+  coachProvider: 0
+  sttProvider: 0
+  ttsProvider: 0
+  useFallbackProviders: 1
+  geminiCoachModel: gemini-3.5-flash-lite
+  groqCoachModel: openai/gpt-oss-120b
+  groqSttModel: whisper-large-v3-turbo
+  geminiSttModel: gemini-3.5-flash-lite
+  geminiTtsModel: gemini-3.8-flash-lite-tts
+  geminiTtsVoice: Kore
+  coachRequestTimeout: 5
+  coachTotalTimeout: 8
+  sttRequestTimeout: 6
+  ttsRequestTimeout: 8
+  maxRecordSeconds: 8
+  fallbackLine: Nice work, let's try that again
+  coachSystemPrompt: 'You are a friendly, encouraging piano coach talking to a student right after they played a song. You receive their performance metrics as JSON. Reply ONLY with a JSON object: {"say": string, "action": "loop_bar" | "slow_down" | "next_song" | "none", "bar": integer}. Rules for "say": at most 2 short sentences, name exactly ONE specific thing to fix (mention the bar or the note), and make it sound natural when spoken aloud: no lists, symbols, or emoji. Pick the action that helps most: loop_bar to repeat one trouble bar (set "bar" to that bar), slow_down if timing is the main problem, next_song if they played it nearly perfectly, otherwise none. Use 0 for "bar" unless the action is loop_bar.'
