@@ -4,6 +4,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 — Claude Code (for Nehemiah): merged ARI into `nehemiah`, Unity MCP verified on Nehemiah's machine
+- **Merged `origin/ARI` into `nehemiah`** (commit `91b1cb2`). Discarded local uncommitted edits first: MCP on `#main` (ARI pins `#v10.0.0`)
+  and an `OpenXRPackageSettings.asset` change that had turned Android XR Support / Hand Interaction / Foveation **off** (editor churn).
+  125 modify/delete conflicts on `Packages/com.unity.ai.assistant/*.meta` resolved by deleting (package removed on ARI). Removed the
+  leftover empty `Packages/com.unity.ai.assistant/` folders so Unity doesn't see an embedded package. `main` (Canady's TTS/AI coach) is not merged yet.
+- **Prereqs:** Claude Code 2.1.325, uv 0.13.8, Python 3.13.0.
+- **Works:** `claude mcp list` → `UnityMCP: http://127.0.0.1:8080/mcp (HTTP) ✔ Connected` (server `mcp-for-unity-server` 3.4.11, 47 tools).
+  Read-only check: active scene is an unsaved untitled scene with 2 roots (Main Camera, Directional Light). Console: 0 errors, 0 warnings
+  after the reimport. Scene not modified.
+- **Gotcha:** UnityMCP tools only show up in a Claude Code session started *after* the server is running; restart Claude Code if they're missing.
+- **Next:** open `Dev_Ari` / `MIDI OVERLAY` to confirm they load cleanly here; merge `main` once ARI lands there.
+
 ## 2026-11-14 ~14:45 — Claude Code (for Ari): calibration robustness (tiny keyboard), geometry assessment
 - **Tiny keyboard root cause:** a bad calibration was accepted and saved (PlayerPrefs on the puck: scale 0.0497, yaw ~174°, i.e. the two
   pinches were ~6 cm apart, right before left). Geometry was not the problem.
