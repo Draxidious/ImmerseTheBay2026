@@ -49,9 +49,12 @@ public class ClaudeCoach : ICoachProvider
     const string Schema =
         "{\"type\":\"object\",\"properties\":{" +
         "\"say\":{\"type\":\"string\"}," +
-        "\"action\":{\"type\":\"string\",\"enum\":[\"loop_bar\",\"slow_down\",\"next_song\",\"none\"]}," +
-        "\"bar\":{\"type\":\"integer\"}}," +
-        "\"required\":[\"say\",\"action\",\"bar\"],\"additionalProperties\":false}";
+        "\"action\":{\"type\":\"string\",\"enum\":[\"loop_bars\",\"set_tempo\",\"demo\",\"show_fingering\",\"advance\",\"none\"]}," +
+        "\"from_bar\":{\"type\":\"integer\"}," +
+        "\"to_bar\":{\"type\":\"integer\"}," +
+        "\"tempo_pct\":{\"type\":\"integer\"}," +
+        "\"hand\":{\"type\":\"string\",\"enum\":[\"right\",\"left\"]}}," +
+        "\"required\":[\"say\",\"action\",\"from_bar\",\"to_bar\",\"tempo_pct\",\"hand\"],\"additionalProperties\":false}";
 
     readonly AIConfig cfg;
     readonly AISecrets keys;
