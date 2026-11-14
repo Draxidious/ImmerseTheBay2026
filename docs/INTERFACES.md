@@ -31,6 +31,7 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 | `Vector3 GetKeyWorldCenter(int midiNote)` | World position of a key's drawn area (for sheet-to-key lines, effects). |
 | `void CalibrateFromTwoKeys(Vector3 lowFront, Vector3 highFront)` | Snap onto the real piano from two pinched points: the front-edge center of the lowest and highest key. |
 | `static bool IsBlack(int midiNote)` | Helper. |
+| `string CalibrateFromFourPoints(Vector3 frontLow, Vector3 backLow, Vector3 frontHigh, Vector3 backHigh)` | Front edge + back end of the lowest and highest key. Sets position, scale, side-to-side tilt (≤ `maxTiltDegrees`) and the real visible key length (keys rebuilt). Returns null on success or a reason. |
 | `void SetIdleKeysVisible(bool visible)` | Off keys are drawn faintly (`idleWhiteColor` / `idleBlackColor`) so the keyboard outline is visible; turn off to hide them (e.g. during a demo shot). |
 | `void SaveCalibration()` | Persist the current pose/scale to PlayerPrefs. Called automatically after calibration and after a grab-handle nudge. |
 
@@ -50,7 +51,8 @@ Disables the overlay grab while calibrating; saves the overlay pose when the gra
 |---|---|
 | `void Recalibrate()` | Forget the points and wait for two new pinches. Also wired to the `RecalibrateButton` interactable. |
 | `void SubmitPoint(Vector3 worldPoint)` | Feed a calibration point manually (non-hand input, tests). Rejects spans outside 60–160% of `ExpectedSpanMeters()` and swaps right-then-left input. |
-| `void SubmitHandPinch(bool isLeft, Vector3 worldPoint)` | Two-hand flow (default, `twoHandCalibration`): left hand on the lowest key + right hand on the highest, pinched within `twoHandWindowSeconds`. A lone pinch never calibrates. |
+| (default flow) `fourPointCalibration` | Four sequential pinches (front/back of the lowest key, then of the highest). Each step is validated; a stray pinch repeats only that step. Recalibrate any time: touch-and-hold the orange dot on the back of the LEFT hand with the right index finger (~0.6 s). |
+| `void SubmitHandPinch(bool isLeft, Vector3 worldPoint)` | Two-hand flow (`twoHandCalibration`, used only when `fourPointCalibration` is off): left hand on the lowest key + right hand on the highest, pinched within `twoHandWindowSeconds`. A lone pinch never calibrates. |
 | `float ExpectedSpanMeters()` | Real-size distance between the lowest and highest key's front centers (≈1.20 m for 88 keys). |
 | `event Action Calibrated` | Raised after a successful calibration. |
 | `bool IsCalibrating` / `Phase CurrentPhase` | `Phase { Idle, WaitingForLow, WaitingForHigh }`. |

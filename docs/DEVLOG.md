@@ -4,6 +4,20 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~15:05 — Claude Code (for Ari): four-point calibration, Recalibrate dot on the left hand
+- Device log: a good two-hand calibration (116 cm, scale 0.968) was overwritten 9 s later by a mid-air pinch (87 cm, right point
+  ~9 cm above / 25 cm in front of the keys) after Recalibrate. Simultaneous pinches were also awkward at 1.2 m apart.
+- **Four-point calibration (default):** front edge + back end of the far-left key, then of the far-right key, one hand at a time.
+  Each step is validated (key depth 6–25 cm, right side 85–115% of ~1.20 m and to the right, depths/back span consistent);
+  a stray pinch repeats only that step. Fit keeps side-to-side tilt, measures real key length; front-to-back stays level
+  (14 cm baseline is too noisy for pitch). Span tolerance tightened 60–160% → 85–115%.
+- **Recalibrate dot** on the back of the LEFT hand (visible when the back of the hand faces you); right index touch-and-hold 0.6 s.
+  The floating Recalibrate tile is disabled (it was hidden mid-calibration and sat under the A0 pinch).
+- Verified in Editor Play mode (scripted): stray 40 cm back point, 87 cm right point and mismatched depth each rejected with only that
+  step repeated; good points → scale 1.001, roll 2.00°, key length 14.0 cm, A0/C8 error 0.0 mm. Hand dot needs on-device testing.
+- **Android XR navigation:** still unexplained. Built manifest has `XR_ACTIVITY_START_MODE_FULL_SPACE_UNMANAGED` and Quest leftovers
+  (`com.oculus.intent.category.VR`, `com.oculus.permission.HAND_TRACKING`); unproven. Needs a log captured at the moment it fails.
+
 ## 2026-11-14 ~14:55 — Claude Code (for Ari): visible keyboard + two-hand calibration
 - On-device run of the 14:11 build: saved calibration scale 0.548 (points ~66 cm apart) → a stray 2nd pinch ended calibration early.
   (That build predates the span check.)

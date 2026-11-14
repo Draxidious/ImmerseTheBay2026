@@ -120,9 +120,13 @@ public static class DevAriSceneBuilder
         calib.overlay = overlay;
         calib.xrOrigin = origin;
         calib.overlayGrab = grab;
-        calib.recalibrateButton = buttonInteractable;
+        // The floating Recalibrate tile is superseded by the dot on the back of the left hand (always reachable,
+        // never under a calibration pinch). Kept in the scene but disabled, in case someone wants it back.
+        button.SetActive(false);
+        buttonLabel.gameObject.SetActive(false);
+        calib.recalibrateButton = null;
         calib.markerMaterial = markerMat;
-        calib.hideWhileCalibrating = new[] { handle, button, buttonLabel.gameObject };
+        calib.hideWhileCalibrating = new[] { handle };
         if (origin)
         {
             var hands = new System.Collections.Generic.List<Renderer>();

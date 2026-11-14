@@ -135,6 +135,52 @@ public class PianoOverlay : MonoBehaviour
         SaveCalibration();
     }
 
+    /// <summary>
+    /// Snap the overlay onto the real piano from four pinched points: the FRONT edge and the BACK end (where the key
+    /// meets the panel) of the lowest and the highest key. Gives position, both tilts (clamped to maxTiltDegrees, else
+    /// level), uniform scale from the width, and the real visible key length from the depth (keys are rebuilt).
+    /// Returns null on success, or a short reason when the points don't describe a keyboard.
+    /// </summary>
+    public string CalibrateFromFourPoints(Vector3 frontLow, Vector3 backLow, Vector3 frontHigh, Vector3 backHigh)
+    {
+        Vector3 localLow = FrontCenterLocal(lowestNote);
+        Vector3 localHigh = FrontCenterLocal(highestNote);
+        float modelSpan = Vector3.Distance(localLow, localHigh);
+
+        Vector3 frontVec = frontHigh - frontLow, backVec = backHigh - backLow;
+        float span = (frontVec.magnitude + backVec.magnitude) * 0.5f;
+        if (span < 0.05f || modelSpan < 0.001f) return "points too close together";
+
+        Vector3 right = (frontVec.normalized + backVec.normalized).normalized;
+        // Side-to-side tilt is measured over ~1.2 m (reliable); keep it up to maxTiltDegrees, else level.
+        float roll = Mathf.Asin(Mathf.Clamp(right.y, -1f, 1f)) * Mathf.Rad2Deg;
+        if (Mathf.Abs(roll) > maxTiltDegrees) { right.y = 0f; right.Normalize(); }
+        // Front-to-back tilt over ~14 cm of key depth would be dominated by ~1 cm hand-tracking jitter, so
+        // "forward" stays horizontal; the back points give the key length and a direction check only.
+        Vector3 forward = Vector3.Cross(right, Vector3.up).normalized; // toward the fallboard
+        Vector3 up = Vector3.Cross(forward, right);
+        Vector3 depthVec = ((backLow - frontLow) + (backHigh - frontHigh)) * 0.5f;
+        float depth = Vector3.Dot(depthVec, forward);
+        if (depth < 0.02f) return "the back points aren't behind the front points";
+
+        float s = span / modelSpan;
+        // Real visible white-key length from the measured depth (model units), black keys in proportion.
+        float ratio = whiteKeyLength > 0f ? blackKeyLength / whiteKeyLength : 0.62f;
+        whiteKeyLength = depth / s;
+        blackKeyLength = whiteKeyLength * ratio;
+        Build();
+
+        Quaternion rot = Quaternion.LookRotation(forward, up);
+        transform.rotation = rot;
+        transform.localScale = Vector3.one * s;
+        Vector3 avgFront = (frontLow + frontHigh) * 0.5f;
+        Vector3 localMid = (FrontCenterLocal(lowestNote) + FrontCenterLocal(highestNote)) * 0.5f;
+        transform.position = avgFront - rot * (localMid * s);
+
+        SaveCalibration();
+        return null;
+    }
+
     // ---------- Build ----------
 
     public void Build()
