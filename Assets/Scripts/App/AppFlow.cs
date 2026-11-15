@@ -1,12 +1,16 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_ANDROID && !UNITY_EDITOR
+using UnityEngine.Android;
+#endif
 #if UNITY_EDITOR
 using UnityEngine.InputSystem;
 #endif
 
 /// <summary>
 /// Runs the app in order and connects the modules; it owns no lesson or AI logic of its own.
+///   0. On Android, resolve microphone permission before greeting the player.
 ///   1. The coach speaks an introduction and asks if the player is ready.
 ///   2. The microphone opens for a few seconds. Any answer (or none) moves on.
 ///   3. Calibration starts (PianoCalibrator.Recalibrate).
@@ -17,7 +21,7 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class AppFlow : MonoBehaviour
 {
-    public enum Step { Intro, Listening, Calibrating, Lesson }
+    public enum Step { Intro, Listening, Calibrating, Lesson, MicrophonePermission }
 
     [Header("Found automatically when empty")]
     public VoiceOutput voiceOutput;
@@ -96,12 +100,14 @@ public class AppFlow : MonoBehaviour
         if (overlay) overlay.gameObject.SetActive(false);
         if (evaluator) evaluator.gameObject.SetActive(false);
 
+        CurrentStep = Step.MicrophonePermission;
+        yield return RequestMicrophonePermission();
         CurrentStep = Step.Intro;
         yield return Wait(startDelay);
         yield return Say(introLine);
 
         CurrentStep = Step.Listening;
-        if (voiceInput)
+        if (voiceInput && HasMicrophonePermission())
         {
             _answered = false;
             voiceInput.StartListening();
@@ -117,6 +123,37 @@ public class AppFlow : MonoBehaviour
         if (overlay) overlay.gameObject.SetActive(true);
         if (calibrator) calibrator.Recalibrate();
         yield return Say(calibrateLine);
+    }
+
+    static bool HasMicrophonePermission()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        return Permission.HasUserAuthorizedPermission(Permission.Microphone);
+#else
+        return true;
+#endif
+    }
+
+    IEnumerator RequestMicrophonePermission()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (!voiceInput || HasMicrophonePermission()) yield break;
+
+        Debug.Log("[AppFlow] Requesting microphone permission before the introduction.");
+        bool resolved = false;
+        var callbacks = new PermissionCallbacks();
+        callbacks.PermissionGranted += _ => resolved = true;
+        callbacks.PermissionDenied += _ => resolved = true;
+        callbacks.PermissionDeniedAndDontAskAgain += _ => resolved = true;
+        callbacks.PermissionRequestDismissed += _ => resolved = true;
+        Permission.RequestUserPermission(Permission.Microphone, callbacks);
+        // Wait for the actual decision, not a timeout while the player is reading the system dialog.
+        while (!resolved) yield return null;
+        Debug.Log(HasMicrophonePermission()
+            ? "[AppFlow] Microphone permission granted; starting introduction."
+            : "[AppFlow] Microphone permission not granted; continuing without listening.");
+#endif
+        yield break;
     }
 
     void OnAnswer(VoiceCommand command, string transcript)

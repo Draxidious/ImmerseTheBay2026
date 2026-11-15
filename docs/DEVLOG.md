@@ -4,6 +4,17 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Codex (for Ari): startup mic permission and Main device checklist (handoff commit 9)
+- `AppFlow` requests Android microphone permission before the intro and waits for the system response. An existing
+  grant skips the dialog. Denial or dismissal skips recording and continues to calibration without a second request.
+- Updated `CLAUDE.md` and `INTERFACES.md` for Main's wait-mode flow. `AURA_MAIN_TEST.md` covers permission cases,
+  passthrough, calibration, real MIDI, the full excerpt, and the coach reply.
+- **Verified:** Editor compile and Android development build succeeded with zero errors (Android build reported 355 warnings).
+  `Builds/AuraMain-commit9.apk` declares `RECORD_AUDIO`. Installed on the connected Aura puck with `adb install -r`.
+  The installed app resolves its launch activity, and the puck reports no mic grant or prior user-choice flags.
+- **Pending hands-on test:** open ImmerseTheBay2026 on the puck with the glasses on and follow the checklist. The APK
+  was built without cloud credentials. Check recording starts, then expect fallback feedback rather than a cloud transcript or reply.
+
 ## 2026-11-14 night — Codex (for Ari): sheet panel follows calibration (handoff commit 8)
 - `AppFlow` finds the evaluator's `SongNoteDisplay` and positions it from the midpoint of the keyboard's lowest/highest
   drawn key centers on every `Calibrated` event, including later recalibrations. Default `sheetOffset`: 0 m sideways,

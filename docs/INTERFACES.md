@@ -20,10 +20,14 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 
 ## App flow — `AppFlow` (`Assets/Scripts/App/AppFlow.cs`) ✅ — Jordan
 The only script that knows the order of the app in `Main.unity`. It calls the public members below on the other modules and
-holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `Intro` → `Listening` → `Calibrating` → `Lesson`.
+holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophonePermission` → `Intro` → `Listening` → `Calibrating` → `Lesson`.
 
-1. `Intro`: hides `PianoOverlay` and the evaluator, speaks `introLine` (`VoiceOutput.Speak`, text via `CoachOrb.ShowText`).
-2. `Listening`: `VoiceInput.StartListening()` for `listenSeconds` (4 s), then `StopListening()`. Any answer, or none, moves on.
+0. `MicrophonePermission`: hides overlay/evaluator, requests Android microphone permission when needed and waits for
+   grant, denial (including don't-ask-again), or dismissal before the intro. No prompt when already granted, in the Editor,
+   or without a VoiceInput. A denial/dismissal skips recording; it does not block calibration or prompt again in Listening.
+1. `Intro`: speaks `introLine` (`VoiceOutput.Speak`, text via `CoachOrb.ShowText`).
+2. `Listening`: with permission, `VoiceInput.StartListening()` for `listenSeconds` (4 s), then `StopListening()`.
+   Permission is rechecked before listening. Any answer, silence, or unavailable recording moves on.
 3. `Calibrating`: shows the overlay, calls `PianoCalibrator.Recalibrate()` (the scene has `calibrateOnStart` off), speaks `calibrateLine`.
 4. `Lesson`: on the first `PianoCalibrator.Calibrated`, activates the `PerformanceEvaluator` object and speaks `lessonLine`.
 
