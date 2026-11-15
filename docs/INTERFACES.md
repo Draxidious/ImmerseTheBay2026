@@ -5,6 +5,8 @@ The contract between modules. If it isn't listed here, don't depend on it.
 
 Status legend: ✅ implemented · 🚧 in progress · 📝 agreed, not built yet
 
+**Main scene = `Assets/Scenes/Main_2.unity`** (the only enabled build scene). `Main.unity` is the older freeplay demo, disabled.
+
 ---
 
 ## Shared types
@@ -19,7 +21,7 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 ---
 
 ## App flow — `AppFlow` (`Assets/Scripts/App/AppFlow.cs`) ✅ — Jordan
-The only script that knows the order of the app in `Main.unity`. It calls the public members below on the other modules and
+The only script that knows the order of the app in the main scene `Main_2.unity` (also in the old `Main.unity`). It calls the public members below on the other modules and
 holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophonePermission` → `Intro` → `Listening` → `Calibrating` → `ChooseMode` → `Lesson` or `FreePlay`.
 
 0. `MicrophonePermission`: hides overlay/evaluator, requests Android microphone permission when needed and waits for
@@ -102,7 +104,7 @@ Calls `PianoOverlay.CalibrateFromFourPoints`. Shows a marker at each pinch and a
 overlay pose when the grab is released.
 
 Hand occlusion: after calibration the tracked hand meshes (`handMeshRenderers`) get the depth-only material
-`PianoTeacher/HandOccluder` (`Resources/HandOccluder`, every material slot replaced, mesh grown 4 mm), so overlay pixels behind
+`PianoTeacher/HandOccluder` (`Resources/HandOccluder`, every material slot replaced but the slot count kept, mesh grown 4 mm; the rig's XRI hand affordances tint slot 1), so overlay pixels behind
 a hand are not drawn and the real hand shows through. Toggle with `handsOccludeOverlay`; while calibrating the meshes are hidden.
 
 | Member | Purpose |
@@ -122,6 +124,8 @@ a hand are not drawn and the real hand shows through. Toggle with `handsOccludeO
 | `void ShowInfo(string text, float seconds)` | Temporary message on the calibration prompt. |
 | `bool markersAvailable` (runtime) | Set by `MarkerCalibration`: pinches are ignored and the prompt asks for the corner markers. Cleared if marker tracking can't run that round, which brings the pinch steps back. |
 | `event Action OffsetsDotPressed` | A second, blue dot sits just below the orange one (toward the wrist) while something listens; touch-and-hold it the same way (~0.6 s). |
+| `event Action MenuDotPressed` | Orange dot held (~0.6 s, 2 s cooldown). While anything listens (the `RadialMenu`), the dot raises this **instead of** calling `Recalibrate()`; with no listener it recalibrates as before. Added by Nehemiah's session (Ari informed via this doc). |
+| `void CancelCalibration()` / `event Action CalibrationCancelled` | Stop a calibration in progress; the overlay keeps the pose of the last successful calibration (it only moves when a fit succeeds). Hides markers and preview keys, shows "Recalibration cancelled". No-op when idle. |
 
 Editor debug: `C` = fake both pinches in front of the camera, `R` = recalibrate.
 
@@ -131,9 +135,9 @@ Two printed ArUco 4x4_50 markers on the P71's rear corners (ID 0 behind A0, ID 1
 asks for `android.permission.SCENE_UNDERSTANDING_COARSE`, enables the `ARTrackedImageManager` on the XR Origin, locks the
 left then the right marker (≥30 samples over ≥1.2 s within 10 mm; marker span 1.18–1.32 m), turns tracking off and calls
 `CalibrateFromMarkers`. Offsets (inward, down, toward player, m) from each marker centre to the key's back outer corner:
-left `(-0.010, 0.012, 0.091)`, right `(0.020, 0.012, 0.075)` (calibrated on the Aura 2026-11-14). The blue left-hand dot opens a
+left `(-0.005, 0.016, 0.107)`, right `(0.015, 0.016, 0.090)` (saved on the Aura 2026-11-15). In the main scene `Main_2.unity` and `Dev_Ari`. The blue left-hand dot opens a
 world-space UGUI panel (Left depth, Right depth, Height, Sideways; ±60 mm, `<` `>` = 1 mm; Save / Defaults / Close), driven by
-the rig's XRI interactors through an `XRUIInputModule`. Saved to `marker-offsets.json` in persistent data. Falls back to pinches
+the rig's XRI interactors through an `XRUIInputModule`. Saved to `marker-offsets.json` in persistent data. The keyboard overlay is hidden during the scan and shown when both markers lock (`hideKeyboardWhileScanning`). Falls back to pinches
 on permission denial, tracker not running after 5 s, or no marker in `giveUpSeconds` (45 s). Log tag `[MarkerCalibration]`.
 Setup: **Tools → Piano → Add Marker Calibration To Open Scene** (+ **Enable Marker Tracking (OpenXR Android)**, which turns on
 Google's `XRSessionFeature` + `XRMarkerTrackingFeature`). Editor keys: `M` = simulate a marker lock, `O` = offsets panel.
@@ -400,11 +404,34 @@ questions. Code computes every musical fact (`FreePlayAnalyzer`, pure C#, EditMo
 | `LessonWalkthrough.Run(n, realTime)` (Editor only) | Play-mode driver for Main_2: passes every run up to measure n and logs each coach line as `[Walkthrough]`. `realTime` keeps speech on and lets each count-in play first (logs its tempo). |
 | `PassCues.For(ctx, cue)` / `AIConfig.passCues`, `passCueVolume` (0.2) | Lesson-only sounds, no speech or model call: soft ding (150 ms) for a pass that only speeds up, two-note G4→C5 (300 ms) for a new hand or new bars, three-note C5-E5-G5 (540 ms) for a measure learned, play-through or song complete. Low plucked tones, unlike the high flat "hey teacher" chime. Played after any speech, and `AICoach.Coach` returns only once it ends, so the next count-in (already at the new tempo) and the spoken line come after it. |
 | `QuestionRouter.TryParseModeCommand(text, out mode)` | "hey teacher, free play" / "lesson mode" switch modes instead of asking the coach. |
+| `FreePlaySheet` (added at runtime by `FreePlayController`; `Show(songId, byVoice)`, `Hide()`, `CurrentBar`) | Free play sheet music: a database song's generated strips (`SheetLibrary`) in the lesson sheet's spot (reads `SongNoteDisplay` transform/`panelSize`/`metersPerUnit` only), one line at a time, the bar being played outlined (`SheetFollower`: lenient, wrong notes ignored, re-syncs on 4 notes). Opens on a recognized song or by voice; a voice pick stays until closed. Hidden when free play ends. No lit keys or judging. |
+| `FreePlaySheet.TryParseShowCommand` / `IsCloseCommand` / `FindSong`, `AIConfig.noSheetLine` | "hey teacher, show (me the music for) Jingle Bells" / "close the music", free play only, no model call. Song names matched against `SongDatabase.All` (accents/punctuation ignored, one letter off allowed); a "show ..." naming no song goes to the coach as a question. |
 | `QuestionRouter.IsReplayCommand(text)`, `AIConfig.cantReplayLine` | "hey teacher, play it again / play that again / show me again": no model call, calls `CurriculumEngine.ReplayDemo()`; says `cantReplayLine` when there's nothing to replay (Main has no demo player). |
 | `QuestionRouter.IsYes(text)`, `AIConfig.confirmFreePlayLine` / `keepLessonLine` | "free play" said during the lesson first asks "Do you want to switch to free play?" (once the coach is free), then listens without a wake word: yes switches; no, anything else or silence keeps the lesson. "lesson mode" and the panel switch at once. |
 Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C–F–G–C, Für Elise, Uneven run). Config: `AIConfig` "Free play" + "Mode".
 
 ---
+
+## Radial menu — built by Nehemiah (`Assets/Scripts/Menu/RadialMenu.cs`) ✅ (Editor) / untested on the Aura
+Left-hand menu: **Restart Lesson** (top), **Free Play** (lower left), **Recalibrate Piano** (lower right), **Close** in the center.
+Adds itself after scene load to any scene with an `AppFlow` and a `PianoCalibrator` (no scene edit). Opens/closes by touch-and-holding the
+orange dot on the back of the left hand (`PianoCalibrator.MenuDotPressed`); placed 0.42 m ahead, 0.06 m below eye level when opened, then
+fixed in the world. Segments are XRI poke buttons (`XRSimpleInteractable` + `XRPokeFilter`, like `ModeChoicePanel`); pokes are ignored for
+0.6 s after opening, one action per opening, closes after an action or after 20 s. Editor: **F1** toggle, **F2/F3/F4** choose, **Esc** close.
+
+| Member | Purpose |
+|---|---|
+| `enum Choice { RestartLesson, FreePlay, Recalibrate, Close }` | |
+| `void Open()` / `Close()` / `Toggle()`, `bool IsOpen` | Show/hide. Opening never changes the session. |
+| `bool Choose(Choice)` | Run an action (what a poke does). False if unavailable or an action already ran this opening. |
+| `event Action<Choice> Chosen` | After an action runs. |
+
+Actions (public APIs only): Restart = in the lesson `overlay.ClearAll()` + `evaluator.Restart()` (Main) or `engine.StartLesson()` (Main_2);
+outside it `AppModeSwitch.Request(Lesson, "menu")` (shown as "Start Lesson"). Free Play = `AppModeSwitch.Request(FreePlay, "menu")`
+(disabled while already in free play). Recalibrate = `calibrator.Recalibrate()`; in Main's wait-mode lesson the evaluator component is
+switched off until `Calibrated`/`CalibrationCancelled` (note index kept). While calibrating, the option becomes **Cancel Recalibrate**
+(`CancelCalibration()`), only if an earlier calibration exists. Nothing is available before the first calibration.
+**Not done:** the guided lesson (`CurriculumEngine`, Main_2) has no pause API, so its runs are not paused during recalibration.
 
 ## Requested (add asks for other owners here)
 - **PianoOverlay — Ari:** a `KeyState.Pressed` color (held key, no flash). Free Play lights held keys with `Correct` and re-lights

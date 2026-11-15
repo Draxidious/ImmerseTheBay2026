@@ -121,6 +121,13 @@ public class PianoCalibrator : MonoBehaviour
     /// <summary>Raised when the second (blue) dot on the back of the left hand is touched and held.</summary>
     public event Action OffsetsDotPressed;
     /// <summary>
+    /// Raised when the orange dot on the back of the left hand is touched and held. While anything listens (the
+    /// RadialMenu), the dot opens that menu instead of calling <see cref="Recalibrate"/> directly.
+    /// </summary>
+    public event Action MenuDotPressed;
+    /// <summary>Raised by <see cref="CancelCalibration"/>: calibration stopped, the previous overlay pose is kept.</summary>
+    public event Action CalibrationCancelled;
+    /// <summary>
     /// Set by MarkerCalibration: the corner markers take over the four pinch steps (pinches are ignored and the
     /// prompt asks for the markers). MarkerCalibration clears it again if marker tracking can't run on the device.
     /// </summary>
@@ -240,6 +247,24 @@ public class PianoCalibrator : MonoBehaviour
     }
 
     /// <summary>
+    /// Stop a calibration in progress without changing the overlay: it stays where the last successful calibration put
+    /// it (the overlay only moves when a fit succeeds). Raises <see cref="CalibrationCancelled"/>.
+    /// </summary>
+    public void CancelCalibration()
+    {
+        if (!IsCalibrating) return;
+        _lowMarker.SetActive(false);
+        _highMarker.SetActive(false);
+        _backLowMarker.SetActive(false);
+        _backHighMarker.SetActive(false);
+        SetPhase(Phase.Idle);
+        ClearPreviewKeys();
+        ShowMessage("Recalibration cancelled.\nKeeping the previous calibration.", 3f);
+        Debug.Log("[PianoCalibrator] Calibration cancelled; previous calibration kept.");
+        CalibrationCancelled?.Invoke();
+    }
+
+    /// <summary>
     /// Calibrate from the BACK OUTER corners of the lowest and highest key (where they meet the panel), e.g. from the
     /// corner markers. Each corner is moved half a white key inward to the key centre, and the front points are one
     /// <see cref="PianoOverlay.whiteKeyLength"/> toward the player. With <paramref name="useKnownWidth"/> only the
@@ -265,7 +290,8 @@ public class PianoCalibrator : MonoBehaviour
         SetPhase(Phase.Idle);
         ShowAlignmentPreview();
         ShowMessage("<b>Calibrated from the markers!</b>\nThe blue bars should sit on every C key.\n" +
-                    "Fine-tune: touch the BLUE dot on the back of your left hand.\nRedo: touch the ORANGE dot.",
+                    "Fine-tune: touch the BLUE dot on the back of your left hand.\n" +
+                    (MenuDotPressed != null ? "Menu (redo): touch the ORANGE dot." : "Redo: touch the ORANGE dot."),
                     previewSecondsAfterCalibration);
         Calibrated?.Invoke();
         return null;
@@ -396,7 +422,9 @@ public class PianoCalibrator : MonoBehaviour
         if (hideMarkersAfter > 0f) _hideMarkersAt = Time.time + hideMarkersAfter;
         SetPhase(Phase.Idle);
         ShowAlignmentPreview();
-        ShowMessage("<b>Calibrated!</b>\nThe blue bars should sit on every C key.\nTo redo: touch the orange dot on the\nback of your LEFT hand for a moment.",
+        ShowMessage("<b>Calibrated!</b>\nThe blue bars should sit on every C key.\n" +
+                    (MenuDotPressed != null ? "Menu (restart, free play, redo): touch the\norange dot on the back of your LEFT hand."
+                                            : "To redo: touch the orange dot on the\nback of your LEFT hand for a moment."),
                     previewSecondsAfterCalibration);
         Calibrated?.Invoke();
     }
@@ -531,11 +559,17 @@ public class PianoCalibrator : MonoBehaviour
                 {
                     if (!r) continue;
                     // The hand mesh must draw NOTHING visible: replace every material slot (the template hands also carry
-                    // a grey glove material in slot 2) with the invisible depth-only occluder.
+                    // a grey glove material in slot 2) with the invisible depth-only occluder. Keep the slot COUNT: the rig's
+                    // XRI hand affordances (poke / near-far) tint material index 1, and a one-slot array made them throw
+                    // IndexOutOfRangeException every frame (~80k log lines per run).
                     var mats = r.sharedMaterials;
-                    if (mats.Length != 1 || mats[0] != handOccluderMaterial)
+                    bool allOccluder = mats.Length > 0;
+                    foreach (var m in mats) if (m != handOccluderMaterial) { allOccluder = false; break; }
+                    if (!allOccluder)
                     {
-                        r.sharedMaterials = new[] { handOccluderMaterial };
+                        var occluders = new Material[Mathf.Max(1, mats.Length)];
+                        for (int i = 0; i < occluders.Length; i++) occluders[i] = handOccluderMaterial;
+                        r.sharedMaterials = occluders;
                         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                     }
                     // Renderers hidden during calibration stay off until tracking changes; follow tracking ourselves.
@@ -689,8 +723,16 @@ public class PianoCalibrator : MonoBehaviour
         {
             _handDotHeld = 0f;
             _handDotCooldownUntil = Time.time + 2f;
-            Debug.Log("[PianoCalibrator] Recalibrate from the left-hand dot.");
-            Recalibrate();
+            if (MenuDotPressed != null)
+            {
+                Debug.Log("[PianoCalibrator] Left-hand dot: menu.");
+                MenuDotPressed.Invoke();
+            }
+            else
+            {
+                Debug.Log("[PianoCalibrator] Recalibrate from the left-hand dot.");
+                Recalibrate();
+            }
         }
         else if (_offsetsDotHeld >= handDotHoldSeconds)
         {

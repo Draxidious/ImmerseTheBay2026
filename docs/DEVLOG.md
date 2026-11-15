@@ -4,6 +4,84 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 — Claude Code (for Canady): demo keys no longer stay dark and then rush by
+- **Bug (on the Aura):** the replay after a failed run played its sound, but the keys stayed dark until about the last second,
+  then all lit at once. `DemoPlayer` scheduled sound on the audio clock but lit keys on the frame clock (`Time.time`), which
+  falls behind on long frames.
+- **Fix (`Curriculum/DemoPlayer.cs`):** keys and sound now follow one position driven by the audio clock. A frame moves it
+  at most 0.1 s, so a stall pauses the demo instead of rushing it, and every key stays lit for at least one drawn frame. If the
+  audio clock is frozen for 0.5 s, real time moves the keys (silently).
+- **Logging:** `[Demo] Start`, one `[Demo] Key <midi> due <t> lit at <t> (frame ms, dsp)` per key, and `[Demo] Done: longest frame,
+  jumps held back`. On the device: `adb logcat -s Unity | grep "\[Demo\]"`.
+- **Verified (Editor, Main_2 via MCP, real coach):** auto-demo and the "play it again" replay light keys within ~20 ms of their notes;
+  with a 1.5 s main-thread freeze forced after key 3, the remaining keys still came 0.66 s apart ("longest frame 1514 ms, 1 jumps
+  held back"). EditMode 114/114. **Not yet tested on the Aura.**
+
+## 2026-11-15 ~02:00 PT — Claude Code (for Nehemiah): left-hand radial menu (Restart Lesson / Free Play / Recalibrate)
+- New `Assets/Scripts/Menu/RadialMenu.cs`: ring of three poke segments + center Close, bright rims/icons/text only (additive display).
+  Adds itself to scenes with AppFlow + PianoCalibrator. Opened/closed by the existing orange dot on the back of the left hand.
+- `PianoCalibrator` (Ari's file, small additive change): `MenuDotPressed` (the orange dot raises it instead of recalibrating when a
+  listener exists), `CancelCalibration()` + `CalibrationCancelled`; the "Calibrated!" prompts mention the menu when it exists.
+  **Ari: please review.** With no RadialMenu in a scene the dot behaves exactly as before.
+- **Verified (Editor, Main, Play mode via MCP, calibration faked with `SubmitPoint`):** menu auto-added; before calibration all actions
+  refused; mode choice → Start Lesson enters the lesson at note 0; 5 right + 1 wrong then open/close only → index 5 kept; Restart →
+  index 0, wrong 0; a second action in the same opening refused; Recalibrate → calibrating, evaluator off, index kept → Cancel → overlay
+  pose/rotation/scale unchanged, evaluator on, next note advances; Recalibrate → successful fit → overlay moved, index kept, still Lesson;
+  Free Play → step FreePlay, option shows "Free Play (on)" disabled; Start Lesson from free play → Lesson at note 0. EditMode 77/77.
+  Screenshot checked (labels readable after enlarging).
+- **Not verified:** real hand poke/hover on the Aura, opening via the dot on device, readability/position in the glasses, real MIDI while
+  the evaluator is paused, Main_2 (guided lesson keeps running during recalibration: no pause API in CurriculumEngine).
+
+## 2026-11-15 ~02:00 — Claude Code (for Ari): state of calibration in the main scene (Main_2)
+- **Works on the Aura:** corner-marker calibration (left then right, ~3–9 s each), keyboard hidden until both lock, calibrated at
+  the real width (scale 1.00), saved offsets loaded, ChooseMode → Lesson with P71 MIDI; 0 exceptions per run.
+- **Offsets** (code, Main_2, Dev_Ari, puck): left (-0.005, 0.016, 0.107), right (0.015, 0.016, 0.090) m.
+- **Known limits:** rescans move the keyboard 8–16 mm (mostly height at the C8 end); fine-tune with the blue left-hand dot.
+- Docs: `docs/HANDOVER_MARKER_CALIBRATION.md` (current state), `docs/marker-tracking/` (prototype history).
+
+## 2026-11-15 ~01:50 — Claude Code (for Ari): keyboard hidden until both markers lock
+- `MarkerCalibration.hideKeyboardWhileScanning` (default on): the keyboard overlay is hidden during the marker scan (it covered
+  the marker dot and prompt) and appears when both markers lock; also shown on a pinch fallback or when calibration ends another
+  way, hidden again on an orange-dot rescan. AppFlow unchanged (it still turns the overlay on; MarkerCalibration hides it).
+- Editor (Main_2): hidden while scanning and after the left lock, shown on the right lock → ChooseMode, hidden on recalibrate,
+  shown on fallback; 0 exceptions. **Verified on the Aura (01:48)**: hidden at the calibrate line, shown after the right lock.
+
+## 2026-11-15 ~01:55 — Claude Code (for Ari): fixed the XRI IndexOutOfRangeException flood
+- Cause: `PianoCalibrator.LateUpdate` (hand occlusion) set each template hand mesh to ONE material (the occluder). The rig's XRI
+  hand affordances (`Hand Poke / Near-Far Interactor Affordances`, `MaterialPropertyBlockHelper`) tint material **index 1**, so
+  they threw every frame (~80k log lines per run, Main and Main_2).
+- Fix: fill every slot with the occluder and keep the slot count (2). Hands stay invisible; affordances find slot 1.
+- Editor (Main_2 play): all 14 `MaterialPropertyBlockHelper`s resolve their material, 0 exceptions.
+- **Verified on the Aura (01:48):** 0 `IndexOutOfRange` and 0 other exceptions in 1,280 Unity lines (was ~80k per run).
+
+## 2026-11-15 ~01:40 — Claude Code (for Ari): Main_2 is the main scene; markers verified on the Aura
+- **`Assets/Scenes/Main_2.unity` is the main scene**: the only enabled build scene (index 0). `Main.unity` is the older freeplay
+  demo, listed but disabled. CLAUDE.md, INTERFACES, AURA_MAIN_TEST and the handover now say so explicitly.
+- **Device run (Main_2, 01:29–01:31):** offsets loaded from the puck; left marker locked ~6 s after the calibrate line, right 6 s
+  later (span 1.271 m), `Calibrated (markers)` at scale 1.000 → ChooseMode → Lesson. P71 MIDI (plugged in mid-run) drove measure 1
+  right hand: failed, then passed at 50 %, 75 % failed then passed, on to 100 %.
+- **Broken:** ~80k XRI `IndexOutOfRangeException` lines per run (`MaterialHelperBase.GetSharedMaterialForTarget`, affordance
+  receiver), also in Main; not from the markers. Next: find the receiver.
+
+## 2026-11-15 ~01:30 — Claude Code (for Ari): marker calibration in Main_2
+- Main_2 is the current app scene, so the markers went there; `Main.unity` is unchanged. Ran Tools/Piano/Add Marker
+  Calibration To Open Scene on `Main_2.unity` (disabled ARTrackedImageManager + library on the XR Origin, MarkerCalibration,
+  EventSystem with XRUIInputModule; +178/-1 lines, nothing else changed). Defaults = offsets saved on the Aura:
+  left (-0.005, 0.016, 0.107), right (0.015, 0.016, 0.090) (code, Main_2 and Dev_Ari).
+- **Build scene switched:** `Main_2.unity` is now the only enabled build scene (index 0); `Main.unity` stays listed, disabled.
+- **Not yet tested on the Aura in Main_2.** Handover: `docs/HANDOVER_MARKER_CALIBRATION.md`.
+
+## 2026-11-15 ~01:20 — Claude Code (for Canady): sheet music in free play
+- Free play shows the sheet music of a song from the database (`FreePlay/FreePlaySheet.cs`, `SheetFollower.cs`): opens when the
+  analyzer recognizes a song, or by voice ("hey teacher, show me the music for Jingle Bells"; "close the music"). Nothing is taught:
+  keys only light as pressed, wrong notes are ignored, the bar being played is outlined. Same spot as the lesson sheet; the lesson
+  panel (`SongNoteDisplay`, Jordan's) and AppFlow are not edited.
+- Also: a passed play-through now ends with the next bar ("... Now bar 3."); fallback there is the cue, not "let's try that again".
+- **Verified (Editor, Main_2):** Mary Had a Little Lamb recognized -> sheet opens at bar 4 (screenshot); voice "show me the music for
+  Jingle Bells" via Whisper -> sheet, followed to bar 16 on line 3; Mary afterwards did not replace the voice pick; "close the music"
+  hides it; switching to the lesson hides it. EditMode 114/114 (every database song found by its own name).
+  **Not tested:** Main (Main_2 had unsaved Editor changes, scene not switched), device.
+
 ## 2026-11-15 ~00:30 — Claude Code (for Canady): demo each new measure, "play it again", shorter speech
 - `CurriculumEngine` (Jordan OK'd the change list): `BeginRunOrDemo` demos the first run of each new measure (incl. measure 1:
   lesson start has no fixed demo of it) for the hand about to be played; `ReplayDemo()`; coach demos share `RequestDemo`.

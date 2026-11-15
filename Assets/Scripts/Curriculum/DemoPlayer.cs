@@ -65,43 +65,60 @@ public class DemoPlayer : MonoBehaviour
             if (s != null) s.Stop();
     }
 
+    const double MaxStep = 0.1;      // the most the demo moves on in one frame: a longer frame pauses it instead of rushing
+    const double StallSeconds = 0.5; // audio clock frozen this long (output asleep): real time moves the keys, silently
+
     IEnumerator Run(List<ExpectedNote> notes, float secondsPerBeat)
     {
-        yield return new WaitForSeconds(0.4f);
-        // The sound is scheduled on the audio clock a little ahead, so the rhythm is even at any frame rate.
-        // The keys light up on the frame clock, at the moment each note sounds.
-        double dspStart = AudioSettings.dspTime + Lead;
-        float start = Time.time + (float)Lead;
-        var ups = new List<(float time, ExpectedNote note)>();
-        int scheduled = 0, lit = 0;
+        yield return new WaitForSecondsRealtime(0.4f);
+        // One clock for keys and sound: the demo's position, moved each frame by the audio clock, so a key lights as its
+        // note sounds. A long frame or the audio waking up moves it at most MaxStep, so no notes rush by unseen; every key
+        // stays lit longer than MaxStep, so it is drawn for at least one frame. (On the puck the frame clock fell behind
+        // and the keys stayed dark, then all lit at once at the end.)
+        double pos = -Lead;
+        double dspLast = AudioSettings.dspTime, realLast = Time.realtimeSinceStartupAsDouble, dspMovedAt = realLast;
+        var ups = new List<(double time, ExpectedNote note)>();
+        int scheduled = 0, lit = 0, capped = 0;
+        double longestFrame = 0;
+        Debug.Log($"[Demo] Start: {notes.Count} notes, {(notes.Count > 0 ? notes[notes.Count - 1].time : 0):0.00} s, dsp {dspLast:0.000}.");
 
-        while (lit < notes.Count)
+        while (lit < notes.Count || ups.Count > 0)
         {
-            float now = Time.time - start;
-            while (scheduled < notes.Count && notes[scheduled].time <= now + Lead)
+            double dsp = AudioSettings.dspTime, real = Time.realtimeSinceStartupAsDouble;
+            bool moved = dsp > dspLast;
+            if (moved) dspMovedAt = real;
+            bool audioAlive = real - dspMovedAt < StallSeconds;
+            double step = moved ? dsp - dspLast : audioAlive ? 0 : real - realLast;
+            if (step > MaxStep) capped++;
+            longestFrame = Math.Max(longestFrame, real - realLast);
+            pos += Math.Min(step, MaxStep);
+            dspLast = dsp;
+            realLast = real;
+
+            while (scheduled < notes.Count && notes[scheduled].time <= pos + Lead)
             {
+                var n = notes[scheduled];
                 var s = sources[scheduled % sources.Length];
-                s.clip = Clip(notes[scheduled].midi);
-                s.volume = volume;
-                s.PlayScheduled(Math.Max(AudioSettings.dspTime, dspStart + notes[scheduled].time));
                 scheduled++;
+                if (!audioAlive || n.time < pos) continue; // no sound now, or its moment passed: the key still lights
+                s.clip = Clip(n.midi);
+                s.volume = volume;
+                s.PlayScheduled(dsp + (n.time - pos));
             }
-            while (lit < notes.Count && notes[lit].time <= now)
+            while (lit < notes.Count && notes[lit].time <= pos)
             {
                 var n = notes[lit++];
                 down.Add(n);
                 NoteDown?.Invoke(n);
                 ups.Add((n.time + Mathf.Max(0.12f, n.duration * secondsPerBeat * 0.9f), n));
+                Debug.Log($"[Demo] Key {n.midi} due {n.time:0.00} lit at {pos:0.00} (frame {Time.unscaledDeltaTime * 1000f:0} ms, " +
+                          $"dsp {dsp:0.000}{(audioAlive ? "" : ", audio asleep: silent")}).");
             }
-            ReleaseDue(ups, now);
+            ReleaseDue(ups, pos);
             yield return null;
         }
-        while (ups.Count > 0)
-        {
-            ReleaseDue(ups, Time.time - start);
-            yield return null;
-        }
-        yield return new WaitForSeconds(0.3f);
+        Debug.Log($"[Demo] Done: longest frame {longestFrame * 1000:0} ms, {capped} jumps held back.");
+        yield return new WaitForSecondsRealtime(0.3f);
 
         routine = null;
         var done = onDone;
@@ -109,7 +126,7 @@ public class DemoPlayer : MonoBehaviour
         done?.Invoke();
     }
 
-    void ReleaseDue(List<(float time, ExpectedNote note)> ups, float now)
+    void ReleaseDue(List<(double time, ExpectedNote note)> ups, double now)
     {
         for (int i = ups.Count - 1; i >= 0; i--)
         {

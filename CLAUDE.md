@@ -7,11 +7,18 @@ An AR piano teacher on **XREAL Aura** (Android XR, optical see-through glasses).
 **Yamaha P71** digital piano. The glasses overlay which key to press, show the sheet music on a floating panel,
 and an AI coach gives short spoken feedback between phrases.
 
-- **Main demo:** Freeplay of the 35-note right-hand Für Elise opening (8 bars). A separate CurriculumEngine exists but is not in Main.
-- **Main_2 (jordan-branch):** the same app flow, but after calibration the `Lesson` object's `CurriculumEngine` runs the
-  guided lesson of `docs/COACH_PLAYBOOK.md` in timed runs: each measure right hand, left hand, both hands, up the tempo
-  ladder, then play-throughs and repairs. Whole piece, both hands (`Assets/Resources/Songs/fur_elise.json`, 105 bars).
-  Left-hand keys are amber. Editor keys F5–F8 end a run as clean / shaky / problem / too slow; Enter skips waits.
+> **`Assets/Scenes/Main_2.unity` IS THE MAIN SCENE.** It is the demo, the only enabled build scene (index 0), and the scene
+> everyone's work must land in. `Main.unity` is the older Für Elise freeplay demo, kept in the build list but **disabled**;
+> don't add new features there.
+
+- **Main scene (`Main_2.unity`):** intro → corner-marker calibration → choose lesson or free play. The lesson is the `Lesson`
+  object's `CurriculumEngine` running `docs/COACH_PLAYBOOK.md` in timed runs: each measure right hand, left hand, both hands,
+  up the tempo ladder, then play-throughs and repairs. Whole piece, both hands (`Assets/Resources/Songs/fur_elise.json`,
+  105 bars). Left-hand keys are amber. Editor keys F5–F8 end a run as clean / shaky / problem / too slow; Enter skips waits.
+- **Calibration = corner markers** (ArUco 4x4_50, ID 0 behind A0, ID 1 behind C8, 33 mm) instead of the four pinches; the
+  pinches come back if markers can't run. Blue left-hand dot = offset sliders, orange = recalibrate. Editor: **M** simulates a
+  marker lock. See `docs/HANDOVER_MARKER_CALIBRATION.md`.
+- **Old `Main.unity` (disabled):** freeplay of the 35-note right-hand Für Elise opening (8 bars), wait mode, four-pinch calibration.
 - **Core loop ("wait mode"):** highlight the next key → wait for the correct press → advance → AI comments after the completed excerpt.
 - **Pitch:** see-through glasses show your real keys and fingers sharply (passthrough headsets can't), plus a coach that talks to you,
   plus linking each written note on the sheet to its physical key.
@@ -47,8 +54,8 @@ Yamaha P71 ──USB MIDI──► Aura puck ──► Unity app
 **Rule: the AI is never in the real-time loop.** Note matching, highlighting and advancing must work instantly
 even if the AI is slow or offline. The AI only receives a short JSON summary of performance and speaks between phrases.
 
-**Rule: the AI does not generate notes.** Main's notes come from `SongLibrary.FurElise`; the separate curriculum uses
-JSON song resources. `Assets/Music/` holds the sheet images. Main allows spoken feedback only, not demo/fingering actions.
+**Rule: the AI does not generate notes.** The main scene (`Main_2`) takes notes from JSON song resources via the curriculum;
+old `Main` used `SongLibrary.FurElise`. `Assets/Music/` holds the sheet images. The coach gives spoken feedback only.
 
 **Lesson progression** (measure by measure, tempo ladder, full play-throughs, repairing weak measures) follows
 `docs/COACH_PLAYBOOK.md`. Read it before working on the LessonEngine or the coach's actions.
@@ -65,32 +72,33 @@ Don't edit another owner's folder without telling them. If you need something fr
 add a request to `docs/INTERFACES.md` under "Requested".
 
 ## Conventions
-- **One scene per person** for development (`Assets/Scenes/Dev_<Name>.unity`). Only `Assets/Scenes/Main.unity`
-  is shared, and only one person edits it at a time, announced in chat. Unity scene merges are painful.
-  `Main` exists and is the only enabled build scene (index 0). Dev scenes: `Dev_Ari` (overlay + calibration),
-  `JordanScene` / `JordanPianoReading` (MIDI), `AITest` (AI coach). Keep AIDebugPanel out of Main: its keys clash with the evaluator.
+- **One scene per person** for development (`Assets/Scenes/Dev_<Name>.unity`). The shared scene is
+  **`Assets/Scenes/Main_2.unity` (the main scene)**; only one person edits it at a time, announced in chat. Unity scene merges
+  are painful. `Main_2` is the only enabled build scene (index 0); `Main.unity` is listed but disabled. Dev scenes: `Dev_Ari`
+  (overlay + calibration), `JordanScene` / `JordanPianoReading` (MIDI), `AITest` (AI coach). Keep AIDebugPanel out of the main
+  scene: its keys clash with the lesson.
 - Communicate between modules through the public methods and events listed in `docs/INTERFACES.md`, not by
   reaching into another module's internals.
 - Notes are **MIDI note numbers** everywhere (middle C = 60, P71 range = 21 to 108).
 - Units are meters.
 - Every module gets an Editor-only debug driver (keyboard shortcuts) so it can be tested without the piano or headset.
 
-## Main demo flow and verification
-- Open `Assets/Scenes/Main.unity`. `AppFlow` finds its references automatically; the evaluator starts inactive,
-  and `PianoCalibrator.calibrateOnStart` is off.
+## Main scene (`Main_2.unity`) flow and verification
+- Open `Assets/Scenes/Main_2.unity`. `AppFlow` finds its references automatically, and `PianoCalibrator.calibrateOnStart` is off.
 - Android: request microphone permission **before the intro** and wait for grant, denial, or dismissal. With permission
   already granted there is no dialog. Denial/dismissal skips recording without asking again during the intro flow;
   calibration and the piano lesson still work. The Editor skips this Android permission step.
-- Intro speech → listen for 4 seconds (when permitted) → four-point calibration → lesson. Any answer or silence continues.
-  Pinch FAR then NEAR end of A0, then FAR then NEAR end of C8. Sheet placement is 0.45 m above / 0.20 m behind the drawn
-  keyboard center; it updates after recalibration without restarting the lesson.
-- Next key lights up; correct/wrong presses flash. At the end of all 35 notes, the coach receives `RunStats` and speaks
-  feedback via the orb. After the restart delay (1.5 s), play the first E5 again for a new attempt.
-- Editor keys: **Enter** skips speech/listen waits; **C** simulates calibration, **R** recalibrates;
-  **Space** correct note, **X** wrong note, **P** toggles autoplay, **Backspace** restarts. Use P to verify completed-run coaching.
+- Intro speech → listen for 4 seconds (when permitted) → **marker calibration** → choose lesson / free play. Any answer or
+  silence continues. Calibration: look at the left corner marker, then the right one (~1 s each); the first launch asks for the
+  scene-understanding permission. The fallback (permission denied, tracker down 5 s, nothing found in 45 s) is the four pinches:
+  FAR then NEAR end of A0, then of C8. Sheet placement is 0.45 m above / 0.20 m behind the drawn keyboard center; it updates
+  after recalibration without restarting the lesson.
+- Lesson: the curriculum demos each measure, then the player plays it; runs pass/fail and the coach speaks between runs.
+- Editor keys: **Enter** skips speech/listen waits; **M** simulates a marker lock, **C** simulates the pinch calibration,
+  **R** recalibrates, **O** toggles the offsets panel; **F5–F8** end a lesson run (clean / shaky / problem / too slow).
 - Missing API keys: canned coach feedback + native TTS on Android (silent in Editor); transcription requires a Groq key.
   Native TTS needs a working voice on the puck. Never share an APK containing real keys.
-- Full device checklist and adb commands: `docs/AURA_MAIN_TEST.md`. Editor tests do not validate the Android dialog,
+- Full device checklist and adb commands: `docs/AURA_MAIN_TEST.md` (written for old `Main`; the main scene adds the markers). Editor tests do not validate the Android dialog,
   real MIDI, alignment, hand gestures, or optical-display readability.
 
 ## Designing for the Aura (optical see-through)
