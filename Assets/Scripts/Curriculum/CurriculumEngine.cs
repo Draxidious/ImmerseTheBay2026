@@ -29,6 +29,7 @@ public class RunInfo
     public SongData song;
     public BarRange bars;
     public int tempoPct;
+    public HandMode hand;      // which hand(s) this run is played with; notes holds only their notes
     public float secondsPerBeat;
     public double startTime;
     public List<ExpectedNote> notes;
@@ -41,12 +42,15 @@ public class RunInfo
 // Every run is rated: each judged measure Clean / Shaky (one wrong note or one long pause) / Problem (two or more), and
 // the run's speed On tempo / Too slow / Too fast. A run passes with no Problem measure, passAccuracy of the notes right
 // on the first try, and On tempo (Too fast is fine below song tempo). The tempo ladder is LessonConfig.Steps.
-//   Step 1 (SongLearn): measure N alone, slow -> medium -> full speed, one passed run per step. A fail repeats the step;
-//     3 in a row drop a step, or at the slow step the coach (or the app) gives help. Measure 1 goes straight to Step 4.
-//   Step 2 (SongPlayThrough): measures 1..N at full speed. Passed -> Step 4. Problem measures -> Step 3. Failed with no
+//   Step 1 (SongLearn): measure N alone in up to three stages: right hand, left hand, both hands (a hand with no notes
+//     in the measure is skipped, and then so is "both"). Each stage goes slow -> medium -> full speed, one passed run per
+//     step. A fail repeats the step; 3 in a row drop a step, or at the slow step the coach (or the app) gives help.
+//     Measure 1 goes straight to Step 4.
+//   Step 2 (SongPlayThrough): measures 1..N, both hands, at full speed. Every measure is rated per hand. Passed -> Step 4. Problem measures -> Step 3. Failed with no
 //     Problem measure: repeat, and after shakyPlayThroughsBeforeRepair of those the Shaky measures go to Step 3.
 //   Step 3 (SongRepair): neighbouring weak measures form blocks, earliest first, each played (with up to two lead-in
-//     measures if one of them was Shaky; lead-ins are not judged) slow, then full speed. Then back to Step 2.
+//     measures if one of them was Shaky; lead-ins are not judged) by each weak hand alone, slow then full speed, and
+//     then by both hands at full speed. Then back to Step 2.
 //   Step 4: N + 1 and back to Step 1, or the piece is complete.
 // Escape hatch: a measure, block or the warm-up that fails skipAfterFails runs over the lesson is set aside, no longer judged.
 //
@@ -64,6 +68,8 @@ public class CurriculumEngine : MonoBehaviour
     public DemoPlayer demoPlayer;
     [Tooltip("Optional. Found in the scene if empty.")]
     public MidiPianoReader reader;
+    [Tooltip("Go straight to the song, without the C major scale warm-up.")]
+    public bool skipWarmup;
     [Tooltip("Start the curriculum on Start. Otherwise call StartLesson.")]
     public bool autoStart;
     [Tooltip("Send transitions to the coach. Turn off to walk the curriculum without API calls.")]
@@ -95,6 +101,9 @@ public class CurriculumEngine : MonoBehaviour
     public BarRange CurrentRange { get; private set; }       // what the current or next run plays, lead-in included
     public BarRange CurrentBlock { get; private set; }       // repair: the judged block
     public int LeadInFirstBar { get; private set; }          // repair: first lead-in measure, 0 = the block is played alone
+    public HandMode Hand { get; private set; }               // which hand(s) the current or next run is played with
+    public IReadOnlyList<HandMode> Stages => stages;         // hand stages of the measure being learned or the block being repaired
+    public int StageIndex { get; private set; }
     public IReadOnlyList<BarRange> Blocks => blocks;
     public int BlockIndex { get; private set; } = -1;
     public int TempoStep { get; private set; }               // 0-based index into the ladder
@@ -106,6 +115,8 @@ public class CurriculumEngine : MonoBehaviour
     public EvaluationResult LastResult { get; private set; }
     public TempoRating LastTempoRating { get; private set; }
     public IReadOnlyDictionary<int, string> LastRatings => lastRatings; // bar -> "clean" | "shaky" | "problem", judged bars only
+    public IReadOnlyDictionary<int, string> LastRightRatings => lastRight; // the same per hand; a bar's rating is the worse of the two
+    public IReadOnlyDictionary<int, string> LastLeftRatings => lastLeft;
     public bool LastPassed { get; private set; }
     public LessonStats Stats { get; private set; } = new LessonStats();
     public bool IsRunning => running;
@@ -129,6 +140,9 @@ public class CurriculumEngine : MonoBehaviour
     readonly Dictionary<string, int> failsByKey = new Dictionary<string, int>(); // escape hatch, over the whole lesson
     Dictionary<int, string> lastRatings = new Dictionary<int, string>();
     Dictionary<int, string> playThroughRatings = new Dictionary<int, string>(); // the last play-through, for lead-ins
+    Dictionary<int, string> lastRight = new Dictionary<int, string>(), lastLeft = new Dictionary<int, string>();
+    Dictionary<int, string> playThroughRight = new Dictionary<int, string>(), playThroughLeft = new Dictionary<int, string>(); // for weak hands
+    readonly List<HandMode> stages = new List<HandMode>();
     IPerformanceEvaluator evaluator;
     int attempt;           // tries at the current warm-up / measure / play-through / block
     int playThroughAttempts; // play-throughs of 1..N, repairs in between included
@@ -150,6 +164,7 @@ public class CurriculumEngine : MonoBehaviour
     // The run in progress.
     SongData runSong;
     BarRange runBars;
+    HandMode runHand;
     bool running;
     double runStart, runEnd;   // runEnd is relative to runStart
     int runStep;               // the tempo step the run is played at
@@ -233,6 +248,13 @@ public class CurriculumEngine : MonoBehaviour
         blocks.Clear();
         lastRatings = new Dictionary<int, string>();
         playThroughRatings = new Dictionary<int, string>();
+        lastRight = new Dictionary<int, string>();
+        lastLeft = new Dictionary<int, string>();
+        playThroughRight = new Dictionary<int, string>();
+        playThroughLeft = new Dictionary<int, string>();
+        stages.Clear();
+        StageIndex = 0;
+        Hand = HandMode.Right;
         Stats = new LessonStats();
         warmupAttempts = attempt = playThroughAttempts = shakyPlayThroughs = 0;
         Measure = 0;
@@ -253,7 +275,8 @@ public class CurriculumEngine : MonoBehaviour
 
         Debug.Log($"[Lesson] Starting. Tempo steps [{string.Join(", ", Steps)}], {MeasureCount} measures, pass mark {cfg.passAccuracy:0.##}, " +
                   $"set aside after {cfg.skipAfterFails} fails.");
-        EnterWarmupDemo();
+        if (skipWarmup) EnterSongIntro();
+        else EnterWarmupDemo();
     }
 
     public void StopLesson()
@@ -400,6 +423,8 @@ public class CurriculumEngine : MonoBehaviour
         public TempoRating tempo;
         public float tempoRatio = 1f;
         public readonly Dictionary<int, string> ratings = new Dictionary<int, string>();
+        public readonly Dictionary<int, string> right = new Dictionary<int, string>(); // per hand; only hands with notes in the bar
+        public readonly Dictionary<int, string> left = new Dictionary<int, string>();
         public readonly List<int> shaky = new List<int>();
         public readonly List<int> problem = new List<int>();
         public readonly List<int> rushed = new List<int>();
@@ -417,14 +442,34 @@ public class CurriculumEngine : MonoBehaviour
         foreach (var b in r.bars)
         {
             if (!judged.Contains(b.barNumber) || (songBars && skipped.Contains(b.barNumber))) continue;
-            int n = expected.Count(e => e.bar == b.barNumber);
+            int nRight = expected.Count(e => e.bar == b.barNumber && e.hand == PianoHand.Right);
+            int nLeft = expected.Count(e => e.bar == b.barNumber && e.hand == PianoHand.Left);
+            int n = nRight + nLeft;
             int wrong = b.firstTryMisses;
             // An evaluator that does not fill firstTryMisses still reports score and wrong keys.
             if (wrong == 0 && n > 0 && b.score < 1f) wrong = Mathf.Max(n - Mathf.RoundToInt(b.score * n), b.wrongNotes.Count);
-            int pauses = b.hesitations.Count(h => h.ms > limit);
-            int marks = wrong + pauses;
-            string rating = marks == 0 ? "clean" : marks >= problemAt ? "problem" : "shaky";
+            // Each hand is rated on its own; the measure's rating is the worse of the two.
+            int wrongRight = b.rightMisses, wrongLeft = b.leftMisses;
+            if (wrongRight + wrongLeft != wrong) // an evaluator that does not split by hand
+            {
+                wrongRight = nRight > 0 ? wrong : 0;
+                wrongLeft = nRight > 0 ? 0 : wrong;
+            }
+            int pausesRight = 0, pausesLeft = 0;
+            foreach (var h in b.hesitations)
+            {
+                if (h.ms <= limit) continue;
+                bool leftNote = nLeft > 0 && (nRight == 0 ||
+                    !expected.Any(e => e.bar == b.barNumber && e.midi == h.note && e.hand == PianoHand.Right));
+                if (leftNote) pausesLeft++;
+                else pausesRight++;
+            }
+            string ratingRight = RatingOf(wrongRight + pausesRight, problemAt), ratingLeft = RatingOf(wrongLeft + pausesLeft, problemAt);
+            string rating = ratingRight == "problem" || ratingLeft == "problem" ? "problem"
+                          : ratingRight == "shaky" || ratingLeft == "shaky" ? "shaky" : "clean";
             v.ratings[b.barNumber] = rating;
+            if (nRight > 0) v.right[b.barNumber] = ratingRight;
+            if (nLeft > 0) v.left[b.barNumber] = ratingLeft;
             if (rating == "shaky") v.shaky.Add(b.barNumber);
             if (rating == "problem") v.problem.Add(b.barNumber);
             notes += n;
@@ -442,15 +487,19 @@ public class CurriculumEngine : MonoBehaviour
         v.passed = v.problem.Count == 0 && v.accuracy >= cfg.passAccuracy - 1e-4f && tempoOk;
 
         lastRatings = new Dictionary<int, string>(v.ratings);
+        lastRight = new Dictionary<int, string>(v.right);
+        lastLeft = new Dictionary<int, string>(v.left);
         LastTempoRating = v.tempo;
         LastPassed = v.passed;
 
         string bars = v.ratings.Count == 0 ? "nothing judged" : string.Join(", ", v.ratings.Select(p => $"bar {p.Key} {p.Value}"));
         string leadIn = runBars.First < judged.First ? $", lead-in {new BarRange(runBars.First, judged.First - 1)} not judged" : "";
-        Debug.Log($"[Lesson] {State}: {Measures(runBars)} at {RunPct}% -> {(v.passed ? "passed" : "failed")} ({bars}{leadIn}), " +
+        Debug.Log($"[Lesson] {State}: {Measures(runBars)} {HandWords(runHand)} at {RunPct}% -> {(v.passed ? "passed" : "failed")} ({bars}{leadIn}), " +
                   $"accuracy {v.accuracy:0.00}, tempo {TempoName(v.tempo)} x{v.tempoRatio:0.00}");
         return v;
     }
+
+    static string RatingOf(int marks, int problemAt) => marks == 0 ? "clean" : marks >= problemAt ? "problem" : "shaky";
 
     static string TempoName(TempoRating t) => t == TempoRating.TooSlow ? "too_slow" : t == TempoRating.TooFast ? "too_fast" : "on_tempo";
 
@@ -518,7 +567,7 @@ public class CurriculumEngine : MonoBehaviour
                 info.nextStep = $"They play {what} again at {Speed()}.";
                 break;
         }
-        Tell(trigger, song, CurrentRange, r, v, info, Key(runBars));
+        Tell(trigger, song, CurrentRange, r, v, info, RunKey());
         if (next == Next.Help) NextRunWithHelp();
         else NextRun();
     }
@@ -559,14 +608,14 @@ public class CurriculumEngine : MonoBehaviour
             if (next == Next.Done)
             {
                 info.nextStep = "The warm-up is done. Next the app introduces the song.";
-                Tell(CoachTrigger.WarmupResult, Warmup, runBars, r, v, info, Key(runBars));
+                Tell(CoachTrigger.WarmupResult, Warmup, runBars, r, v, info, RunKey());
             }
             else
             {
                 info.escalation = "set_aside";
                 info.nextStep = "The warm-up is set aside for now. Next the app introduces the song.";
                 Debug.Log("[Lesson] Warm-up set aside after too many failed runs.");
-                Tell(CoachTrigger.SetAside, Warmup, runBars, r, v, info, Key(runBars));
+                Tell(CoachTrigger.SetAside, Warmup, runBars, r, v, info, RunKey());
             }
             EnterSongIntro();
             return;
@@ -585,8 +634,10 @@ public class CurriculumEngine : MonoBehaviour
         SetStep(0);
 
         var info = Info("", null);
-        info.nextStep = "They learn the piece one measure at a time, each one slow first, then faster, and join it to the measures before it. " +
-                        "First they play measure 1 on its own at a slow speed.";
+        SetStages(StagesFor(Song, CurrentRange));
+        info.nextStep = "They learn the piece one measure at a time: the right hand, then the left hand, then both together, each slow first, " +
+                        "then faster, and then join it to the measures before it. " +
+                        $"First they play measure 1 on its own {HandWords(Hand)} at a slow speed.";
         Tell(CoachTrigger.LessonStart, Song, CurrentRange, null, null, info, null);
         AfterCoach(() => StartMeasure(1));
     }
@@ -606,6 +657,7 @@ public class CurriculumEngine : MonoBehaviour
         LeadInFirstBar = 0;
         BlockIndex = -1;
         attempt = 0;
+        SetStages(StagesFor(Song, CurrentRange));
         SetStep(0);
         SetState(CurriculumState.SongLearn);
         OnMeasureStarted?.Invoke(n);
@@ -624,6 +676,7 @@ public class CurriculumEngine : MonoBehaviour
         CurrentBlock = default;
         LeadInFirstBar = 0;
         BlockIndex = -1;
+        SetStages(new List<HandMode> { Together(Song, CurrentRange) });
         SetStep(TopStep);
         SetState(CurriculumState.SongPlayThrough);
         OnPlayThroughStarted?.Invoke(CurrentRange);
@@ -645,7 +698,19 @@ public class CurriculumEngine : MonoBehaviour
         if (shakyBefore) LeadInFirstBar = first;
         CurrentRange = new BarRange(LeadInFirstBar > 0 ? LeadInFirstBar : block.First, block.Last);
         attempt = 0;
-        SetStep(0);
+
+        // Rules 16-17: each weak hand alone (right first), then both hands. A hand that was Clean in the block is not repaired.
+        bool hasRight = CurriculumSongs.HasNotes(Song, block.First, block.Last, PianoHand.Right);
+        bool hasLeft = CurriculumSongs.HasNotes(Song, block.First, block.Last, PianoHand.Left);
+        bool weakRight = hasRight && WeakIn(playThroughRight, block), weakLeft = hasLeft && WeakIn(playThroughLeft, block);
+        if (!weakRight && !weakLeft) { weakRight = hasRight; weakLeft = hasLeft; }
+        var hands = new List<HandMode>();
+        if (weakRight) hands.Add(HandMode.Right);
+        if (weakLeft) hands.Add(HandMode.Left);
+        if (hasRight && hasLeft) hands.Add(HandMode.Both);
+        if (hands.Count == 0) hands.Add(HandMode.Right);
+        SetStages(hands);
+        SetStep(RepairStartStep());
         SetState(CurriculumState.SongRepair);
         OnRepairStarted?.Invoke(CurrentRange, block);
     }
@@ -659,10 +724,21 @@ public class CurriculumEngine : MonoBehaviour
         int n = Measure;
         var info = Info("learn", v);
 
-        var next = Ladder(v.passed, "m" + n, false);
+        var next = Ladder(v.passed, "m" + n + runHand, false);
         switch (next)
         {
             case Next.Done:
+                if (StageIndex + 1 < stages.Count)
+                {
+                    // Rule 4: this hand is learned at song tempo; the next stage starts slow again.
+                    NextStage();
+                    attempt = 0;
+                    SetStep(0);
+                    info.nextStep = $"Measure {n} is learned {HandWords(runHand)}. Next they play measure {n} {HandWords(Hand)} at {Speed()}.";
+                    Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, RunKey());
+                    NextRun();
+                    return;
+                }
                 Stats.measuresLearned++;
                 FinishMeasure(CoachTrigger.MeasureLearned, $"Measure {n} is learned.", r, v, info);
                 return;
@@ -673,7 +749,7 @@ public class CurriculumEngine : MonoBehaviour
                 FinishMeasure(CoachTrigger.SetAside, $"Measure {n} is set aside for now and no longer judged.", r, v, info);
                 return;
         }
-        TellLadder(next, CoachTrigger.RunFinished, Song, $"measure {n}", r, v, info);
+        TellLadder(next, CoachTrigger.RunFinished, Song, $"measure {n} {HandWords(Hand)}", r, v, info);
     }
 
     // Rule 3: measure N is done (learned or set aside). Measure 1 has nothing to join, so it goes straight to Step 4.
@@ -685,8 +761,8 @@ public class CurriculumEngine : MonoBehaviour
             return;
         }
         SetupPlayThrough(true);
-        info.nextStep = $"{done} Next they play {Measures(CurrentRange)} at full speed.";
-        Tell(trigger, Song, CurrentRange, r, v, info, Key(runBars));
+        info.nextStep = $"{done} Next they play {Measures(CurrentRange)} {HandWords(Hand)} at full speed.";
+        Tell(trigger, Song, CurrentRange, r, v, info, RunKey());
         NextRun();
     }
 
@@ -700,6 +776,8 @@ public class CurriculumEngine : MonoBehaviour
         Stats.finalRunAccuracy = v.accuracy * 100f;
         attempt = ++playThroughAttempts;
         playThroughRatings = new Dictionary<int, string>(v.ratings);
+        playThroughRight = new Dictionary<int, string>(v.right);
+        playThroughLeft = new Dictionary<int, string>(v.left);
         var range = runBars;
         var info = Info("play_through", v);
 
@@ -726,7 +804,7 @@ public class CurriculumEngine : MonoBehaviour
 
         // Off tempo with clean notes, or not yet enough shaky play-throughs: the coach asks for the one fix.
         info.nextStep = $"They play {Measures(range)} again at full speed.";
-        Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, Key(runBars));
+        Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, RunKey());
         NextRun();
     }
 
@@ -744,7 +822,7 @@ public class CurriculumEngine : MonoBehaviour
         if (blocks.Count == 0)
         {
             info.nextStep = $"They play {Measures(CurrentRange)} again at full speed.";
-            Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, Key(runBars));
+            Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, RunKey());
             NextRun();
             return;
         }
@@ -756,7 +834,7 @@ public class CurriculumEngine : MonoBehaviour
         info.nextStep = $"{Cap(need)} {(one ? "needs" : "need")} work" +
                         (blocks.Count > 1 ? $", one at a time, starting with {Measures(blocks[0])}. " : ". ") + BlockPlan();
         Debug.Log($"[Lesson] Repair blocks: {string.Join(", ", blocks.Select(b => "[" + b + "]"))}");
-        Tell(CoachTrigger.RepairStart, Song, CurrentRange, r, v, info, Key(runBars));
+        Tell(CoachTrigger.RepairStart, Song, CurrentRange, r, v, info, RunKey());
         NextRun();
     }
 
@@ -765,11 +843,11 @@ public class CurriculumEngine : MonoBehaviour
     {
         var block = CurrentBlock;
         if (LeadInFirstBar <= 0)
-            return $"They play {Measures(block)} {(block.First == block.Last ? "on its own" : "on their own")} at {Speed()}.";
+            return $"They play {Measures(block)} {(block.First == block.Last ? "on its own" : "on their own")} {HandWords(Hand)} at {Speed()}.";
         int leadLast = block.First - 1;
         string lead = LeadInFirstBar == leadLast ? $"{leadLast} leads in and is not judged" : $"{LeadInFirstBar} and {leadLast} lead in and are not judged";
         if (leadLast - LeadInFirstBar > 1) lead = $"{LeadInFirstBar} to {leadLast} lead in and are not judged";
-        return $"They play {Measures(CurrentRange)} at {Speed()}; {lead}.";
+        return $"They play {Measures(CurrentRange)} {HandWords(Hand)} at {Speed()}; {lead}.";
     }
 
     void EvaluateRepair()
@@ -781,10 +859,21 @@ public class CurriculumEngine : MonoBehaviour
         attempt++;
         var info = Info("repair", v);
 
-        var next = Ladder(v.passed, $"b{block.First}-{block.Last}", true);
+        var next = Ladder(v.passed, $"b{block.First}-{block.Last}{runHand}", true);
         switch (next)
         {
             case Next.Done:
+                if (StageIndex + 1 < stages.Count)
+                {
+                    // Rules 16-17: this hand is fixed; the next weak hand starts slow, both hands go straight to song tempo.
+                    NextStage();
+                    attempt = 0;
+                    SetStep(RepairStartStep());
+                    info.nextStep = $"{Cap(Measures(block))} {IsAre(block)} fixed {HandWords(runHand)}. {BlockPlan()}";
+                    Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, RunKey());
+                    NextRun();
+                    return;
+                }
                 Stats.repairedBlocks.Add(block.ToString());
                 NextBlock(CoachTrigger.BlockFixed, $"{Cap(Measures(block))} {IsAre(block)} fixed.", r, v, info);
                 return;
@@ -795,7 +884,7 @@ public class CurriculumEngine : MonoBehaviour
                 NextBlock(CoachTrigger.SetAside, $"{Cap(Measures(block))} {IsAre(block)} set aside for now and no longer judged.", r, v, info);
                 return;
         }
-        TellLadder(next, CoachTrigger.RunFinished, Song, Measures(CurrentRange), r, v, info);
+        TellLadder(next, CoachTrigger.RunFinished, Song, $"{Measures(CurrentRange)} {HandWords(Hand)}", r, v, info);
     }
 
     // Rule 17: after the last block, back to the full play-through.
@@ -813,9 +902,9 @@ public class CurriculumEngine : MonoBehaviour
         {
             shakyPlayThroughs = 0;
             SetupPlayThrough(false);
-            info.nextStep = $"{done} All repairs are done. They play {Measures(CurrentRange)} at full speed again.";
+            info.nextStep = $"{done} All repairs are done. They play {Measures(CurrentRange)} {HandWords(Hand)} at full speed again.";
         }
-        Tell(trigger, Song, CurrentRange, r, v, info, Key(runBars));
+        Tell(trigger, Song, CurrentRange, r, v, info, RunKey());
         NextRun();
     }
 
@@ -829,8 +918,8 @@ public class CurriculumEngine : MonoBehaviour
             return;
         }
         SetupMeasure(n + 1);
-        info.nextStep = $"{done} Next they learn measure {n + 1} on its own, starting slow.";
-        Tell(trigger, Song, CurrentRange, r, v, info, Key(runBars));
+        info.nextStep = $"{done} Next they learn measure {n + 1} on its own, {HandWords(Hand)}{(stages.Count > 1 ? " first" : "")}, starting slow.";
+        Tell(trigger, Song, CurrentRange, r, v, info, RunKey());
         NextRun();
     }
 
@@ -890,7 +979,8 @@ public class CurriculumEngine : MonoBehaviour
         var cfg = Cfg;
         runSong = song;
         runBars = bars;
-        expected = CurriculumSongs.Expected(song, bars.First, bars.Last, TempoPct);
+        runHand = Hand;
+        expected = CurriculumSongs.Expected(song, bars.First, bars.Last, TempoPct, Hand);
         claimed = new bool[expected.Count];
         played.Clear();
         dueIndex = 0;
@@ -916,10 +1006,10 @@ public class CurriculumEngine : MonoBehaviour
 
         CurrentRun = new RunInfo
         {
-            song = song, bars = bars, tempoPct = TempoPct, secondsPerBeat = spb,
+            song = song, bars = bars, tempoPct = TempoPct, hand = Hand, secondsPerBeat = spb,
             startTime = runStart, notes = expected,
         };
-        Debug.Log($"[Lesson] {State}: play {Measures(bars)} of {song.name} ({expected.Count} notes) at {TempoPct}%, step {TempoStep + 1}/{Steps.Count}" +
+        Debug.Log($"[Lesson] {State}: play {Measures(bars)} of {song.name} {HandWords(Hand)} ({expected.Count} notes) at {TempoPct}%, step {TempoStep + 1}/{Steps.Count}" +
                   (State == CurriculumState.SongRepair ? $", judging block {CurrentBlock}" : "") +
                   (StepFails > 0 ? $", {StepFails} failed in a row" : "") + ".");
         OnRunStarted?.Invoke(CurrentRun);
@@ -1053,7 +1143,9 @@ public class CurriculumEngine : MonoBehaviour
 
     void PlayDemo(SongData song, BarRange bars, int tempoPct, Action then)
     {
-        var notes = CurriculumSongs.Expected(song, bars.First, bars.Last, tempoPct);
+        // The hand(s) being practised; if they have nothing in these bars (the coach asked for other bars), everything.
+        var notes = CurriculumSongs.Expected(song, bars.First, bars.Last, tempoPct, Hand);
+        if (notes.Count == 0) notes = CurriculumSongs.Expected(song, bars.First, bars.Last, tempoPct, HandMode.Both);
         demoPlayer.Play(notes, CurriculumSongs.SecondsPerBeat(song, tempoPct), () =>
         {
             lastDemo = bars;
@@ -1205,7 +1297,56 @@ public class CurriculumEngine : MonoBehaviour
         info.blockCount = blocks.Count;
     }
 
-    static string Key(BarRange bars) => bars.ToString();
+    // Trend key of the run that just ended: its bars and hand.
+    string RunKey() => runBars + ":" + runHand;
+
+    static string HandWords(HandMode hand) =>
+        hand == HandMode.Both ? "with both hands together" : hand == HandMode.Left ? "with the left hand alone" : "with the right hand alone";
+
+    // Rule 1: right hand, left hand, both. Rule 5: a hand with nothing to play is skipped, and then so is "both".
+    static List<HandMode> StagesFor(SongData song, BarRange bars)
+    {
+        bool right = CurriculumSongs.HasNotes(song, bars.First, bars.Last, PianoHand.Right);
+        bool left = CurriculumSongs.HasNotes(song, bars.First, bars.Last, PianoHand.Left);
+        var list = new List<HandMode>();
+        if (right) list.Add(HandMode.Right);
+        if (left) list.Add(HandMode.Left);
+        if (right && left) list.Add(HandMode.Both);
+        if (list.Count == 0) list.Add(HandMode.Right);
+        return list;
+    }
+
+    // Both hands when both have notes in the bars, otherwise the one that does.
+    static HandMode Together(SongData song, BarRange bars)
+    {
+        bool right = CurriculumSongs.HasNotes(song, bars.First, bars.Last, PianoHand.Right);
+        bool left = CurriculumSongs.HasNotes(song, bars.First, bars.Last, PianoHand.Left);
+        return right && left ? HandMode.Both : left ? HandMode.Left : HandMode.Right;
+    }
+
+    static bool WeakIn(Dictionary<int, string> ratings, BarRange bars)
+    {
+        for (int bar = bars.First; bar <= bars.Last; bar++)
+            if (ratings.TryGetValue(bar, out string rating) && rating != "clean") return true;
+        return false;
+    }
+
+    void SetStages(List<HandMode> hands)
+    {
+        stages.Clear();
+        stages.AddRange(hands);
+        StageIndex = 0;
+        Hand = stages[0];
+    }
+
+    void NextStage()
+    {
+        StageIndex++;
+        Hand = stages[StageIndex];
+    }
+
+    // Repairs: a single hand starts slow; the closing both-hands run (after the single hands) starts at song tempo.
+    int RepairStartStep() => Hand == HandMode.Both && StageIndex > 0 ? TopStep : 0;
     static string Measures(BarRange bars) => bars.First == bars.Last ? $"measure {bars.First}" : $"measures {bars.First} to {bars.Last}";
     static string IsAre(BarRange bars) => bars.First == bars.Last ? "is" : "are";
     static string Cap(string s) => string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);

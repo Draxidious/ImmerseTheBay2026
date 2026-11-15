@@ -32,6 +32,7 @@ public static class CurriculumSongs
         public float beats = 1f;
         public int finger;
         public string hint;
+        public string hand;      // "L" or "left" = left hand; anything else (or nothing) = right hand
     }
 
     static readonly string[] Names = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
@@ -81,7 +82,8 @@ public static class CurriculumSongs
                 song.notes.Add(new SongNote
                 {
                     midi = midi, bar = line.bar, beat = line.beat, beats = line.beats,
-                    hand = PianoHand.Right, finger = line.finger, hint = string.IsNullOrWhiteSpace(line.hint) ? null : line.hint,
+                    hand = !string.IsNullOrEmpty(line.hand) && char.ToLowerInvariant(line.hand.Trim()[0]) == 'l' ? PianoHand.Left : PianoHand.Right,
+                    finger = line.finger, hint = string.IsNullOrWhiteSpace(line.hint) ? null : line.hint,
                 });
             }
         }
@@ -106,13 +108,21 @@ public static class CurriculumSongs
         return (octave + 1) * 12 + pc;
     }
 
-    // The right-hand notes of bars first..last in playing order. time is seconds from the first note at tempoPct.
-    public static List<ExpectedNote> Expected(SongData song, int firstBar, int lastBar, int tempoPct)
+    // Does this hand have anything to play in bars first..last?
+    public static bool HasNotes(SongData song, int firstBar, int lastBar, PianoHand hand) =>
+        song != null && song.notes.Any(n => n.hand == hand && n.bar >= firstBar && n.bar <= lastBar);
+
+    static bool Plays(HandMode mode, PianoHand hand) =>
+        mode == HandMode.Both || (mode == HandMode.Left) == (hand == PianoHand.Left);
+
+    // The notes of bars first..last for the given hand(s), in playing order (notes struck together: lowest first).
+    // time is seconds from the first of those notes at tempoPct.
+    public static List<ExpectedNote> Expected(SongData song, int firstBar, int lastBar, int tempoPct, HandMode hands = HandMode.Right)
     {
         var barStart = BarStarts(song);
         var notes = song.notes
-            .Where(n => n.hand == PianoHand.Right && n.bar >= firstBar && n.bar <= lastBar)
-            .OrderBy(n => n.bar).ThenBy(n => n.beat).ThenBy(n => n.midi)
+            .Where(n => Plays(hands, n.hand) && n.bar >= firstBar && n.bar <= lastBar)
+            .OrderBy(n => barStart[n.bar] + n.beat).ThenBy(n => n.midi)
             .ToList();
 
         float secondsPerBeat = SecondsPerBeat(song, tempoPct);
@@ -124,7 +134,7 @@ public static class CurriculumSongs
             list.Add(new ExpectedNote
             {
                 index = list.Count, midi = n.midi, bar = n.bar, beat = beat, duration = n.beats,
-                finger = n.finger, hint = n.hint, time = (beat - first) * secondsPerBeat,
+                finger = n.finger, hand = n.hand, hint = n.hint, time = (beat - first) * secondsPerBeat,
             });
         }
         return list;
