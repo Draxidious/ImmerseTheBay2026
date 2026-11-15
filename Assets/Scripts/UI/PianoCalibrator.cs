@@ -39,7 +39,7 @@ public class PianoCalibrator : MonoBehaviour
     [Tooltip("Once calibrated, the hand meshes become invisible depth-only occluders, so the overlay is hidden wherever a " +
              "hand is in front of it (like the real keys). While calibrating they stay hidden so pinch markers stay visible.")]
     public bool handsOccludeOverlay = true;
-    [Tooltip("Soft black hand mask (PianoTeacher/HandOccluder). Loaded from Resources/HandOccluder if empty.")]
+    [Tooltip("Depth-only material (PianoTeacher/HandOccluder). Loaded from Resources/HandOccluder if empty.")]
     public Material handOccluderMaterial;
 
     [Header("Recalibrate dot on the back of the LEFT hand")]
@@ -456,9 +456,12 @@ public class PianoCalibrator : MonoBehaviour
                 foreach (var r in handMeshRenderers)
                 {
                     if (!r) continue;
-                    if (r.sharedMaterial != handOccluderMaterial)
+                    // The hand mesh must draw NOTHING visible: replace every material slot (the template hands also carry
+                    // a grey glove material in slot 2) with the invisible depth-only occluder.
+                    var mats = r.sharedMaterials;
+                    if (mats.Length != 1 || mats[0] != handOccluderMaterial)
                     {
-                        r.sharedMaterial = handOccluderMaterial;
+                        r.sharedMaterials = new[] { handOccluderMaterial };
                         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                     }
                     // Renderers hidden during calibration stay off until tracking changes; follow tracking ourselves.

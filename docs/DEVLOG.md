@@ -4,6 +4,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~17:30 — Claude Code (for Ari): hand occluder back to the first (depth-only) version
+- The soft black-mask occluder (~16:40 entry below) was wrong: it drew the hand instead of only hiding the overlay. Reverted to the
+  first version: `PianoTeacher/HandOccluder` is depth-only again (ColorMask 0, ZWrite On, queue 1990), mesh grown +4 mm
+  (`_Inflate` 0.004). Shrinking the mesh let the overlay show through at the finger edges.
+- Fix kept from the investigation: the template hand meshes have TWO material slots (DepthOnly + the grey `Unity_Hand_Medium`
+  glove). Replacing only slot 0 left the glove drawing an outline around the hands. `PianoCalibrator` now replaces every slot.
+- Hand shape is the generic template hand posed by XR Hands: joint positions/finger lengths follow the tracked hand, width
+  and thickness are generic. The runtime hand meshes (XR_ANDROID_hand_mesh / XR_FB_hand_tracking_mesh) failed every query in
+  an on-device test and are not used; those features are off again.
+- Tooling: `adb exec-out screencap` doesn't work (two displays); `adb shell screencap -d 4626964206039778834 -p <file>` captures
+  the glasses' mixed-reality view (camera + app). Wireless adb works over a private hotspot.
+
 ## 2026-11-14 ~16:30 — Claude Code (for Ari): hands occlude the overlay
 - New shader `Assets/Scripts/UI/Shaders/HandOccluder.shader` (`PianoTeacher/HandOccluder`): depth-only (ColorMask 0, ZWrite On,
   queue 1990), stereo-instancing safe, inflates the mesh 4 mm along normals to cover tracking error. Material at
