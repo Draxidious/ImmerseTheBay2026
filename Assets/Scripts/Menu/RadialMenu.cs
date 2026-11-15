@@ -7,7 +7,7 @@ using UnityEngine.XR.Interaction.Toolkit.Filtering;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 /// <summary>
-/// Left-hand radial menu: Restart Lesson / Free Play / Recalibrate Piano around a center Close button.
+/// Left-hand radial menu: lesson, Free Play, recalibration, and optional fingering around a center Close button.
 ///
 /// Open / close: touch and hold the ORANGE dot on the back of the left hand (PianoCalibrator.MenuDotPressed; while this
 /// menu exists, the dot opens it instead of restarting calibration straight away). Editor: F1 toggles, F2/F3/F4 choose.
@@ -20,7 +20,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 /// </summary>
 public class RadialMenu : MonoBehaviour
 {
-    public enum Choice { RestartLesson, FreePlay, Recalibrate, Close }
+    public enum Choice { RestartLesson, FreePlay, Recalibrate, Close, Fingering }
 
     [Header("Found automatically when empty")]
     public AppFlow app;
@@ -62,6 +62,7 @@ public class RadialMenu : MonoBehaviour
     Transform _root;
     TextMeshPro _title;
     Segment _focused;
+    FingeringGuide _fingeringGuide;
     float _openedAt;
     bool _acted;
     bool _pausedEvaluator; // Main: the wait-mode evaluator is switched off while recalibrating
@@ -113,6 +114,7 @@ public class RadialMenu : MonoBehaviour
         {
             case Choice.RestartLesson: RestartLesson(); break;
             case Choice.FreePlay: AppModeSwitch.Request(AppMode.FreePlay, "menu"); break;
+            case Choice.Fingering: _fingeringGuide.ToggleOverlay(); break;
             case Choice.Recalibrate:
                 if (calibrator.IsCalibrating) calibrator.CancelCalibration();
                 else StartRecalibration();
@@ -144,6 +146,10 @@ public class RadialMenu : MonoBehaviour
                 // A calibration in progress can be cancelled only if there is an older one to go back to.
                 label = calibrating ? "Cancel\nRecalibrate" : "Recalibrate\nPiano";
                 return calibrator && Calibrated;
+            case Choice.Fingering:
+                bool enabled = _fingeringGuide && _fingeringGuide.OverlayEnabled;
+                label = enabled ? "Fingering\nOn" : "Fingering\nOff";
+                return _fingeringGuide && Calibrated && !calibrating && InLesson;
             default:
                 label = "Close";
                 return true;
@@ -188,6 +194,7 @@ public class RadialMenu : MonoBehaviour
     {
         if (!app) app = FindAnyObjectByType<AppFlow>();
         if (!calibrator) calibrator = FindAnyObjectByType<PianoCalibrator>();
+        if (app) _fingeringGuide = app.GetComponent<FingeringGuide>();
         Build();
         _root.gameObject.SetActive(false);
     }
@@ -222,7 +229,8 @@ public class RadialMenu : MonoBehaviour
     {
         DebugKeys();
         if (!IsOpen) return;
-        if (autoCloseSeconds > 0f && Time.time > _openedAt + autoCloseSeconds) { Close(); return; }
+        if (autoCloseSeconds > 0f && Time.time > _openedAt + autoCloseSeconds &&
+            (!app || app.CurrentStep != AppFlow.Step.ChooseMode)) { Close(); return; }
         Refresh();
     }
 
@@ -241,7 +249,9 @@ public class RadialMenu : MonoBehaviour
             if (!_acted) SetColor(s, !s.enabled ? disabledColor : _focused == s ? focusColor : rimColor);
             s.label.color = s.enabled ? Color.white : disabledColor;
         }
-        if (_title) _title.text = Calibrated || (calibrator && calibrator.IsCalibrating) ? "Menu" : "Finish setup first";
+        if (_title)
+            _title.text = app && app.CurrentStep == AppFlow.Step.ChooseMode ? "Choose a mode" :
+                Calibrated || (calibrator && calibrator.IsCalibrating) ? "Menu" : "Finish setup first";
     }
 
     void SetFocus(Segment s)
@@ -254,6 +264,13 @@ public class RadialMenu : MonoBehaviour
     {
         var cam = Camera.main ? Camera.main.transform : null;
         if (!cam) return;
+        if (_fingeringGuide)
+        {
+            // Opening from the hand usually means the player is looking down at it.
+            Vector3 center = cam.position + cam.forward * distance - cam.up * below;
+            _root.SetPositionAndRotation(center, Quaternion.LookRotation(center - cam.position, cam.up));
+            return;
+        }
         Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up);
         if (forward.sqrMagnitude < 1e-4f) forward = Vector3.forward;
         forward.Normalize();
@@ -282,20 +299,20 @@ public class RadialMenu : MonoBehaviour
         _root = new GameObject("RadialMenuRoot").transform;
         _root.SetParent(transform, false);
 
-        // Three ring segments, 120° each, gaps of 8°: Restart on top, Free Play lower left, Recalibrate lower right.
         AddSegment(Choice.RestartLesson, 90f, Icon.Restart);
-        AddSegment(Choice.FreePlay, 210f, Icon.Keys);
-        AddSegment(Choice.Recalibrate, 330f, Icon.Target);
+        AddSegment(Choice.FreePlay, _fingeringGuide ? 180f : 210f, Icon.Keys);
+        AddSegment(Choice.Recalibrate, _fingeringGuide ? 0f : 330f, Icon.Target);
+        if (_fingeringGuide) AddSegment(Choice.Fingering, 270f, Icon.None);
         AddCenter();
         _title = Label(_root, "Title", "Menu", 0.2f, new Vector3(0f, radius * 1.85f, 0f), new Vector2(0.2f, 0.03f));
     }
 
-    enum Icon { Restart, Keys, Target }
+    enum Icon { Restart, Keys, Target, None }
 
     void AddSegment(Choice choice, float centerDeg, Icon icon)
     {
         var s = NewSegment(choice, choice.ToString());
-        float inner = radius * 0.55f, outer = radius * 1.55f, half = 56f;
+        float inner = radius * 0.55f, outer = radius * 1.55f, half = _fingeringGuide ? 41f : 56f;
         var outline = new List<Vector3>();
         for (int i = 0; i <= 16; i++) outline.Add(Polar(outer, centerDeg - half + i * (2 * half / 16f)));
         for (int i = 0; i <= 16; i++) outline.Add(Polar(inner, centerDeg + half - i * (2 * half / 16f)));
@@ -328,7 +345,8 @@ public class RadialMenu : MonoBehaviour
                 Line(s, new List<Vector3> { iconAt + new Vector3(0f, -0.011f, 0f), iconAt + new Vector3(0f, 0.011f, 0f) }, false);
                 break;
         }
-        s.label = Label(s.go.transform, "Label", "", 0.2f, c + new Vector3(0f, -0.013f, -0.002f), new Vector2(0.1f, 0.03f));
+        float labelOffset = icon == Icon.None ? 0f : -0.013f;
+        s.label = Label(s.go.transform, "Label", "", 0.2f, c + new Vector3(0f, labelOffset, -0.002f), new Vector2(0.1f, 0.03f));
         AddPoke(s, c, new Vector3(radius * 0.95f, radius * 0.7f, 0.02f));
     }
 

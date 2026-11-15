@@ -9,13 +9,24 @@ Für Elise demo, four-pinch calibration) is disabled; its checks are kept at the
 |---|---|
 | Startup | `[MarkerCalibration] Loaded offsets …` (if saved before), MIDI backend starts, intro speech. |
 | Marker calibration | Prompt asks for the corner markers; first launch asks scene-understanding permission. Look at the LEFT marker (A0 end) then the RIGHT (C8 end), ~1 s each: `Left marker locked`, `Right marker locked; span ~1.25 m`, `Calibrated (markers) … scale 1.000`. Every C lights for 5 s; sheet moves above the keyboard. ✅ |
-| Choose mode | `[AppFlow] ChooseMode` right after the marker lock; pick Lesson. ✅ |
+| Choose mode | After marker lock, the radial menu opens for **Start Lesson** or **Free Play**. Check that there is a single menu. |
 | Keyboard during scan | `Keyboard hidden while scanning` at the calibrate line; keys appear only with `Keyboard shown` after the right marker locks. ✅ (01:48) |
 | Lesson + MIDI | `[Lesson] Starting …`, demo of measure 1, then runs pass/fail from real P71 notes (`[MIDI] Note ON …`), tempo steps 50 → 75 → 100 %. ✅ |
 | Offsets | Blue dot on the back of the LEFT hand opens the slider panel; Save writes `marker-offsets.json`. |
-| Recalibrate | Orange dot rescans the markers; lesson keeps going. |
+| Recalibrate | Hold the orange dot to open the radial menu, then select **Recalibrate Piano**. Reopen the menu to cancel and check that the keyboard returns to its previous pose. |
 | Fallback | Deny scene permission or hide the markers 45 s: pinch steps come back. |
 | No exception flood | No XRI `IndexOutOfRangeException` (`MaterialHelperBase.GetSharedMaterialForTarget`) in the log. Was ~80k lines per run; fixed 2026-11-15 (hand occluder keeps both material slots). ✅ (01:48: 0 exceptions) |
+
+### Run the Editor smoke test before Build and Run
+
+In Unity, choose **Tools → Piano → Run Fingering Smoke Test**. It enters Play mode, opens Main_2,
+simulates marker calibration and the radial poke events, and checks that all five hit targets are distinct and the legacy buttons
+are absent. It checks the demo, count-in, overlay toggle, coach replay or sheet fallback, recalibration cancellation, and both
+mode switches. Check the Console for `[Fingering smoke] PASS` or the failed step. It exits Play mode automatically.
+
+For the on-glasses pass, choose Lesson after calibration and check the opening E5 → D♯5 demo. Look for small lilac
+`R5` → `R4` circles on the keys and cyan `5` → `4` directly on the right fingertips. Check the proximity glow and
+touch the orange dot on the left hand to open the radial menu. Select **Fingering On/Off** at the bottom to hide and bring back the cues.
 
 ---
 
