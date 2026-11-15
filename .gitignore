@@ -129,3 +129,6 @@ InitTestScene*.unity*
 # Sheets for local-only songs
 /[Aa]ssets/[Rr]esources/[Ss]heets/[Ll]ocal/
 /[Aa]ssets/[Rr]esources/[Ss]heets/[Ll]ocal.meta
+
+# Local Codex agent config
+/.codex/
