@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public enum CurriculumState { Idle, WarmupDemo, WarmupPlay, WarmupEvaluate, SongIntro, SongChain, SongDrill, SongComplete }
+public enum CurriculumState { Idle, WarmupDemo, WarmupPlay, SongIntro, SongLearn, SongPlayThrough, SongRepair, SongComplete }
 
 // A range of bars, 1-based and inclusive.
 public readonly struct BarRange
@@ -34,14 +34,23 @@ public class RunInfo
     public List<ExpectedNote> notes;
 }
 
-// The guided lesson: C major scale warm-up, then the song built up in chunks with drills on the bars that fail.
-// Every decision about progression is made here from the evaluator's scores. The coach is told what happened and
+// The guided lesson, following COACH_PLAYBOOK.md: a C major scale warm-up, then the song built up one measure at a time.
+// Every decision about progression is made here from the evaluator's results. The coach is told what happened and
 // what comes next so it can word it; it may ask for a demo or a fingering, nothing else.
 //
+// Every run is rated: each judged measure Clean / Shaky (one wrong note or one long pause) / Problem (two or more), and
+// the run's speed On tempo / Too slow / Too fast. A run passes with no Problem measure, passAccuracy of the notes right
+// on the first try, and On tempo (Too fast is fine below song tempo). The tempo ladder is LessonConfig.Steps.
+//   Step 1 (SongLearn): measure N alone, slow -> medium -> full speed, one passed run per step. A fail repeats the step;
+//     3 in a row drop a step, or at the slow step the coach (or the app) gives help. Measure 1 goes straight to Step 4.
+//   Step 2 (SongPlayThrough): measures 1..N at full speed. Passed -> Step 4. Problem measures -> Step 3. Failed with no
+//     Problem measure: repeat, and after shakyPlayThroughsBeforeRepair of those the Shaky measures go to Step 3.
+//   Step 3 (SongRepair): neighbouring weak measures form blocks, earliest first, each played (with up to two lead-in
+//     measures if one of them was Shaky; lead-ins are not judged) slow, then full speed. Then back to Step 2.
+//   Step 4: N + 1 and back to Step 1, or the piece is complete.
+// Escape hatch: a measure, block or the warm-up that fails skipAfterFails runs over the lesson is set aside, no longer judged.
+//
 // Runs are timed: notes are due at the current tempo (OnRunStarted / OnNextNote) whether or not the student keeps up.
-// Every chunk, drilled bar and the warm-up climbs the tempo ladder (LessonConfig.tempoSteps): it has to be played
-// clean CLEAN_STREAK times in a row at a step to move up, and at the top step to pass. Lower steps need accurate notes
-// and no long pauses; the top step also needs timing. Two misses in a row above the first step drop back one step.
 // Keys come from MidiPianoReader.NoteOn (found automatically) or HandleNoteOn.
 public class CurriculumEngine : MonoBehaviour
 {
@@ -63,8 +72,9 @@ public class CurriculumEngine : MonoBehaviour
     // ------------------------------------------------------------------ Events for the overlay and UI
 
     public event Action<CurriculumState> OnStateChanged;
-    public event Action<BarRange> OnChunkStarted;
-    public event Action<int> OnDrillStarted;                   // the bar
+    public event Action<int> OnMeasureStarted;                 // Step 1: the measure being learned
+    public event Action<BarRange> OnPlayThroughStarted;        // Step 2: measures 1..N
+    public event Action<BarRange, BarRange> OnRepairStarted;   // Step 3: the range played (with lead-in), the judged block
     public event Action<SongData> OnSongIntro;
     public event Action<RunInfo> OnRunStarted;                 // all notes of the run with their due times, for falling notes
     public event Action<ExpectedNote> OnNextNote;              // this note is due now (light the key); null when the run is over
@@ -80,18 +90,23 @@ public class CurriculumEngine : MonoBehaviour
     public CurriculumState State { get; private set; } = CurriculumState.Idle;
     public SongData Warmup { get; private set; }
     public SongData Song { get; private set; }
-    public IReadOnlyList<BarRange> Chunks => chunks;
-    public int ChunkIndex { get; private set; } = -1;
-    public BarRange CurrentChunk => ChunkIndex >= 0 && ChunkIndex < chunks.Count ? chunks[ChunkIndex] : default;
-    public int DrillBar { get; private set; }
-    public int DrillFails { get; private set; }
+    public int Measure { get; private set; }                 // N: the measure being learned; play-throughs and repairs are of 1..N
+    public int MeasureCount { get; private set; }
+    public BarRange CurrentRange { get; private set; }       // what the current or next run plays, lead-in included
+    public BarRange CurrentBlock { get; private set; }       // repair: the judged block
+    public int LeadInFirstBar { get; private set; }          // repair: first lead-in measure, 0 = the block is played alone
+    public IReadOnlyList<BarRange> Blocks => blocks;
+    public int BlockIndex { get; private set; } = -1;
     public int TempoStep { get; private set; }               // 0-based index into the ladder
     public int TempoPct => Steps[Mathf.Clamp(TempoStep, 0, Steps.Count - 1)];
+    public int TempoStepCount => Steps.Count;
     public bool AtTopStep => TempoStep >= Steps.Count - 1;
-    public int CleanStreak { get; private set; }
-    public int StepFails { get; private set; }               // misses in a row at this step
+    public int StepFails { get; private set; }               // failed runs in a row at this step
     public IReadOnlyCollection<int> SkippedBars => skipped;
     public EvaluationResult LastResult { get; private set; }
+    public TempoRating LastTempoRating { get; private set; }
+    public IReadOnlyDictionary<int, string> LastRatings => lastRatings; // bar -> "clean" | "shaky" | "problem", judged bars only
+    public bool LastPassed { get; private set; }
     public LessonStats Stats { get; private set; } = new LessonStats();
     public bool IsRunning => running;
     // Set by StartLesson from LessonConfig; replace it after StartLesson to try another evaluator.
@@ -104,17 +119,33 @@ public class CurriculumEngine : MonoBehaviour
 
     LessonConfig Cfg => config != null ? config : LessonConfig.Get();
     IReadOnlyList<int> Steps => Cfg.Steps;
+    int TopStep => Steps.Count - 1;
+    int RunPct => Steps[Mathf.Clamp(runStep, 0, Steps.Count - 1)];
+    SongData CurrentSong => State == CurriculumState.WarmupDemo || State == CurriculumState.WarmupPlay ? Warmup : Song;
 
-    readonly List<BarRange> chunks = new List<BarRange>();
+    readonly List<BarRange> blocks = new List<BarRange>();
     readonly SortedSet<int> skipped = new SortedSet<int>();
     readonly Dictionary<string, List<float>> trends = new Dictionary<string, List<float>>();
-    readonly Dictionary<int, int> chunkAttempts = new Dictionary<int, int>();
+    readonly Dictionary<string, int> failsByKey = new Dictionary<string, int>(); // escape hatch, over the whole lesson
+    Dictionary<int, string> lastRatings = new Dictionary<int, string>();
+    Dictionary<int, string> playThroughRatings = new Dictionary<int, string>(); // the last play-through, for lead-ins
     IPerformanceEvaluator evaluator;
-    int warmupAttempts, warmupFails;
-    int chunkFails;        // missed runs of the current chunk since it started, at any step
-    int drillReturnStep;   // the step the chunk goes back to once its drill passes
+    int attempt;           // tries at the current warm-up / measure / play-through / block
+    int playThroughAttempts; // play-throughs of 1..N, repairs in between included
+    int warmupAttempts;
+    int shakyPlayThroughs; // failed play-throughs in a row with no Problem measure
     float startedAt;
     Metronome metronome;
+    CoachContext lastRunContext; // the last evaluated run, for "how did I do"
+
+    // Rule 5 help: did the coach answer the Help trigger with a demo or a fingering?
+    bool helpWaiting, helpGiven;
+
+    // Stuck hints: the last correct press of this run, and the last hint of the lesson.
+    double lastCorrectTime;
+    int lastCorrectIndex;
+    bool stallHinted;
+    float lastHintAt = float.NegativeInfinity;
 
     // The run in progress.
     SongData runSong;
@@ -194,23 +225,34 @@ public class CurriculumEngine : MonoBehaviour
         Song = CurriculumSongs.FurElise(cfg.SongBarCount);
         if (cfg.SongBarCount > Song.BarCount)
             Debug.LogWarning($"[Lesson] songBarCount is {cfg.SongBarCount} but {Song.name} only has {Song.BarCount} bars written out.");
-        BuildChunks(Song.BarCount, Mathf.Max(1, cfg.phraseLength));
+        MeasureCount = Mathf.Max(1, Mathf.Min(cfg.SongBarCount, Song.BarCount));
 
         skipped.Clear();
         trends.Clear();
-        chunkAttempts.Clear();
+        failsByKey.Clear();
+        blocks.Clear();
+        lastRatings = new Dictionary<int, string>();
+        playThroughRatings = new Dictionary<int, string>();
         Stats = new LessonStats();
-        warmupAttempts = warmupFails = 0;
-        ChunkIndex = -1;
-        DrillBar = 0;
-        ResetLadder();
+        warmupAttempts = attempt = playThroughAttempts = shakyPlayThroughs = 0;
+        Measure = 0;
+        BlockIndex = -1;
+        CurrentBlock = default;
+        LeadInFirstBar = 0;
+        CurrentRange = new BarRange(1, Warmup.BarCount);
+        SetStep(0);
         startedAt = Time.time;
+        lastHintAt = float.NegativeInfinity;
         LastResult = null;
+        LastPassed = false;
+        LastTempoRating = TempoRating.OnTempo;
+        lastRunContext = null;
+        helpWaiting = helpGiven = false;
         EvaluatorErrors = 0;
         LastEvaluatorError = null;
 
-        Debug.Log($"[Lesson] Starting. Tempo steps [{string.Join(", ", Steps)}], {cfg.CleanStreak} clean in a row per step. " +
-                  $"Chunks: {string.Join(", ", chunks.Select(c => "[" + c + "]"))}");
+        Debug.Log($"[Lesson] Starting. Tempo steps [{string.Join(", ", Steps)}], {MeasureCount} measures, pass mark {cfg.passAccuracy:0.##}, " +
+                  $"set aside after {cfg.skipAfterFails} fails.");
         EnterWarmupDemo();
     }
 
@@ -232,6 +274,39 @@ public class CurriculumEngine : MonoBehaviour
             else if (IsDemoPlaying) demoPlayer.Skip();
             else if (waitRoutine != null) RunWaitNow();
             else break;
+        }
+    }
+
+    // Fixed voice commands. The plan is the playbook's, so "slower" and "next song" do not change it.
+    public void HandleVoiceCommand(VoiceCommand command, string transcript)
+    {
+        if (State == CurriculumState.Idle) return;
+        switch (command)
+        {
+            case VoiceCommand.Again:
+                if (running)
+                {
+                    // Start the same run over; what was played so far is thrown away, not judged.
+                    Debug.Log($"[Lesson] Voice \"again\": restarting {Measures(runBars)}.");
+                    running = false;
+                    if (metronome != null) metronome.Stop();
+                    OnNextNote?.Invoke(null);
+                    BeginRun(runSong, runBars);
+                }
+                else FastForward();
+                break;
+
+            case VoiceCommand.HowDidIDo:
+                if (coach == null) return;
+                if (lastRunContext == null) coach.SayNow("Play a run first and I'll tell you.");
+                else if (coach.IsThinking) Debug.Log("[Lesson] Voice \"how did I do\": the coach is busy, skipped.");
+                else _ = coach.Ask("How did I do?", lastRunContext);
+                break;
+
+            case VoiceCommand.Slower:
+            case VoiceCommand.NextSong:
+                if (coach != null) coach.SayNow("Let's stick with the plan.");
+                break;
         }
     }
 
@@ -271,157 +346,232 @@ public class CurriculumEngine : MonoBehaviour
         return true;
     }
 
-    // ------------------------------------------------------------------ Tempo ladder
+    // Editor testing with exact counts: every note right except, in each bar of wrongNotesPerBar, that many notes
+    // (the first ones) played as a wrong key at their due time. The whole run is played at tempoRatio (1.2 = 20% fast).
+    // In each pause bar the student freezes before the bar's first note for longer than the pause limit.
+    public bool SimulateRun(IDictionary<int, int> wrongNotesPerBar, float tempoRatio = 1f, ICollection<int> pauseBars = null)
+    {
+        FastForward();
+        if (!running) return false;
+        var cfg = Cfg;
 
-    enum Step { StreakGoing, StepUp, Passed, Retry, StepDown }
+        double ratio = Math.Max(0.05, tempoRatio);
+        double first = expected.Count > 0 ? expected[0].time : 0;
+        double pause = cfg.HesitationLimitMs(RunPct) / 1000.0 + 0.6;
+        var wrongLeft = wrongNotesPerBar != null ? new Dictionary<int, int>(wrongNotesPerBar) : new Dictionary<int, int>();
+        double shift = 0;
+        int lastBar = int.MinValue;
+        played.Clear();
+        for (int i = 0; i < expected.Count; i++)
+        {
+            var n = expected[i];
+            if (n.bar != lastBar && pauseBars != null && pauseBars.Contains(n.bar)) shift += pause;
+            lastBar = n.bar;
+            double time = first + (n.time - first) / ratio + shift;
+            bool wrong = wrongLeft.TryGetValue(n.bar, out int left) && left > 0;
+            if (wrong) wrongLeft[n.bar] = left - 1;
+            played.Add(new PlayedNote { midi = wrong ? WrongKey(i) : n.midi, velocity = 80, time = time });
+        }
+        EndRun();
+        return true;
+    }
 
-    void ResetLadder(int step = 0)
+    // A key next to the note that is not one of its neighbours in the run, so the evaluator can't take it for the
+    // note before or after (D# + 1 = E in Für Elise would count as the next note struck early).
+    int WrongKey(int i)
+    {
+        int midi = expected[i].midi;
+        var near = new HashSet<int>();
+        for (int j = Math.Max(0, i - 2); j <= Math.Min(expected.Count - 1, i + 2); j++) near.Add(expected[j].midi);
+        foreach (int d in new[] { 1, -1, 2, -2, 3, -3 })
+        {
+            int k = midi + d;
+            if (k >= 21 && k <= 108 && !near.Contains(k)) return k;
+        }
+        return midi == 108 ? 107 : midi + 1;
+    }
+
+    // ------------------------------------------------------------------ Rating a run (COACH_PLAYBOOK.md, Definitions)
+
+    class RunRating
+    {
+        public bool passed;
+        public float accuracy = 1f;    // first try, judged bars
+        public TempoRating tempo;
+        public float tempoRatio = 1f;
+        public readonly Dictionary<int, string> ratings = new Dictionary<int, string>();
+        public readonly List<int> shaky = new List<int>();
+        public readonly List<int> problem = new List<int>();
+        public readonly List<int> rushed = new List<int>();
+        public readonly List<int> dragged = new List<int>();
+    }
+
+    // judged: the bars that decide the run (not lead-ins). Set-aside song bars are never judged.
+    RunRating Rate(EvaluationResult r, BarRange judged, bool songBars)
+    {
+        var cfg = Cfg;
+        var v = new RunRating { tempoRatio = r.tempoRatio, tempo = cfg.RateTempo(r.tempoRatio) };
+        int limit = cfg.HesitationLimitMs(RunPct);
+        int problemAt = Mathf.Max(1, cfg.problemWrongNotes);
+        int notes = 0, right = 0;
+        foreach (var b in r.bars)
+        {
+            if (!judged.Contains(b.barNumber) || (songBars && skipped.Contains(b.barNumber))) continue;
+            int n = expected.Count(e => e.bar == b.barNumber);
+            int wrong = b.firstTryMisses;
+            // An evaluator that does not fill firstTryMisses still reports score and wrong keys.
+            if (wrong == 0 && n > 0 && b.score < 1f) wrong = Mathf.Max(n - Mathf.RoundToInt(b.score * n), b.wrongNotes.Count);
+            int pauses = b.hesitations.Count(h => h.ms > limit);
+            int marks = wrong + pauses;
+            string rating = marks == 0 ? "clean" : marks >= problemAt ? "problem" : "shaky";
+            v.ratings[b.barNumber] = rating;
+            if (rating == "shaky") v.shaky.Add(b.barNumber);
+            if (rating == "problem") v.problem.Add(b.barNumber);
+            notes += n;
+            right += Mathf.Max(0, n - Mathf.Min(wrong, n));
+            if (n > 0)
+            {
+                var t = cfg.RateTempo(b.tempoRatio);
+                if (t == TempoRating.TooFast) v.rushed.Add(b.barNumber);
+                if (t == TempoRating.TooSlow) v.dragged.Add(b.barNumber);
+            }
+        }
+        v.accuracy = notes == 0 ? 1f : (float)right / notes;
+        // Below song tempo, too fast is the student being ahead of the step.
+        bool tempoOk = v.tempo == TempoRating.OnTempo || (v.tempo == TempoRating.TooFast && runStep < TopStep);
+        v.passed = v.problem.Count == 0 && v.accuracy >= cfg.passAccuracy - 1e-4f && tempoOk;
+
+        lastRatings = new Dictionary<int, string>(v.ratings);
+        LastTempoRating = v.tempo;
+        LastPassed = v.passed;
+
+        string bars = v.ratings.Count == 0 ? "nothing judged" : string.Join(", ", v.ratings.Select(p => $"bar {p.Key} {p.Value}"));
+        string leadIn = runBars.First < judged.First ? $", lead-in {new BarRange(runBars.First, judged.First - 1)} not judged" : "";
+        Debug.Log($"[Lesson] {State}: {Measures(runBars)} at {RunPct}% -> {(v.passed ? "passed" : "failed")} ({bars}{leadIn}), " +
+                  $"accuracy {v.accuracy:0.00}, tempo {TempoName(v.tempo)} x{v.tempoRatio:0.00}");
+        return v;
+    }
+
+    static string TempoName(TempoRating t) => t == TempoRating.TooSlow ? "too_slow" : t == TempoRating.TooFast ? "too_fast" : "on_tempo";
+
+    // ------------------------------------------------------------------ Tempo ladder (rules 2, 4, 5, 14)
+
+    enum Next { StepUp, Done, Repeat, StepDown, Help, SetAside }
+
+    void SetStep(int step)
     {
         TempoStep = Mathf.Clamp(step, 0, Steps.Count - 1);
-        CleanStreak = 0;
         StepFails = 0;
         OnTempoChanged?.Invoke(TempoPct, TempoStep + 1);
     }
 
-    // Moves along the ladder after a run. needed = clean runs in a row to pass the step.
-    Step Climb(bool clean, int needed)
-    {
-        if (clean)
-        {
-            StepFails = 0;
-            if (++CleanStreak < needed) return Step.StreakGoing;
-            CleanStreak = 0;
-            if (AtTopStep) return Step.Passed;
-            TempoStep++;
-            OnTempoChanged?.Invoke(TempoPct, TempoStep + 1);
-            return Step.StepUp;
-        }
-
-        CleanStreak = 0;
-        StepFails++;
-        if (TempoStep > 0 && StepFails >= Mathf.Max(1, Cfg.dropStepAfterFails))
-        {
-            TempoStep--;
-            StepFails = 0;
-            Stats.tempoDrops++;
-            OnTempoChanged?.Invoke(TempoPct, TempoStep + 1);
-            return Step.StepDown;
-        }
-        return Step.Retry;
-    }
-
-    // Whether a run is clean, and which bars had a problem. Skipped bars never count.
-    class Verdict
-    {
-        public bool clean;
-        public bool atTop;         // the run was at the top step, so timing counted
-        public float accuracy = 1f;
-        public int slips;
-        public bool hesitated;
-        public bool timingFailed;
-        public List<int> problemBars = new List<int>();
-        public List<int> offBeatBars = new List<int>();
-    }
-
-    Verdict Judge(EvaluationResult r)
+    // What follows a run on the ladder. jump: repairs go slow -> song tempo, and back to slow when they step down.
+    Next Ladder(bool passed, string key, bool jump)
     {
         var cfg = Cfg;
-        var v = new Verdict { atTop = AtTopStep };
-        int limit = cfg.HesitationLimitMs(TempoPct);
-        int notes = 0, hits = 0;
-        foreach (var b in r.bars)
+        if (passed)
         {
-            if (skipped.Contains(b.barNumber)) continue;
-            int n = expected.Count(e => e.bar == b.barNumber);
-            int barHits = Mathf.RoundToInt(b.score * n);
-            int slips = Mathf.Max(n - barHits, b.wrongNotes.Count); // a wrong key instead of the right one is one slip
-            bool hesitated = b.hesitations.Any(h => h.ms > limit);
-            bool offBeat = AtTopStep && barHits > 0 && b.timingScore < cfg.timingThreshold;
-            if (slips > 0 || hesitated || offBeat) v.problemBars.Add(b.barNumber);
-            if (offBeat) v.offBeatBars.Add(b.barNumber);
-            notes += n;
-            hits += barHits;
-            v.slips += slips;
-            v.hesitated |= hesitated;
+            StepFails = 0;
+            if (AtTopStep) return Next.Done;
+            SetStep(jump ? TopStep : TempoStep + 1);
+            return Next.StepUp;
         }
-        v.accuracy = notes == 0 ? 1f : (float)hits / notes;
-        v.timingFailed = AtTopStep && r.timingScore < cfg.timingThreshold;
-        // "95%, max 1 slip": one slip is always forgiven, so a short chunk does not have to be perfect. A drilled bar
-        // is a few notes looped on purpose, so it has to be exact (drillMaxSlips).
-        bool notesOk = State == CurriculumState.SongDrill ? v.slips <= cfg.drillMaxSlips
-                     : v.accuracy >= cfg.accuracyThreshold || v.slips <= cfg.maxSlips;
-        v.clean = notesOk && !v.hesitated && !v.timingFailed;
-        if (v.clean) v.problemBars.Clear();
-        return v;
+
+        failsByKey.TryGetValue(key, out int fails);
+        failsByKey[key] = ++fails;
+        if (cfg.skipAfterFails > 0 && fails >= cfg.skipAfterFails) return Next.SetAside;
+
+        StepFails++;
+        int limit = Mathf.Max(1, cfg.stepDownAfterFails);
+        if (TempoStep > 0)
+        {
+            if (StepFails < limit) return Next.Repeat;
+            SetStep(jump ? 0 : TempoStep - 1);
+            Stats.tempoDrops++;
+            return Next.StepDown;
+        }
+        return StepFails % limit == 0 ? Next.Help : Next.Repeat; // help again every few fails at the slow step
+    }
+
+    // Words and trigger for staying on the same thing after a run. what: "measure 3", "the scale".
+    void TellLadder(Next next, CoachTrigger repeatTrigger, SongData song, string what, EvaluationResult r, RunRating v, CurriculumInfo info)
+    {
+        CoachTrigger trigger;
+        switch (next)
+        {
+            case Next.StepUp:
+                trigger = CoachTrigger.TempoUp;
+                info.nextStep = $"They play {what} again at {Speed()}.";
+                break;
+            case Next.StepDown:
+                trigger = CoachTrigger.TempoDown;
+                info.escalation = "slower";
+                info.nextStep = $"They slow down and play {what} again at {Speed()}.";
+                break;
+            case Next.Help:
+                trigger = CoachTrigger.Help;
+                info.escalation = "help";
+                info.nextStep = "They try again after the coach shows them how.";
+                break;
+            default:
+                trigger = repeatTrigger;
+                info.nextStep = $"They play {what} again at {Speed()}.";
+                break;
+        }
+        Tell(trigger, song, CurrentRange, r, v, info, Key(runBars));
+        if (next == Next.Help) NextRunWithHelp();
+        else NextRun();
     }
 
     string Speed() => SpeedName(TempoStep);
     string SpeedName(int step) => step >= Steps.Count - 1 ? "full speed" : step <= 0 ? "a slow speed" : "a medium speed";
 
-    // The bar to drill when no single bar was flagged (say timing failed overall): the lowest scoring one.
-    int WorstBar(EvaluationResult r) => r.bars.Where(b => !skipped.Contains(b.barNumber))
-        .OrderBy(b => b.score).ThenBy(b => b.timingScore).Select(b => b.barNumber).FirstOrDefault();
-
     // ------------------------------------------------------------------ Warm-up
 
     void EnterWarmupDemo()
     {
+        CurrentRange = new BarRange(1, Warmup.BarCount);
         SetState(CurriculumState.WarmupDemo);
-        AfterCoach(() => PlayDemo(Warmup, new BarRange(1, Warmup.BarCount), TempoPct, () => EnterWarmupPlay(false)));
+        AfterCoach(() => PlayDemo(Warmup, CurrentRange, TempoPct, EnterWarmupPlay));
     }
 
-    void EnterWarmupPlay(bool waitForCoach = true)
+    void EnterWarmupPlay()
     {
+        CurrentRange = new BarRange(1, Warmup.BarCount);
         SetState(CurriculumState.WarmupPlay);
-        var bars = new BarRange(1, Warmup.BarCount);
-        if (waitForCoach) AfterCoach(() => BeginRun(Warmup, bars));
-        else BeginRun(Warmup, bars);
+        BeginRun(Warmup, CurrentRange);
     }
 
     void EvaluateWarmup()
     {
-        SetState(CurriculumState.WarmupEvaluate);
-        var cfg = Cfg;
         var r = Evaluate();
-        var v = Judge(r);
-        var range = new BarRange(1, Warmup.BarCount);
+        var v = Rate(r, runBars, false);
         warmupAttempts++;
+        attempt = warmupAttempts;
         Stats.warmupAttempts = warmupAttempts;
-        if (!v.clean) warmupFails++;
+        var info = Info("warmup", v);
 
-        var step = Climb(v.clean, cfg.CleanStreak);
-        bool replayDemo = !v.clean && cfg.warmupDemoReplayAfterFails > 0 && warmupFails % cfg.warmupDemoReplayAfterFails == 0;
-
-        var info = Info("warmup", v, r);
-        info.attempt = warmupAttempts;
-        string again = replayDemo ? "The app plays the scale for them again, then they" : "They";
-        switch (step)
+        var next = Ladder(v.passed, "warmup", false);
+        if (next == Next.Done || next == Next.SetAside)
         {
-            case Step.Passed:
+            // The song starts at the slow step; say so to the coach now.
+            SetStep(0);
+            if (next == Next.Done)
+            {
                 info.nextStep = "The warm-up is done. Next the app introduces the song.";
-                Tell(CoachTrigger.WarmupResult, Warmup, range, r, v, info, "warmup");
-                EnterSongIntro();
-                return;
-            case Step.StepUp:
-                info.nextStep = $"They play the scale again at {Speed()}.";
-                Tell(CoachTrigger.TempoUp, Warmup, range, r, v, info, "warmup");
-                break;
-            case Step.StreakGoing:
-                info.nextStep = $"One more clean scale at {Speed()} before going on.";
-                Tell(CoachTrigger.RunFinished, Warmup, range, r, v, info, "warmup");
-                break;
-            case Step.StepDown:
-                info.nextStep = $"{again} play the scale at {Speed()} for a while.";
-                Tell(CoachTrigger.TempoDown, Warmup, range, r, v, info, "warmup");
-                break;
-            default:
-                info.nextStep = $"{again} play the scale again at {Speed()}.";
-                Tell(CoachTrigger.WarmupResult, Warmup, range, r, v, info, "warmup");
-                break;
+                Tell(CoachTrigger.WarmupResult, Warmup, runBars, r, v, info, Key(runBars));
+            }
+            else
+            {
+                info.escalation = "set_aside";
+                info.nextStep = "The warm-up is set aside for now. Next the app introduces the song.";
+                Debug.Log("[Lesson] Warm-up set aside after too many failed runs.");
+                Tell(CoachTrigger.SetAside, Warmup, runBars, r, v, info, Key(runBars));
+            }
+            EnterSongIntro();
+            return;
         }
-
-        if (replayDemo) EnterWarmupDemo();
-        else EnterWarmupPlay();
+        TellLadder(next, CoachTrigger.WarmupResult, Warmup, "the scale", r, v, info);
     }
 
     // ------------------------------------------------------------------ Song
@@ -430,205 +580,310 @@ public class CurriculumEngine : MonoBehaviour
     {
         SetState(CurriculumState.SongIntro);
         OnSongIntro?.Invoke(Song);
+        Measure = 1;
+        CurrentRange = new BarRange(1, 1);
+        SetStep(0);
 
-        var info = Info("song", null, null);
-        info.nextStep = $"They start with bar {chunks[0].First}, then add one bar at a time, {Cfg.phraseLength} bars per phrase. " +
-                        "Each group of bars starts slow and speeds up once it is clean.";
-        Tell(CoachTrigger.LessonStart, Song, chunks[0], null, null, info, null); // the bars they are about to play
-
-        AfterCoach(() => StartChunk(0));
+        var info = Info("", null);
+        info.nextStep = "They learn the piece one measure at a time, each one slow first, then faster, and join it to the measures before it. " +
+                        "First they play measure 1 on its own at a slow speed.";
+        Tell(CoachTrigger.LessonStart, Song, CurrentRange, null, null, info, null);
+        AfterCoach(() => StartMeasure(1));
     }
 
-    void StartChunk(int index, int tempoStep = 0)
+    void StartMeasure(int n)
     {
-        ChunkIndex = index;
-        DrillBar = 0;
-        chunkFails = 0;
-        ResetLadder(tempoStep);
-        SetState(CurriculumState.SongChain);
-        OnChunkStarted?.Invoke(CurrentChunk);
-        AfterCoach(() => BeginRun(Song, CurrentChunk));
+        SetupMeasure(n);
+        BeginRun(Song, CurrentRange);
     }
 
-    void EvaluateChunk()
+    // The Setup methods get the next run ready without starting it, so Tell can describe it. Step 1:
+    void SetupMeasure(int n)
+    {
+        Measure = n;
+        CurrentRange = new BarRange(n, n);
+        CurrentBlock = default;
+        LeadInFirstBar = 0;
+        BlockIndex = -1;
+        attempt = 0;
+        SetStep(0);
+        SetState(CurriculumState.SongLearn);
+        OnMeasureStarted?.Invoke(n);
+    }
+
+    // Step 2. fresh: coming from Step 1, not back from repairs.
+    void SetupPlayThrough(bool fresh)
+    {
+        if (fresh)
+        {
+            playThroughAttempts = 0;
+            shakyPlayThroughs = 0;
+        }
+        attempt = playThroughAttempts;
+        CurrentRange = new BarRange(1, Measure);
+        CurrentBlock = default;
+        LeadInFirstBar = 0;
+        BlockIndex = -1;
+        SetStep(TopStep);
+        SetState(CurriculumState.SongPlayThrough);
+        OnPlayThroughStarted?.Invoke(CurrentRange);
+    }
+
+    // Step 3, rule 13: the lead-in is the (up to) two measures before the block, if either was Shaky in the play-through.
+    void SetupBlock(int index)
+    {
+        BlockIndex = index;
+        var block = blocks[index];
+        CurrentBlock = block;
+        LeadInFirstBar = 0;
+        int first = block.First;
+        for (int bar = block.First - 1; bar >= 1 && block.First - bar <= Mathf.Max(0, Cfg.leadInMeasures) && !skipped.Contains(bar); bar--)
+            first = bar;
+        bool shakyBefore = false;
+        for (int bar = first; bar < block.First; bar++)
+            shakyBefore |= playThroughRatings.TryGetValue(bar, out string rating) && rating == "shaky";
+        if (shakyBefore) LeadInFirstBar = first;
+        CurrentRange = new BarRange(LeadInFirstBar > 0 ? LeadInFirstBar : block.First, block.Last);
+        attempt = 0;
+        SetStep(0);
+        SetState(CurriculumState.SongRepair);
+        OnRepairStarted?.Invoke(CurrentRange, block);
+    }
+
+    void EvaluateLearn()
+    {
+        var r = Evaluate();
+        var v = Rate(r, runBars, true);
+        Stats.runs++;
+        attempt++;
+        int n = Measure;
+        var info = Info("learn", v);
+
+        var next = Ladder(v.passed, "m" + n, false);
+        switch (next)
+        {
+            case Next.Done:
+                Stats.measuresLearned++;
+                FinishMeasure(CoachTrigger.MeasureLearned, $"Measure {n} is learned.", r, v, info);
+                return;
+            case Next.SetAside:
+                SetAside(runBars);
+                info.escalation = "set_aside";
+                info.skippedBars = skipped.ToList();
+                FinishMeasure(CoachTrigger.SetAside, $"Measure {n} is set aside for now and no longer judged.", r, v, info);
+                return;
+        }
+        TellLadder(next, CoachTrigger.RunFinished, Song, $"measure {n}", r, v, info);
+    }
+
+    // Rule 3: measure N is done (learned or set aside). Measure 1 has nothing to join, so it goes straight to Step 4.
+    void FinishMeasure(CoachTrigger trigger, string done, EvaluationResult r, RunRating v, CurriculumInfo info)
+    {
+        if (Measure <= 1)
+        {
+            Advance(trigger, done, r, v, info);
+            return;
+        }
+        SetupPlayThrough(true);
+        info.nextStep = $"{done} Next they play {Measures(CurrentRange)} at full speed.";
+        Tell(trigger, Song, CurrentRange, r, v, info, Key(runBars));
+        NextRun();
+    }
+
+    void EvaluatePlayThrough()
     {
         var cfg = Cfg;
-        var chunk = CurrentChunk;
         var r = Evaluate();
-        var v = Judge(r);
+        var v = Rate(r, runBars, true);
         Stats.runs++;
-        chunkAttempts.TryGetValue(ChunkIndex, out int attempts);
-        chunkAttempts[ChunkIndex] = ++attempts;
-        bool isFinal = ChunkIndex == chunks.Count - 1;
-        if (isFinal) Stats.finalRunAccuracy = r.overallScore * 100f;
+        Stats.playThroughs++;
+        Stats.finalRunAccuracy = v.accuracy * 100f;
+        attempt = ++playThroughAttempts;
+        playThroughRatings = new Dictionary<int, string>(v.ratings);
+        var range = runBars;
+        var info = Info("play_through", v);
 
-        // Too many misses on this chunk, at whatever steps: drill its worst bar, so a bar that only breaks at full
-        // speed cannot bounce between the top steps forever.
-        if (!v.clean && ++chunkFails >= Mathf.Max(1, cfg.drillAfterTotalFails))
+        if (v.passed)
         {
-            int bar = v.problemBars.Count > 0 ? v.problemBars[0] : WorstBar(r);
-            if (bar > 0)
-            {
-                drillReturnStep = Mathf.Max(0, TempoStep - 1);
-                CleanStreak = StepFails = 0;
-                var drillInfo = Info("song", v, r);
-                drillInfo.attempt = attempts;
-                drillInfo.drillBar = bar;
-                drillInfo.nextStep = $"The app loops bar {bar} on its own until it is clean at full speed, then they play {Bars(chunk)} again at {SpeedName(drillReturnStep)}.";
-                Tell(CoachTrigger.ChunkFailed, Song, chunk, r, v, drillInfo, Key(chunk));
-                EnterDrill(bar);
-                return;
-            }
-        }
-
-        var step = Climb(v.clean, cfg.CleanStreak);
-        var info = Info("song", v, r);
-        info.attempt = attempts;
-
-        switch (step)
-        {
-            case Step.Passed:
-                Stats.chunksPassed++;
-                if (attempts == cfg.CleanStreak * Steps.Count) Stats.chunksPassedFirstTry++; // never missed a run
-                info.nextStep = isFinal ? "That was the whole piece. The lesson is complete."
-                              : ChunkIndex + 1 == chunks.Count - 1 ? $"Next they play the whole piece, bars {chunks[ChunkIndex + 1]}, starting slow."
-                              : $"Next they play {Bars(chunks[ChunkIndex + 1])}, starting slow.";
-                if (isFinal) EnterSongComplete(r);
-                else
-                {
-                    Tell(CoachTrigger.ChunkPassed, Song, chunk, r, v, info, Key(chunk));
-                    StartChunk(ChunkIndex + 1);
-                }
-                return;
-
-            case Step.StepUp:
-                info.nextStep = $"They play {Bars(chunk)} again at {Speed()}.";
-                Tell(CoachTrigger.TempoUp, Song, chunk, r, v, info, Key(chunk));
-                break;
-
-            case Step.StreakGoing:
-                info.nextStep = $"One more clean run of {Bars(chunk)} at {Speed()} before speeding up.";
-                if (AtTopStep) info.nextStep = $"One more clean run of {Bars(chunk)} at full speed and these bars are done.";
-                Tell(CoachTrigger.RunFinished, Song, chunk, r, v, info, Key(chunk));
-                break;
-
-            case Step.StepDown:
-                info.nextStep = $"The app slows {Bars(chunk)} back down to {Speed()} for now.";
-                Tell(CoachTrigger.TempoDown, Song, chunk, r, v, info, Key(chunk));
-                break;
-
-            default:
-                info.nextStep = $"They play {Bars(chunk)} again at {Speed()}.";
-                Tell(CoachTrigger.RunFinished, Song, chunk, r, v, info, Key(chunk));
-                break;
-        }
-        AfterCoach(() => BeginRun(Song, chunk));
-    }
-
-    void EnterDrill(int bar)
-    {
-        DrillBar = bar;
-        DrillFails = 0;
-        ResetLadder();
-        trends.Remove(Key(new BarRange(bar, bar)));
-        if (!Stats.drilledBars.Contains(bar)) Stats.drilledBars.Add(bar);
-        SetState(CurriculumState.SongDrill);
-        OnDrillStarted?.Invoke(bar);
-        AfterCoach(() => BeginRun(Song, new BarRange(bar, bar)));
-    }
-
-    void EvaluateDrill()
-    {
-        var cfg = Cfg;
-        var range = new BarRange(DrillBar, DrillBar);
-        var r = Evaluate();
-        var v = Judge(r);
-        Stats.runs++;
-        int attempt = DrillFails + 1;
-        if (!v.clean) DrillFails++;
-
-        int needed = AtTopStep ? Mathf.Max(cfg.CleanStreak, cfg.drillPassCount) : cfg.CleanStreak;
-        var step = Climb(v.clean, needed);
-        var info = Info("song", v, r);
-        info.attempt = attempt;
-        info.drillBar = DrillBar;
-
-        switch (step)
-        {
-            case Step.Passed:
-                // Back to the chunk one step below where it broke, not all the way down.
-                info.nextStep = $"Bar {DrillBar} is fixed. They go back to {Bars(CurrentChunk)} at {SpeedName(drillReturnStep)}.";
-                Tell(CoachTrigger.DrillPassed, Song, range, r, v, info, Key(range));
-                StartChunk(ChunkIndex, drillReturnStep);
-                return;
-            case Step.StepUp:
-                info.nextStep = $"They play bar {DrillBar} again at {Speed()}.";
-                Tell(CoachTrigger.TempoUp, Song, range, r, v, info, Key(range));
-                AfterCoach(() => BeginRun(Song, range));
-                return;
-            case Step.StreakGoing:
-                info.nextStep = $"One more clean bar {DrillBar} at {Speed()}.";
-                Tell(CoachTrigger.RunFinished, Song, range, r, v, info, Key(range));
-                AfterCoach(() => BeginRun(Song, range));
-                return;
-        }
-
-        if (DrillFails >= cfg.drillSkipAfterFails)
-        {
-            skipped.Add(DrillBar);
-            Stats.skippedBars = skipped.ToList();
-            info.escalation = "skip";
-            info.skippedBars = skipped.ToList();
-            info.nextStep = $"Bar {DrillBar} is set aside for later. They go back to {Bars(CurrentChunk)} and that bar no longer has to be perfect.";
-            Tell(CoachTrigger.DrillSkipped, Song, range, r, v, info, Key(range));
-            StartChunk(ChunkIndex);
+            if (attempt == 1) Stats.playThroughsPassedFirstTry++;
+            shakyPlayThroughs = 0;
+            Advance(CoachTrigger.PlayThroughPassed, $"{Cap(Measures(range))} {IsAre(range)} solid.", r, v, info);
             return;
         }
 
-        bool demo = DrillFails == cfg.drillDemoAfterFails;
-        bool slower = step == Step.StepDown;
-        info.escalation = demo ? "demo" : slower ? "slower" : "";
-        string then = slower ? $"they try it again at {Speed()}" : "they try it again";
-        info.nextStep = demo ? $"The app plays bar {DrillBar} for them, then {then}."
-                      : slower ? $"The app slows bar {DrillBar} back down to {Speed()} and they try it again."
-                      : $"They try bar {DrillBar} again at {Speed()}.";
-        Tell(slower ? CoachTrigger.TempoDown : CoachTrigger.DrillStart, Song, range, r, v, info, Key(range));
-
-        // The coach may already have played it while explaining.
-        if (demo) AfterCoach(() =>
+        if (v.problem.Count > 0)
         {
-            if (RecentlyDemoed(range)) BeginRun(Song, range);
-            else PlayDemo(Song, range, TempoPct, () => BeginRun(Song, range));
-        });
-        else AfterCoach(() => BeginRun(Song, range));
+            StartRepair(v.problem, r, v, info);
+            return;
+        }
+
+        shakyPlayThroughs++;
+        if (shakyPlayThroughs >= Mathf.Max(1, cfg.shakyPlayThroughsBeforeRepair) && v.shaky.Count > 0)
+        {
+            StartRepair(v.shaky, r, v, info);
+            return;
+        }
+
+        // Off tempo with clean notes, or not yet enough shaky play-throughs: the coach asks for the one fix.
+        info.nextStep = $"They play {Measures(range)} again at full speed.";
+        Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, Key(runBars));
+        NextRun();
     }
 
-    void EnterSongComplete(EvaluationResult final)
+    // Rules 11-12: neighbouring bars form one block, earliest first.
+    void StartRepair(List<int> bars, EvaluationResult r, RunRating v, CurriculumInfo info)
+    {
+        blocks.Clear();
+        foreach (int bar in bars.Distinct().OrderBy(b => b))
+        {
+            if (blocks.Count > 0 && blocks[blocks.Count - 1].Last == bar - 1)
+                blocks[blocks.Count - 1] = new BarRange(blocks[blocks.Count - 1].First, bar);
+            else blocks.Add(new BarRange(bar, bar));
+        }
+        blocks.RemoveAll(b => Enumerable.Range(b.First, b.Last - b.First + 1).All(skipped.Contains));
+        if (blocks.Count == 0)
+        {
+            info.nextStep = $"They play {Measures(CurrentRange)} again at full speed.";
+            Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, Key(runBars));
+            NextRun();
+            return;
+        }
+
+        SetupBlock(0);
+        FillBlock(info);
+        string need = string.Join(" and ", blocks.Select(b => Measures(b)));
+        bool one = blocks.Count == 1 && blocks[0].First == blocks[0].Last;
+        info.nextStep = $"{Cap(need)} {(one ? "needs" : "need")} work" +
+                        (blocks.Count > 1 ? $", one at a time, starting with {Measures(blocks[0])}. " : ". ") + BlockPlan();
+        Debug.Log($"[Lesson] Repair blocks: {string.Join(", ", blocks.Select(b => "[" + b + "]"))}");
+        Tell(CoachTrigger.RepairStart, Song, CurrentRange, r, v, info, Key(runBars));
+        NextRun();
+    }
+
+    // The next repair run in words: "They play measures 3 to 5 at a slow speed; 3 and 4 lead in and are not judged."
+    string BlockPlan()
+    {
+        var block = CurrentBlock;
+        if (LeadInFirstBar <= 0)
+            return $"They play {Measures(block)} {(block.First == block.Last ? "on its own" : "on their own")} at {Speed()}.";
+        int leadLast = block.First - 1;
+        string lead = LeadInFirstBar == leadLast ? $"{leadLast} leads in and is not judged" : $"{LeadInFirstBar} and {leadLast} lead in and are not judged";
+        if (leadLast - LeadInFirstBar > 1) lead = $"{LeadInFirstBar} to {leadLast} lead in and are not judged";
+        return $"They play {Measures(CurrentRange)} at {Speed()}; {lead}.";
+    }
+
+    void EvaluateRepair()
+    {
+        var r = Evaluate();
+        var block = CurrentBlock;
+        var v = Rate(r, block, true); // rule 15: lead-in measures are not judged
+        Stats.runs++;
+        attempt++;
+        var info = Info("repair", v);
+
+        var next = Ladder(v.passed, $"b{block.First}-{block.Last}", true);
+        switch (next)
+        {
+            case Next.Done:
+                Stats.repairedBlocks.Add(block.ToString());
+                NextBlock(CoachTrigger.BlockFixed, $"{Cap(Measures(block))} {IsAre(block)} fixed.", r, v, info);
+                return;
+            case Next.SetAside:
+                SetAside(block);
+                info.escalation = "set_aside";
+                info.skippedBars = skipped.ToList();
+                NextBlock(CoachTrigger.SetAside, $"{Cap(Measures(block))} {IsAre(block)} set aside for now and no longer judged.", r, v, info);
+                return;
+        }
+        TellLadder(next, CoachTrigger.RunFinished, Song, Measures(CurrentRange), r, v, info);
+    }
+
+    // Rule 17: after the last block, back to the full play-through.
+    void NextBlock(CoachTrigger trigger, string done, EvaluationResult r, RunRating v, CurriculumInfo info)
+    {
+        int index = BlockIndex + 1;
+        while (index < blocks.Count && Enumerable.Range(blocks[index].First, blocks[index].Last - blocks[index].First + 1).All(skipped.Contains))
+            index++;
+        if (index < blocks.Count)
+        {
+            SetupBlock(index);
+            info.nextStep = $"{done} Next they repair {Measures(CurrentBlock)}. {BlockPlan()}";
+        }
+        else
+        {
+            shakyPlayThroughs = 0;
+            SetupPlayThrough(false);
+            info.nextStep = $"{done} All repairs are done. They play {Measures(CurrentRange)} at full speed again.";
+        }
+        Tell(trigger, Song, CurrentRange, r, v, info, Key(runBars));
+        NextRun();
+    }
+
+    // Step 4: add the next measure, or the piece is complete.
+    void Advance(CoachTrigger trigger, string done, EvaluationResult r, RunRating v, CurriculumInfo info)
+    {
+        int n = Measure;
+        if (n >= MeasureCount)
+        {
+            EnterSongComplete(r, v, info);
+            return;
+        }
+        SetupMeasure(n + 1);
+        info.nextStep = $"{done} Next they learn measure {n + 1} on its own, starting slow.";
+        Tell(trigger, Song, CurrentRange, r, v, info, Key(runBars));
+        NextRun();
+    }
+
+    void EnterSongComplete(EvaluationResult final, RunRating v, CurriculumInfo info)
     {
         SetState(CurriculumState.SongComplete);
         Stats.minutes = (Time.time - startedAt) / 60f;
         Stats.skippedBars = skipped.ToList();
+        if (Stats.playThroughs == 0) Stats.finalRunAccuracy = v.accuracy * 100f; // a one-measure lesson has no play-through
 
-        var v = Judge(final);
-        var info = Info("song", v, final);
         info.stats = Stats;
-        info.nextStep = "The lesson is over.";
-        Tell(CoachTrigger.SongComplete, Song, new BarRange(1, Song.BarCount), final, v, info, null);
-        Debug.Log($"[Lesson] Complete: {Stats.runs} runs, drilled [{string.Join(",", Stats.drilledBars)}], skipped [{string.Join(",", Stats.skippedBars)}], " +
-                  $"{Stats.tempoDrops} tempo drops, {Stats.minutes:0.0} min.");
+        info.nextStep = "That was the whole piece. The lesson is over.";
+        Tell(CoachTrigger.SongComplete, Song, new BarRange(1, MeasureCount), final, v, info, null);
+        Debug.Log($"[Lesson] Complete: {Stats.runs} runs, {Stats.measuresLearned} measures learned, {Stats.playThroughs} play-throughs " +
+                  $"({Stats.playThroughsPassedFirstTry} first try), repaired [{string.Join(", ", Stats.repairedBlocks)}], " +
+                  $"set aside [{string.Join(",", Stats.skippedBars)}], {Stats.tempoDrops} tempo drops, {Stats.minutes:0.0} min.");
     }
 
-    // [1], [1-2], [1-3], [1-4], [5], [5-6], ... then the whole piece when it has more than one phrase.
-    void BuildChunks(int bars, int phrase)
+    // Escape hatch: no longer judged for the rest of the lesson.
+    void SetAside(BarRange bars)
     {
-        chunks.Clear();
-        for (int start = 1; start <= bars; start += phrase)
-            for (int end = start; end <= Mathf.Min(start + phrase - 1, bars); end++)
-                chunks.Add(new BarRange(start, end));
-        if (bars > phrase) chunks.Add(new BarRange(1, bars));
+        for (int bar = bars.First; bar <= bars.Last; bar++) skipped.Add(bar);
+        Stats.skippedBars = skipped.ToList();
+        Debug.Log($"[Lesson] Set aside {Measures(bars)} after {Cfg.skipAfterFails} failed runs.");
     }
 
     // ------------------------------------------------------------------ Runs
+
+    void NextRun()
+    {
+        var song = CurrentSong;
+        AfterCoach(() => BeginRun(song, CurrentRange));
+    }
+
+    // Rule 5 at the slow step: the coach was asked for help. If it neither played a demo nor showed the fingering
+    // (or could not be asked), the app plays the demo itself.
+    void NextRunWithHelp()
+    {
+        var song = CurrentSong;
+        helpWaiting = true;
+        helpGiven = false;
+        AfterCoach(() =>
+        {
+            helpWaiting = false;
+            var range = CurrentRange;
+            if (helpGiven || RecentlyDemoed(range)) BeginRun(song, range);
+            else
+            {
+                Debug.Log($"[Lesson] The coach gave no help, playing {Measures(range)} for them.");
+                PlayDemo(song, range, TempoPct, () => BeginRun(song, range));
+            }
+        });
+    }
 
     void BeginRun(SongData song, BarRange bars)
     {
@@ -641,6 +896,9 @@ public class CurriculumEngine : MonoBehaviour
         dueIndex = 0;
         runStep = TempoStep;
         runEnd = expected.Count > 0 ? expected[expected.Count - 1].time + cfg.matchWindowMs / 1000.0 + 0.2 : 0;
+        lastCorrectTime = expected.Count > 0 ? expected[0].time : 0;
+        lastCorrectIndex = -1;
+        stallHinted = false;
 
         // Count-in: countInBeats clicks on the beats before the first note, then (at slow steps) a click on every beat.
         // The clicks sit on whole beats of the song, so a first note off the beat still gets an in-time count.
@@ -661,8 +919,9 @@ public class CurriculumEngine : MonoBehaviour
             song = song, bars = bars, tempoPct = TempoPct, secondsPerBeat = spb,
             startTime = runStart, notes = expected,
         };
-        Debug.Log($"[Lesson] {State}: play {Bars(bars)} of {song.name} ({expected.Count} notes) at {TempoPct}%, step {TempoStep + 1}/{Steps.Count}, " +
-                  $"clean streak {CleanStreak}.");
+        Debug.Log($"[Lesson] {State}: play {Measures(bars)} of {song.name} ({expected.Count} notes) at {TempoPct}%, step {TempoStep + 1}/{Steps.Count}" +
+                  (State == CurriculumState.SongRepair ? $", judging block {CurrentBlock}" : "") +
+                  (StepFails > 0 ? $", {StepFails} failed in a row" : "") + ".");
         OnRunStarted?.Invoke(CurrentRun);
     }
 
@@ -682,7 +941,28 @@ public class CurriculumEngine : MonoBehaviour
             dueIndex++; // not inside Invoke: ?. skips its arguments when nobody listens
             OnNextNote?.Invoke(note);
         }
+        CheckStuck(t);
         if (t >= runEnd) EndRun();
+    }
+
+    // No correct key for longer than the pause limit while a note is waiting: say how to find it, without the model.
+    void CheckStuck(double t)
+    {
+        if (!sendToCoach || coach == null || stallHinted || expected.Count == 0) return;
+        if (Time.unscaledTime - lastHintAt < Cfg.stuckHintMinIntervalSeconds) return;
+        int next = -1;
+        for (int i = lastCorrectIndex + 1; i < expected.Count && expected[i].time <= t; i++)
+            if (!claimed[i]) { next = i; break; }
+        if (next < 0) return;
+        var note = expected[next];
+        // Waiting since the later of the last correct key and the moment this note was due.
+        if (t - Math.Max(lastCorrectTime, note.time) <= Cfg.HesitationLimitMs(RunPct) / 1000.0) return;
+
+        string line = CoachFacts.StuckHint(runSong, note.bar, note.midi);
+        if (!coach.SayNow(line)) return; // busy talking: try again next frame
+        stallHinted = true;
+        lastHintAt = Time.unscaledTime;
+        Debug.Log($"[Lesson] Stuck hint: {line}");
     }
 
     void Press(int midi, int velocity, double time)
@@ -701,7 +981,13 @@ public class CurriculumEngine : MonoBehaviour
             if (d < Math.Abs(expected[nearest].time - t)) nearest = i;
             if (!claimed[i] && expected[i].midi == midi && d <= window && (match < 0 || d < Math.Abs(expected[match].time - t))) match = i;
         }
-        if (match >= 0) claimed[match] = true;
+        if (match >= 0)
+        {
+            claimed[match] = true;
+            lastCorrectTime = t;
+            lastCorrectIndex = Math.Max(lastCorrectIndex, match);
+            stallHinted = false;
+        }
         OnNotePlayed?.Invoke(expected[match >= 0 ? match : nearest], midi, match >= 0);
     }
 
@@ -712,8 +998,9 @@ public class CurriculumEngine : MonoBehaviour
         switch (State)
         {
             case CurriculumState.WarmupPlay: EvaluateWarmup(); break;
-            case CurriculumState.SongChain: EvaluateChunk(); break;
-            case CurriculumState.SongDrill: EvaluateDrill(); break;
+            case CurriculumState.SongLearn: EvaluateLearn(); break;
+            case CurriculumState.SongPlayThrough: EvaluatePlayThrough(); break;
+            case CurriculumState.SongRepair: EvaluateRepair(); break;
         }
     }
 
@@ -747,8 +1034,8 @@ public class CurriculumEngine : MonoBehaviour
         r.bars.Sort((a, b) => a.barNumber.CompareTo(b.barNumber));
 
         LastResult = r;
-        Debug.Log($"[Lesson] {Bars(runBars)} at {TempoPct}%: accuracy {r.overallScore:0.00} timing {r.timingScore:0.00} | " +
-                  string.Join("  ", r.bars.Select(b => $"bar {b.barNumber} {b.score:0.00}/{b.timingScore:0.00}" +
+        Debug.Log($"[Lesson] {Measures(runBars)} at {RunPct}%: accuracy {r.overallScore:0.00} tempo x{r.tempoRatio:0.00} timing {r.timingScore:0.00} | " +
+                  string.Join("  ", r.bars.Select(b => $"bar {b.barNumber} {b.score:0.00} miss {b.firstTryMisses} x{b.tempoRatio:0.00}" +
                                                        (b.hesitations.Count > 0 ? $" pause {b.hesitations.Max(h => h.ms)}ms" : ""))));
         OnRunEvaluated?.Invoke(r);
         return r;
@@ -757,8 +1044,8 @@ public class CurriculumEngine : MonoBehaviour
     void EvaluatorError(string what, Exception e = null)
     {
         EvaluatorErrors++;
-        LastEvaluatorError = $"{Bars(runBars)}: {what}";
-        Debug.LogError($"[Lesson] EVALUATOR ERROR on {Bars(runBars)}: {what}. Counting it as clean so the lesson goes on." +
+        LastEvaluatorError = $"{Measures(runBars)}: {what}";
+        Debug.LogError($"[Lesson] EVALUATOR ERROR on {Measures(runBars)}: {what}. Counting it as clean so the lesson goes on." +
                        (e != null ? "\n" + e : ""));
     }
 
@@ -842,6 +1129,7 @@ public class CurriculumEngine : MonoBehaviour
         coachDemoRoutine = null;
         coachDemoResume = null;
         running = false;
+        helpWaiting = false;
         if (demoPlayer != null) demoPlayer.Stop();
         if (metronome != null) metronome.Stop();
         pendingCoach.Clear();
@@ -856,15 +1144,16 @@ public class CurriculumEngine : MonoBehaviour
     void HandleCoachAction(CoachAction a)
     {
         if (State == CurriculumState.Idle || a == null) return;
+        if (helpWaiting && (a.type == CoachActionType.Demo || a.type == CoachActionType.ShowFingering)) helpGiven = true;
         switch (a.type)
         {
             case CoachActionType.Demo:
-                var song = State <= CurriculumState.WarmupEvaluate ? Warmup : Song;
+                var song = CurrentSong;
                 var bars = new BarRange(Mathf.Clamp(a.firstBar, 1, song.BarCount), Mathf.Clamp(a.lastBar, 1, song.BarCount));
                 if (IsDemoPlaying || State == CurriculumState.WarmupDemo) return;
                 if (RecentlyDemoed(bars)) return;
                 if (coachDemoRoutine != null) return;
-                Debug.Log($"[Lesson] Coach asked for a demo of {Bars(bars)}.");
+                Debug.Log($"[Lesson] Coach asked for a demo of {Measures(bars)}.");
                 bool resume = running;
                 running = false;
                 OnNextNote?.Invoke(null);
@@ -885,34 +1174,45 @@ public class CurriculumEngine : MonoBehaviour
         }
     }
 
-    CurriculumInfo Info(string stage, Verdict v, EvaluationResult r)
+    // What was just played. step: "warmup", "learn", "play_through", "repair" ("" = nothing yet).
+    CurriculumInfo Info(string step, RunRating v)
     {
         var info = new CurriculumInfo
         {
-            stage = stage,
-            passed = v != null && v.clean,
-            clean = v != null && v.clean,
-            cleanStreak = CleanStreak,
-            cleanNeeded = Cfg.CleanStreak,
-            chunkCount = chunks.Count,
+            stage = step == "warmup" ? "warmup" : "song",
+            step = step,
+            passed = v != null && v.passed,
+            measure = Measure,
+            measureCount = MeasureCount,
+            attempt = attempt,
             skippedBars = skipped.ToList(),
         };
-        if (stage == "song" && ChunkIndex >= 0)
+        if (v != null)
         {
-            info.chunkFirstBar = CurrentChunk.First;
-            info.chunkLastBar = CurrentChunk.Last;
-            info.chunkNumber = ChunkIndex + 1;
+            info.shakyBars = new List<int>(v.shaky);
+            info.problemBars = new List<int>(v.problem);
         }
-        if (v != null) info.failedBars = new List<int>(v.problemBars);
+        if (step == "repair") FillBlock(info);
         return info;
     }
 
-    static string Key(BarRange bars) => bars.ToString();
-    static string Bars(BarRange bars) => (bars.First == bars.Last ? "bar " : "bars ") + bars;
+    void FillBlock(CurriculumInfo info)
+    {
+        info.blockFirstBar = CurrentBlock.First;
+        info.blockLastBar = CurrentBlock.Last;
+        info.leadInFirstBar = LeadInFirstBar;
+        info.blockNumber = BlockIndex + 1;
+        info.blockCount = blocks.Count;
+    }
 
-    // Builds the context for one transition and queues it for the coach. Tempo fields describe the step the next run
-    // is at (after any step up or down).
-    void Tell(CoachTrigger trigger, SongData song, BarRange section, EvaluationResult r, Verdict v, CurriculumInfo info, string trendKey)
+    static string Key(BarRange bars) => bars.ToString();
+    static string Measures(BarRange bars) => bars.First == bars.Last ? $"measure {bars.First}" : $"measures {bars.First} to {bars.Last}";
+    static string IsAre(BarRange bars) => bars.First == bars.Last ? "is" : "are";
+    static string Cap(string s) => string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);
+
+    // Builds the context for one transition and queues it for the coach. Call it once the next run is set up:
+    // section and the tempo fields describe the next run, lastRunSpeed the one that just ended.
+    void Tell(CoachTrigger trigger, SongData song, BarRange section, EvaluationResult r, RunRating v, CurriculumInfo info, string trendKey)
     {
         var ctx = new CoachContext
         {
@@ -927,20 +1227,21 @@ public class CurriculumEngine : MonoBehaviour
             nextRunSpeed = Speed(),
             tempoStep = TempoStep + 1,
             tempoStepCount = Steps.Count,
-            timingRequired = AtTopStep, // for the next run
         };
 
         if (r != null)
         {
+            // Only the judged bars: lead-ins and set-aside measures do not count, so the coach does not talk about them.
+            var judged = r.bars.Where(b => v == null || v.ratings.ContainsKey(b.barNumber)).ToList();
             ctx.thisRun = new RunStats
             {
-                accuracy = r.overallScore * 100f,
-                wrongNotes = r.bars.SelectMany(b => b.wrongNotes).ToList(),
-                hesitations = r.bars.SelectMany(b => b.hesitations).ToList(),
+                accuracy = (v != null ? v.accuracy : r.overallScore) * 100f,
+                wrongNotes = judged.SelectMany(b => b.wrongNotes).ToList(),
+                hesitations = judged.SelectMany(b => b.hesitations).ToList(),
                 timing = r.timingScore * 100f,
-                offBeatBars = v != null ? v.offBeatBars : new List<int>(),
-                // Timing only earns praise when it counted for the run that just ended (the top step).
-                timingChecked = v != null && v.atTop && !v.timingFailed,
+                tempoRating = v != null ? TempoName(v.tempo) : null,
+                rushedBars = v != null ? new List<int>(v.rushed) : new List<int>(),
+                draggedBars = v != null ? new List<int>(v.dragged) : new List<int>(),
             };
         }
 
@@ -948,9 +1249,10 @@ public class CurriculumEngine : MonoBehaviour
         if (trendKey != null && r != null)
         {
             if (!trends.TryGetValue(trendKey, out trend)) trends[trendKey] = trend = new List<float>();
-            trend.Add(r.overallScore * 100f);
+            trend.Add(ctx.thisRun.accuracy);
         }
         ctx.history = new LessonHistory { attemptsThisSection = info.attempt, accuracyTrend = new List<float>(trend) };
+        if (r != null) lastRunContext = ctx;
 
         Debug.Log($"[Lesson] -> coach {CoachContext.TriggerName(trigger)}: {info.nextStep}");
         if (!sendToCoach || coach == null) return;

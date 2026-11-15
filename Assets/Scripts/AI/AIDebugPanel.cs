@@ -198,18 +198,32 @@ public class AIDebugPanel : MonoBehaviour
         Print($"Coach ({CoachContext.TriggerName(r.trigger)}): \"{r.say}\"");
     }
 
-    void HandleState(CurriculumState state)
+    void HandleState(CurriculumState state) => Print("Lesson: " + state + " " + Where());
+
+    // Where the lesson is, per COACH_PLAYBOOK.md: learning measure N, play-through 1-N, or repairing a block.
+    string Where()
     {
-        string where = state == CurriculumState.SongChain ? $" bars {engine.CurrentChunk} (chunk {engine.ChunkIndex + 1}/{engine.Chunks.Count})"
-                     : state == CurriculumState.SongDrill ? $" bar {engine.DrillBar}" : "";
-        Print("Lesson: " + state + where);
+        switch (engine.State)
+        {
+            case CurriculumState.SongLearn:
+                return $"learning measure {engine.Measure}/{engine.MeasureCount}";
+            case CurriculumState.SongPlayThrough:
+                return $"play-through {engine.CurrentRange} (measure {engine.Measure}/{engine.MeasureCount})";
+            case CurriculumState.SongRepair:
+                var block = engine.CurrentBlock;
+                string leadIn = engine.CurrentRange.First < block.First ? $"lead-in {new BarRange(engine.CurrentRange.First, block.First - 1)}" : "no lead-in";
+                return $"repairing block {block} ({engine.BlockIndex + 1}/{engine.Blocks.Count}, {leadIn})";
+            default:
+                return "";
+        }
     }
 
     void HandleEvaluated(EvaluationResult r)
     {
         var bars = new List<string>();
-        foreach (var b in r.bars) bars.Add($"{b.barNumber}:{b.score:0.##}/{b.timingScore:0.##}" + (b.hesitations.Count > 0 ? "p" : ""));
-        Print($"  accuracy {r.overallScore:0.##}, timing {r.timingScore:0.##}  [bar:acc/timing {string.Join(" ", bars)}]");
+        foreach (var b in r.bars)
+            bars.Add($"{b.barNumber}:{b.score:0.##}" + (b.firstTryMisses > 0 ? $"x{b.firstTryMisses}" : "") + (b.hesitations.Count > 0 ? "p" : ""));
+        Print($"  accuracy {r.overallScore:0.##}, tempo x{r.tempoRatio:0.##}  [bar:acc(x misses, p pause) {string.Join(" ", bars)}]");
     }
 
     void SimulateRun(bool clean)
@@ -233,12 +247,14 @@ public class AIDebugPanel : MonoBehaviour
     string LessonStatus()
     {
         if (engine.State == CurriculumState.Idle) return "not started";
-        string where = engine.State == CurriculumState.SongChain ? $"chunk {engine.ChunkIndex + 1}/{engine.Chunks.Count}: bars {engine.CurrentChunk}"
-                     : engine.State == CurriculumState.SongDrill ? $"drilling bar {engine.DrillBar} ({engine.DrillFails} misses)"
-                     : engine.State.ToString();
-        if (engine.State == CurriculumState.SongComplete) return where;
-        return $"{where} | tempo {engine.TempoPct}% (step {engine.TempoStep + 1}), clean streak {engine.CleanStreak}" +
-               (engine.StepFails > 0 ? $", {engine.StepFails} miss in a row" : "");
+        string where = Where();
+        if (where.Length == 0) where = engine.State.ToString();
+        string aside = engine.SkippedBars.Count > 0 ? $" | set aside {string.Join(",", engine.SkippedBars)}" : "";
+        if (engine.State == CurriculumState.SongComplete) return where + aside;
+        string last = engine.LastResult == null ? ""
+                    : $" | last run {(engine.LastPassed ? "passed" : "failed")}, {engine.LastTempoRating}";
+        return $"{where} | tempo {engine.TempoPct}% (step {engine.TempoStep + 1}/{engine.TempoStepCount})" +
+               (engine.StepFails > 0 ? $", {engine.StepFails} fail(s) in a row" : "") + last + aside;
     }
 
     async void AskCoach(string question)
@@ -266,6 +282,12 @@ public class AIDebugPanel : MonoBehaviour
     void HandleCommand(VoiceCommand command, string transcript)
     {
         Print($"Voice: {command}  (\"{transcript}\")");
+        // During a lesson the fixed commands are the lesson's (again, how did I do, slower, next song).
+        if (command != VoiceCommand.Unknown && engine.State != CurriculumState.Idle && engine.State != CurriculumState.SongComplete)
+        {
+            engine.HandleVoiceCommand(command, transcript);
+            return;
+        }
         if (command == VoiceCommand.HowDidIDo)
         {
             var ctx = current.Clone();

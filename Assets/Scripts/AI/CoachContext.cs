@@ -10,8 +10,16 @@ using System.Text;
 public enum CoachTrigger
 {
     LessonStart, RunFinished, Stuck, UserAsked,
-    // Curriculum transitions (CurriculumEngine). Progression is decided in code, the coach only words it.
-    WarmupResult, ChunkPassed, ChunkFailed, DrillStart, DrillPassed, DrillSkipped, SongComplete, TempoUp, TempoDown,
+    // Curriculum transitions (CurriculumEngine), per COACH_PLAYBOOK.md. Progression is decided in code, the coach only words it.
+    WarmupResult,      // a warm-up run ended (passed at song tempo = warm-up done)
+    TempoUp, TempoDown,
+    MeasureLearned,    // measure N passed alone at song tempo (Step 1 done)
+    PlayThroughPassed, // 1..N passed at song tempo
+    RepairStart,       // a play-through failed: repair blocks chosen (or a block starts)
+    BlockFixed,
+    SetAside,          // escape hatch: a measure/block failed skipAfterFails times and is no longer judged
+    Help,              // rule 5: 3 fails in a row at the slow step, coach gives help (demo or show_fingering)
+    SongComplete,
 }
 
 [Serializable]
@@ -53,10 +61,10 @@ public class RunStats
     public float accuracy; // 0-100
     public List<WrongNote> wrongNotes = new List<WrongNote>();
     public List<Hesitation> hesitations = new List<Hesitation>();
-    public List<int> rushedBars = new List<int>();
-    public bool timingChecked = true; // false when timing does not count for this run, so it is never praised
-    public float timing = -1f;         // 0-100 timing score, -1 = not measured
-    public List<int> offBeatBars = new List<int>(); // bars whose timing was below the bar, when timing counts
+    public List<int> rushedBars = new List<int>();  // bars played noticeably faster than asked
+    public List<int> draggedBars = new List<int>(); // bars played noticeably slower than asked
+    public string tempoRating;         // "on_tempo", "too_slow", "too_fast"; null = not rated
+    public float timing = -1f;         // 0-100 timing score, -1 = not measured (informational)
 }
 
 [Serializable]
@@ -70,35 +78,35 @@ public class LessonHistory
 [Serializable]
 public class CurriculumInfo
 {
-    public string stage = "song";      // "warmup" or "song"
-    public bool passed;                // the run that just ended
-    public int chunkFirstBar;          // the chunk being built up, 0 = none
-    public int chunkLastBar;
-    public int chunkNumber;            // 1-based
-    public int chunkCount;
-    public int drillBar;               // 0 = not drilling
-    public int attempt;                // tries at the current chunk, drill bar or warm-up, including this one
-    public string escalation = "";     // drill only: "demo", "slower", "skip" or ""
-    public List<int> failedBars = new List<int>();
-    public List<int> skippedBars = new List<int>();
-    public string nextStep = "";       // what the app does next, in plain words
-    public bool clean;                 // the run that just ended was clean
-    public int cleanStreak;            // clean runs in a row at this tempo step so far
-    public int cleanNeeded;            // clean runs in a row needed to pass the step
-    public LessonStats stats;          // song_complete only
+    public string stage = "song";       // "warmup" or "song"
+    public string step = "";            // what was just played: "warmup", "learn", "play_through", "repair"
+    public bool passed;                 // the run that just ended
+    public int measure;                 // N: the measure being learned; play-throughs and repairs are of 1..N
+    public int measureCount;            // measures in the lesson
+    public int blockFirstBar, blockLastBar; // repair only: the judged block, 0 = none
+    public int leadInFirstBar;          // repair only: first lead-in measure, 0 = no lead-in (the block is played alone)
+    public int blockNumber, blockCount; // repair only, 1-based
+    public int attempt;                 // tries at the current measure / play-through / block / warm-up, including this one
+    public string escalation = "";      // "help", "slower", "set_aside" or ""
+    public List<int> shakyBars = new List<int>();
+    public List<int> problemBars = new List<int>();
+    public List<int> skippedBars = new List<int>();   // set aside so far
+    public string nextStep = "";        // what the app does next, in plain words
+    public LessonStats stats;           // song_complete only
 }
 
 [Serializable]
 public class LessonStats
 {
     public int warmupAttempts;
-    public int runs;                   // every chunk and drill run of the song
-    public int chunksPassed;
-    public int chunksPassedFirstTry;
+    public int runs;                    // every song run: learn, play-through and repair
+    public int measuresLearned;
+    public int playThroughs;
+    public int playThroughsPassedFirstTry;
     public int tempoDrops;
-    public List<int> drilledBars = new List<int>();
+    public List<string> repairedBlocks = new List<string>(); // "2", "3-5"
     public List<int> skippedBars = new List<int>();
-    public float finalRunAccuracy;     // 0-100, the last full run
+    public float finalRunAccuracy;      // 0-100, the last full play-through
     public float minutes;
 }
 
@@ -125,7 +133,6 @@ public class CoachContext
     public string nextRunSpeed;        // the same for the next run
     public int tempoStep;              // 1-based step on the tempo ladder, 0 = no ladder
     public int tempoStepCount;
-    public bool timingRequired;        // whether timing counts towards passing this step
     public CoachActionType[] allowedActions; // null = any action; anything else the model picks becomes None
 
     public static string TriggerName(CoachTrigger t)
@@ -136,14 +143,15 @@ public class CoachContext
             case CoachTrigger.Stuck: return "stuck";
             case CoachTrigger.UserAsked: return "user_asked";
             case CoachTrigger.WarmupResult: return "warmup_result";
-            case CoachTrigger.ChunkPassed: return "chunk_passed";
-            case CoachTrigger.ChunkFailed: return "chunk_failed";
-            case CoachTrigger.DrillStart: return "drill_start";
-            case CoachTrigger.DrillPassed: return "drill_passed";
-            case CoachTrigger.DrillSkipped: return "drill_skipped";
-            case CoachTrigger.SongComplete: return "song_complete";
             case CoachTrigger.TempoUp: return "tempo_up";
             case CoachTrigger.TempoDown: return "tempo_down";
+            case CoachTrigger.MeasureLearned: return "measure_learned";
+            case CoachTrigger.PlayThroughPassed: return "play_through_passed";
+            case CoachTrigger.RepairStart: return "repair_start";
+            case CoachTrigger.BlockFixed: return "block_fixed";
+            case CoachTrigger.SetAside: return "set_aside";
+            case CoachTrigger.Help: return "help";
+            case CoachTrigger.SongComplete: return "song_complete";
             default: return "run_finished";
         }
     }
@@ -166,6 +174,7 @@ public class CoachContext
         {
             var r = thisRun ?? new RunStats();
             sb.Append(",\"this_run\":{\"accuracy\":").Append(Number(r.accuracy));
+            if (!string.IsNullOrEmpty(r.tempoRating)) sb.Append(",\"tempo_rating\":").Append(AIHttp.Quote(r.tempoRating));
 
             sb.Append(",\"wrong_notes\":[");
             Join(sb, (r.wrongNotes ?? new List<WrongNote>()).Take(MaxWrongNotes), w =>
@@ -180,14 +189,10 @@ public class CoachContext
 
             sb.Append("],\"rushed_bars\":[");
             Join(sb, r.rushedBars ?? new List<int>(), b => b.ToString());
+            sb.Append("],\"dragged_bars\":[");
+            Join(sb, r.draggedBars ?? new List<int>(), b => b.ToString());
             sb.Append(']');
             if (r.timing >= 0f) sb.Append(",\"timing\":").Append(Number(r.timing));
-            if (r.offBeatBars != null && r.offBeatBars.Count > 0)
-            {
-                sb.Append(",\"off_beat_bars\":[");
-                Join(sb, r.offBeatBars, b => b.ToString());
-                sb.Append(']');
-            }
             sb.Append('}');
         }
 
@@ -213,7 +218,7 @@ public class CoachContext
             sb.Append(",\"tempo\":{");
             if (!string.IsNullOrEmpty(lastRunSpeed)) sb.Append("\"this_run\":").Append(AIHttp.Quote(lastRunSpeed)).Append(',');
             sb.Append("\"next_run\":").Append(AIHttp.Quote(nextRunSpeed ?? "")).Append(",\"step\":").Append(tempoStep)
-              .Append(",\"of\":").Append(tempoStepCount).Append(",\"timing_required\":").Append(timingRequired ? "true" : "false").Append('}');
+              .Append(",\"of\":").Append(tempoStepCount).Append('}');
         }
         if (curriculum != null) AppendCurriculum(sb, curriculum);
         if (allowedActions != null)
@@ -231,31 +236,38 @@ public class CoachContext
     static void AppendCurriculum(StringBuilder sb, CurriculumInfo c)
     {
         sb.Append(",\"curriculum\":{\"stage\":").Append(AIHttp.Quote(c.stage ?? ""));
+        if (!string.IsNullOrEmpty(c.step)) sb.Append(",\"step\":").Append(AIHttp.Quote(c.step));
         sb.Append(",\"passed\":").Append(c.passed ? "true" : "false");
-        if (c.chunkFirstBar > 0)
-            sb.Append(",\"chunk\":{\"bars\":[").Append(c.chunkFirstBar).Append(',').Append(c.chunkLastBar)
-              .Append("],\"number\":").Append(c.chunkNumber).Append(",\"of\":").Append(c.chunkCount).Append('}');
-        if (c.drillBar > 0) sb.Append(",\"drill_bar\":").Append(c.drillBar);
+        if (c.measure > 0) sb.Append(",\"measure\":").Append(c.measure);
+        if (c.measureCount > 0) sb.Append(",\"measure_count\":").Append(c.measureCount);
+        if (c.blockFirstBar > 0)
+        {
+            sb.Append(",\"block_bars\":[").Append(c.blockFirstBar).Append(',').Append(Math.Max(c.blockFirstBar, c.blockLastBar)).Append(']');
+            if (c.blockNumber > 0) sb.Append(",\"block_number\":").Append(c.blockNumber).Append(",\"block_count\":").Append(c.blockCount);
+        }
+        if (c.leadInFirstBar > 0 && c.blockFirstBar > c.leadInFirstBar)
+            sb.Append(",\"lead_in\":[").Append(c.leadInFirstBar).Append(',').Append(c.blockFirstBar - 1).Append(']');
         sb.Append(",\"attempt\":").Append(c.attempt);
         if (!string.IsNullOrEmpty(c.escalation)) sb.Append(",\"escalation\":").Append(AIHttp.Quote(c.escalation));
-        sb.Append(",\"failed_bars\":[");
-        Join(sb, c.failedBars ?? new List<int>(), b => b.ToString());
+        sb.Append(",\"shaky_bars\":[");
+        Join(sb, c.shakyBars ?? new List<int>(), b => b.ToString());
+        sb.Append("],\"problem_bars\":[");
+        Join(sb, c.problemBars ?? new List<int>(), b => b.ToString());
         sb.Append("],\"skipped_bars\":[");
         Join(sb, c.skippedBars ?? new List<int>(), b => b.ToString());
         sb.Append("],\"next_step\":").Append(AIHttp.Quote(c.nextStep ?? ""));
-        sb.Append(",\"clean\":").Append(c.clean ? "true" : "false")
-          .Append(",\"clean_streak\":").Append(c.cleanStreak).Append(",\"clean_needed\":").Append(c.cleanNeeded);
 
         var st = c.stats;
         if (st != null)
         {
             sb.Append(",\"lesson_stats\":{\"warmup_attempts\":").Append(st.warmupAttempts)
               .Append(",\"runs\":").Append(st.runs)
-              .Append(",\"chunks_passed\":").Append(st.chunksPassed)
-              .Append(",\"chunks_passed_first_try\":").Append(st.chunksPassedFirstTry)
+              .Append(",\"measures_learned\":").Append(st.measuresLearned)
+              .Append(",\"play_throughs\":").Append(st.playThroughs)
+              .Append(",\"play_throughs_passed_first_try\":").Append(st.playThroughsPassedFirstTry)
               .Append(",\"tempo_drops\":").Append(st.tempoDrops)
-              .Append(",\"drilled_bars\":[");
-            Join(sb, st.drilledBars ?? new List<int>(), b => b.ToString());
+              .Append(",\"repaired_blocks\":[");
+            Join(sb, st.repairedBlocks ?? new List<string>(), AIHttp.Quote);
             sb.Append("],\"skipped_bars\":[");
             Join(sb, st.skippedBars ?? new List<int>(), b => b.ToString());
             sb.Append("],\"final_run_accuracy\":").Append(Number(st.finalRunAccuracy))

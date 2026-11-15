@@ -1,7 +1,7 @@
 # Evaluator contract
 
-The curriculum (`Assets/Scripts/Curriculum/CurriculumEngine.cs`) decides when the student moves on, drills a bar or
-repeats the warm-up. It makes those decisions from an evaluator's scores. The evaluator sits behind one interface so
+The curriculum (`Assets/Scripts/Curriculum/CurriculumEngine.cs`) applies `COACH_PLAYBOOK.md`: it decides when the student
+moves up or down the tempo ladder, adds the next measure, plays measures 1..N through, or repairs a problem block. It makes those decisions from an evaluator's scores. The evaluator sits behind one interface so
 that the stub that ships now can be swapped for Jordan's `PerformanceEvaluator` by changing one setting and adding one
 small adapter.
 
@@ -17,8 +17,9 @@ public interface IPerformanceEvaluator
 }
 ```
 
-The engine calls `Evaluate` once, when a run ends. One run is one timed pass through a chunk (for example bars 1-3),
-a drilled bar, or the warm-up scale, at the current step of the tempo ladder (60%, 80%, 100% by default).
+The engine calls `Evaluate` once, when a run ends. One run is one timed pass through a new measure (Step 1), a
+play-through of measures 1..N (Step 2), a repair block with its lead-in (Step 3), or the warm-up scale, at the current
+step of the tempo ladder (50%, 75%, 100% by default).
 
 | Argument | What it is |
 |---|---|
@@ -60,10 +61,28 @@ public class ExpectedNote
 (`Assets/Scripts/Lesson/SongData.cs`): same units, same bar numbering (the Für Elise pickup counts as bar 1), same values
 for Für Elise.
 
-**Runs are timed, not wait mode.** The notes come at the practice tempo whether or not the student keeps up, so a key
-press is judged against when its note was due. `ExpectedNote.time` and `PlayedNote.time` are on the same clock
-(0 = the first note's due time) and `time` is already scaled for the tempo step, so an evaluator never needs the tempo:
-the timing error of a press for note `i` is simply `played.time - expected[i].time`. A missed note has no press at all.
+**Runs are timed, not wait mode.** The notes come at the practice tempo whether or not the student keeps up.
+`ExpectedNote.time` and `PlayedNote.time` are on the same clock (0 = the first note's due time) and `time` is already
+scaled for the tempo step, so an evaluator never needs the tempo itself.
+
+**Presses are matched to notes in order, not by due time.** A student who plays every note right but 20% slow is
+always behind the clock, and judging each press against its due time would call most of the run missed. So:
+- Expected notes and presses are aligned in sequence, like a diff: the alignment keeps as many notes matched as
+  possible, a note matches only a press of its own key, and presses are used in order (one press, one note).
+- Among equally long alignments, the one whose gaps between presses best follow the written gaps at the student's own
+  tempo wins. That is what places repeated pitches (E D# E D# E) and skipped notes correctly.
+- Absolute time only anchors the first matched note (within about a beat, at least `matchWindowMs`, of 0). After that
+  each note is expected where the previous matched press plus the written gap, scaled by the student's tempo, puts it.
+- A press may come any amount later than expected: a student who freezes and then plays on in order gets hits plus a
+  hesitation. A press much earlier than expected (more than `matchWindowMs`, plus a quarter of the gap) does not match:
+  that would be skipping ahead.
+- Notes the student skipped are missed. A frozen student in a timed run often skips notes and comes back in where the
+  music is; the notes after that still match.
+- Notes due at the same time (a chord) may be pressed in any order; presses within 50 ms of each other count as struck
+  together.
+- Presses well before the first note (during the count-in) and presses after the last note was matched (playing on) are
+  ignored. A second press of the same key within 80 ms is a key bounce and ignored.
+
 This differs from Jordan's current `PerformanceEvaluator`, which waits for the right key and compares gaps.
 
 ## Output types
@@ -71,8 +90,9 @@ This differs from Jordan's current `PerformanceEvaluator`, which waits for the r
 ```csharp
 public class EvaluationResult
 {
-    public float overallScore;   // accuracy, 0-1
-    public float timingScore;    // 0-1
+    public float overallScore;   // accuracy, 0-1: share of notes right on the first try
+    public float timingScore;    // 0-1, informational
+    public float tempoRatio;     // played speed / asked speed, 1 = on tempo
     public bool passed;          // informational
     public List<BarResult> bars;
 }
@@ -80,8 +100,10 @@ public class EvaluationResult
 public class BarResult
 {
     public int barNumber;
-    public float score;          // accuracy, 0-1: share of the bar's notes that were hit
-    public float timingScore;    // 0-1: how close the hit notes landed to their due time
+    public float score;          // accuracy, 0-1: share of the bar's notes right on the first try
+    public float timingScore;    // 0-1, informational
+    public float tempoRatio;     // the same tempo measure over this bar
+    public int firstTryMisses;   // the bar's notes not right on the first try
     public bool passed;          // informational
     public List<WrongNote> wrongNotes;
     public List<Hesitation> hesitations;
@@ -93,30 +115,44 @@ public class BarResult
 
 What each field must mean, because the curriculum decides from them:
 
-- **`score` (accuracy):** hits / notes in the bar. A note is hit when its key was pressed within
-  `LessonConfig.matchWindowMs` (500) of its due time.
-- **`timingScore`:** the mean timing credit over the bar's **hit** notes (misses already cost accuracy). Credit per note is
-  1 when the press is within `timingFullCreditMs` (100 ms) of the due time, fading linearly to 0 at
-  `timingZeroCreditMs` (300 ms). Use `LessonConfig.TimingCredit(errorMs)` to get the same curve.
-  `overallScore` and `timingScore` on the result are the same over the whole run.
-- **`wrongNotes`:** presses that matched no note, charged to the note closest in time.
-- **`hesitations`:** silences where notes went by unplayed and that lasted longer than the music's own gaps around them.
-  `ms` is how much longer. Measure against the notated gaps, so rests and long notes never count. The engine compares
-  `ms` with `HESITATION_MS` (1500 at the slowest step, scaled down at faster steps), so report anything from about 300 ms.
-- **`passed`:** your own opinion; the engine does not read it.
+- **`score` (accuracy):** notes right on the first try / notes in the bar. A note is right on the first try when it was
+  matched (see above) and no wrong key was pressed while it was the next note. `overallScore` is the same over the run.
+- **`firstTryMisses`:** the bar's notes that were not right on the first try: missed entirely, or preceded by a wrong
+  key while they were next (they count once, however many wrong keys). `score = 1 - firstTryMisses / notes`.
+- **`wrongNotes`:** one per wrong key pressed, charged to the note that was next when it was pressed (the note it was
+  played instead of). A wrong key followed by the right one is a wrong note and a first-try miss, not a missed note.
+  Striking the next note's own key early, or twice, is not a wrong note.
+- **`tempoRatio`:** played speed / asked speed. For every two consecutive notes that were both matched and are written
+  apart in time, written gap / played gap; the run's value is the median of those, 1 when fewer than 2 pairs could be
+  measured. 1 = on tempo, 0.8 = 20% slow, 1.25 = 25% fast. Pairs across a hesitation are left out, so a freeze does not
+  read as slow playing. A bar's value is the median over the pairs whose later note is in that bar (1 when there are none).
+- **`hesitations`:** a pause before a matched note that is longer than the music asks for, at the student's own tempo:
+  the gap from the previous matched press, minus the written gap scaled by `1 / tempoRatio`. `ms` is that excess,
+  charged to the first note after the pause. Rests and long notes are part of the written gap, so they never count, and
+  steady slow playing has no hesitations. Late starts count too (measured from 0). Reported from `timingZeroCreditMs`
+  (300 ms); the engine compares `ms` with `HesitationLimitMs` (1500 at the slowest step, scaled down at faster steps).
+- **`timingScore`:** informational; the engine does not decide from it. Mean timing credit over the bar's matched notes,
+  measured against where the previous press and the student's tempo put each note (not the absolute due time), with
+  `LessonConfig.TimingCredit(errorMs)`: 1 within `timingFullCreditMs` (100 ms), fading to 0 at `timingZeroCreditMs`.
+- **`passed`:** `score >= passAccuracy` (0.9); informational, the engine does not read it.
 
-How the engine uses them (all in `CurriculumEngine.Judge`, thresholds in `LessonConfig`):
-- A run is **clean** when accuracy ≥ 0.95 (or there is at most 1 slip; a slip is a missed note or a wrong key), no
-  hesitation is over the limit, and, **only at the top tempo step**, `timingScore` ≥ `timingThreshold` (0.7).
-  Lower steps track timing but never fail on it.
-- `CLEAN_STREAK` (2) clean runs in a row move up a tempo step, and at the top step pass the chunk or drilled bar.
-- A bar with slips, a hesitation, or (at the top step) bar timing below the threshold is a problem bar. At the slowest step
-  the first problem bar is drilled on its own.
+How the engine uses them (thresholds in `LessonConfig`, rules in `COACH_PLAYBOOK.md`):
+- **Measure rating:** Clean = every note right on the first try and no hesitation over the limit. Shaky = one wrong
+  note or one long pause. Problem = `problemWrongNotes` (2) or more.
+- **Tempo rating:** `cfg.RateTempo(tempoRatio)`: On tempo within `tempoTolerance` (15%) of 1, otherwise Too slow
+  ("a little faster") or Too fast ("slow down"). The per-bar `tempoRatio` names the rushed and dragged measures.
+- **Passed run:** no Problem measure, `overallScore >= passAccuracy` (90%), and On tempo. Below song tempo a run that is
+  Too fast but otherwise passes still passes (the student is ahead of the step); at song tempo Too fast fails.
+- A new measure is learned at 50%, 75% and 100%; play-throughs of 1..N are at song tempo; Problem measures (or, after
+  `shakyPlayThroughsBeforeRepair` failed play-throughs with none, the Shaky ones) are repaired as blocks, with up to
+  `leadInMeasures` lead-in measures that are not judged.
 
 ## The stub that ships now
 
-`StubEvaluator` (`Assets/Scripts/Curriculum/StubEvaluator.cs`) does exactly the above: each expected note in order takes
-the first unused press of the same key within the match window; timing credit, wrong notes and hesitations as described.
+`StubEvaluator` (`Assets/Scripts/Curriculum/StubEvaluator.cs`) does exactly the above. The alignment is a small dynamic
+program over (note, press of the same key): each matched note is worth more than any timing preference, so it finds the
+longest in-order match first and uses timing only to choose between equally long ones. It aligns once at the asked
+tempo, measures `tempoRatio`, then aligns again following that tempo. Under 2 ms for a 60-note run.
 
 ## Switching to Jordan's evaluator
 
@@ -139,11 +175,11 @@ public class JordanEvaluatorAdapter : IPerformanceEvaluator
 
     public EvaluationResult Evaluate(List<PlayedNote> played, List<ExpectedNote> expected, int startBar, int endBar)
     {
-        // 1. Match presses to notes by key and due time (within cfg.matchWindowMs), as the stub does.
-        // 2. Timing per hit from played.time - expected.time: his Perfect / Good / Early / Late, mapped to 0-1
-        //    (Perfect 1, Good 0.7, Early/Late 0.25, as in his TimingPercent), or cfg.TimingCredit(errorMs).
-        // 3. Per bar: score = hits / notes, timingScore = mean timing value over the hits.
-        //    Keep timing separate from accuracy; do not blend them with accuracyWeight, the curriculum needs both.
+        // 1. Match presses to notes in order, following the student's tempo, as the stub does.
+        // 2. Timing per hit from the gap to the previous hit vs. the written gap (his Judge compares gaps already):
+        //    Perfect / Good / Early / Late mapped to 0-1, or cfg.TimingCredit(errorMs). Informational.
+        // 3. Per bar: score = notes right on the first try / notes, firstTryMisses, tempoRatio.
+        //    Keep accuracy and tempo separate; do not blend them with accuracyWeight, the curriculum needs both.
         // 4. Fill wrongNotes and hesitations as described above.
     }
 }

@@ -14,22 +14,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LessonConfig
   evaluator: 0
   demoMode: 0
-  cleanStreak: 2
-  accuracyThreshold: 0.95
-  maxSlips: 1
+  passAccuracy: 0.9
+  problemWrongNotes: 2
   hesitationMs: 1500
-  timingThreshold: 0.7
+  tempoTolerance: 0.15
   timingFullCreditMs: 100
   timingZeroCreditMs: 300
-  matchWindowMs: 500
-  tempoSteps: 3c0000005000000064000000i
-  dropStepAfterFails: 2
-  leadInSeconds: 2
+  matchWindowMs: 600
+  tempoSteps: 320000004b00000064000000
+  stepDownAfterFails: 3
+  countInBeats: 4
+  metronomeDuringRun: 1
+  metronomeMaxTempoPct: 50
+  metronomeVolume: 0.6
   songBarCount: 8
-  phraseLength: 4
-  drillPassCount: 1
-  drillDemoAfterFails: 3
-  drillSkipAfterFails: 7
+  shakyPlayThroughsBeforeRepair: 2
+  leadInMeasures: 2
+  skipAfterFails: 7
   warmupTempoBpm: 80
-  warmupDemoReplayAfterFails: 2
   coachMaxWaitSeconds: 15
+  stuckHintMinIntervalSeconds: 10

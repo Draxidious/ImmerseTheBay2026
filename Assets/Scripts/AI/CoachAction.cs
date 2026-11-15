@@ -2,25 +2,20 @@ using System;
 using UnityEngine;
 
 // What the coach wants the lesson to do next. Subscribe to AICoach.OnCoachAction and switch on type.
-// Every value has already been checked: bars are inside the song, tempo is 40-100, fingers are 1-5.
+// Every value has already been checked: bars are inside the song, fingers are 1-5.
 // Fingerings come from the song data (CoachFacts.Fingering), never from the model.
 
-public enum CoachActionType { None, LoopBars, SetTempo, Demo, ShowFingering, Advance }
+public enum CoachActionType { None, Demo, ShowFingering }
 
 public class CoachAction
 {
-    public const int MinTempoPct = 40;
-    public const int MaxTempoPct = 100;
     const int MaxFingers = 32;
 
     public CoachActionType type = CoachActionType.None;
 
-    // LoopBars, Demo: the bars to repeat or to play for the student. ShowFingering: firstBar == lastBar == the bar.
+    // Demo: the bars to play for the student. ShowFingering: firstBar == lastBar == the bar.
     public int firstBar;
     public int lastBar;
-
-    // SetTempo: percentage of the song's tempo.
-    public int tempoPct;
 
     // ShowFingering: one finger per note of that hand in the bar, in order. 1 = thumb, 5 = little finger.
     public PianoHand hand;
@@ -33,11 +28,8 @@ public class CoachAction
     {
         switch (t)
         {
-            case CoachActionType.LoopBars: return "loop_bars";
-            case CoachActionType.SetTempo: return "set_tempo";
             case CoachActionType.Demo: return "demo";
             case CoachActionType.ShowFingering: return "show_fingering";
-            case CoachActionType.Advance: return "advance";
             default: return "none";
         }
     }
@@ -46,11 +38,8 @@ public class CoachAction
     {
         switch (type)
         {
-            case CoachActionType.LoopBars: return $"loop_bars {firstBar}-{lastBar}";
             case CoachActionType.Demo: return $"demo {firstBar}-{lastBar}";
-            case CoachActionType.SetTempo: return $"set_tempo {tempoPct}%";
             case CoachActionType.ShowFingering: return $"show_fingering bar {firstBar} {hand} [{string.Join(" ", fingers)}]";
-            case CoachActionType.Advance: return "advance";
             default: return "none";
         }
     }
@@ -70,21 +59,14 @@ public class CoachAction
 
         switch (name)
         {
-            case "loop_bars":
             case "demo":
-                a.type = name == "demo" ? CoachActionType.Demo : CoachActionType.LoopBars;
+                a.type = CoachActionType.Demo;
                 // No bars given: use the section being practised.
                 int from = raw.from_bar > 0 ? raw.from_bar : sectionFirst;
                 int to = raw.to_bar > 0 ? raw.to_bar : (raw.from_bar > 0 ? raw.from_bar : sectionLast);
                 if (from > to) { int t = from; from = to; to = t; }
                 a.firstBar = Mathf.Clamp(from, 1, maxBar);
                 a.lastBar = Mathf.Clamp(to, 1, maxBar);
-                break;
-
-            case "set_tempo":
-                if (raw.tempo_pct <= 0) break;
-                a.type = CoachActionType.SetTempo;
-                a.tempoPct = Mathf.Clamp(raw.tempo_pct, MinTempoPct, MaxTempoPct);
                 break;
 
             case "show_fingering":
@@ -101,10 +83,6 @@ public class CoachAction
                 a.hand = hand;
                 a.fingers = new int[Mathf.Min(known.Length, MaxFingers)];
                 for (int i = 0; i < a.fingers.Length; i++) a.fingers[i] = Mathf.Clamp(known[i], 1, 5);
-                break;
-
-            case "advance":
-                a.type = CoachActionType.Advance;
                 break;
         }
 
@@ -130,7 +108,6 @@ public class CoachResult
         public string action;
         public int from_bar;
         public int to_bar;
-        public int tempo_pct;
         public string hand;
     }
 

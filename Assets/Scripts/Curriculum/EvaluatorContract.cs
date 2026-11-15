@@ -33,9 +33,11 @@ public class ExpectedNote
 public class BarResult
 {
     public int barNumber;
-    public float score;        // accuracy, 0-1: share of the bar's notes that were hit
-    public float timingScore;  // 0-1: how close the hit notes landed to their time
-    public bool passed;        // the evaluator's own view; the curriculum decides from score and timingScore
+    public float score;        // accuracy, 0-1: share of the bar's notes right on the first try
+    public float timingScore;  // 0-1, informational: how close the hit notes landed to where the student's own tempo put them
+    public float tempoRatio = 1f; // played speed / asked speed over the note pairs whose later note is in this bar (1 = none measured)
+    public int firstTryMisses;    // the bar's notes not right on the first try: missed, or a wrong key pressed while it was next
+    public bool passed;        // the evaluator's own view (score >= passAccuracy); the curriculum decides for itself
     public List<WrongNote> wrongNotes = new List<WrongNote>();   // WrongNote and Hesitation are the coach's types (CoachContext.cs)
     public List<Hesitation> hesitations = new List<Hesitation>();
 }
@@ -44,8 +46,10 @@ public class BarResult
 [Serializable]
 public class EvaluationResult
 {
-    public float overallScore; // accuracy, 0-1
-    public float timingScore;  // 0-1
+    public float overallScore; // accuracy, 0-1: share of the run's notes right on the first try
+    public float timingScore;  // 0-1, informational
+    public float tempoRatio = 1f; // played speed / asked speed: median over consecutive matched note pairs of
+                                  // written interval / played interval. 0.8 = 20% slow, 1.25 = 25% fast, 1 = under 2 pairs
     public bool passed;
     public List<BarResult> bars = new List<BarResult>();
 
