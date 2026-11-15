@@ -18,6 +18,8 @@ public class FreePlayController : MonoBehaviour
     public VoiceOutput voiceOutput;
     public QuestionRouter questionRouter;
     public PianoCalibrator calibrator;
+    [Tooltip("Optional. Added at runtime: the sheet music of a recognized or asked-for song.")]
+    public FreePlaySheet sheet;
 
     public bool IsActive { get; private set; }
     public PhraseAnalysis LastPhrase { get; private set; }
@@ -71,6 +73,7 @@ public class FreePlayController : MonoBehaviour
         if (!voiceOutput) voiceOutput = coach && coach.voiceOutput ? coach.voiceOutput : FindAnyObjectByType<VoiceOutput>(FindObjectsInactive.Include);
         if (!questionRouter) questionRouter = FindAnyObjectByType<QuestionRouter>(FindObjectsInactive.Include);
         if (!calibrator) calibrator = FindAnyObjectByType<PianoCalibrator>(FindObjectsInactive.Include);
+        if (!sheet) sheet = GetComponent<FreePlaySheet>() ?? gameObject.AddComponent<FreePlaySheet>();
     }
 
     void OnDisable()
@@ -121,6 +124,7 @@ public class FreePlayController : MonoBehaviour
             overlay.ClearAll();
         }
         _lit.Clear();
+        if (sheet) sheet.Hide();
         Debug.Log("[FreePlay] End.");
     }
 
@@ -140,6 +144,7 @@ public class FreePlayController : MonoBehaviour
             if (overlay) overlay.SetKey(midi, KeyState.Correct);
             _lit[midi] = Time.time;
             _analyzer.NoteOn(midi, velocity, now);
+            if (sheet) sheet.NoteOn(midi);
         }
         else
         {
@@ -176,6 +181,7 @@ public class FreePlayController : MonoBehaviour
     void OnPhrase(PhraseAnalysis p)
     {
         LastPhrase = p;
+        if (sheet) sheet.OnPhrase(p); // a recognized song opens its sheet music
         var cfg = Cfg;
         bool notable = FreePlayFacts.IsNotable(p, _lastReportedKey, out var reasons);
 

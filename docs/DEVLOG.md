@@ -43,6 +43,17 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Build scene switched:** `Main_2.unity` is now the only enabled build scene (index 0); `Main.unity` stays listed, disabled.
 - **Not yet tested on the Aura in Main_2.** Handover: `docs/HANDOVER_MARKER_CALIBRATION.md`.
 
+## 2026-11-15 ~01:20 — Claude Code (for Canady): sheet music in free play
+- Free play shows the sheet music of a song from the database (`FreePlay/FreePlaySheet.cs`, `SheetFollower.cs`): opens when the
+  analyzer recognizes a song, or by voice ("hey teacher, show me the music for Jingle Bells"; "close the music"). Nothing is taught:
+  keys only light as pressed, wrong notes are ignored, the bar being played is outlined. Same spot as the lesson sheet; the lesson
+  panel (`SongNoteDisplay`, Jordan's) and AppFlow are not edited.
+- Also: a passed play-through now ends with the next bar ("... Now bar 3."); fallback there is the cue, not "let's try that again".
+- **Verified (Editor, Main_2):** Mary Had a Little Lamb recognized -> sheet opens at bar 4 (screenshot); voice "show me the music for
+  Jingle Bells" via Whisper -> sheet, followed to bar 16 on line 3; Mary afterwards did not replace the voice pick; "close the music"
+  hides it; switching to the lesson hides it. EditMode 114/114 (every database song found by its own name).
+  **Not tested:** Main (Main_2 had unsaved Editor changes, scene not switched), device.
+
 ## 2026-11-15 ~00:30 — Claude Code (for Canady): demo each new measure, "play it again", shorter speech
 - `CurriculumEngine` (Jordan OK'd the change list): `BeginRunOrDemo` demos the first run of each new measure (incl. measure 1:
   lesson start has no fixed demo of it) for the hand about to be played; `ReplayDemo()`; coach demos share `RequestDemo`.

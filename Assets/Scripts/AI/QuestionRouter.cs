@@ -345,6 +345,26 @@ public class QuestionRouter : MonoBehaviour
                 AppModeSwitch.Request(mode, "voice");
                 return;
             }
+            // Free play: "show Jingle Bells" opens that song's sheet music, "close the music" hides it. No model call.
+            // A "show ..." that names no song in the database is a question for the coach.
+            var freePlaySheet = FindFreePlay() && FindFreePlay().IsActive ? FindFreePlay().sheet : null;
+            if (freePlaySheet && FreePlaySheet.IsCloseCommand(question))
+            {
+                Debug.Log($"[Question] Sheet command \"{question}\" -> close");
+                freePlaySheet.Hide();
+                return;
+            }
+            if (freePlaySheet && FreePlaySheet.TryParseShowCommand(question, out string asked))
+            {
+                var entry = FreePlaySheet.FindSong(asked, SongDatabase.All);
+                if (entry != null)
+                {
+                    bool shown = freePlaySheet.Show(entry.id, true);
+                    Debug.Log($"[Question] Sheet command \"{question}\" -> {entry.id}{(shown ? "" : " (no sheet music)")}");
+                    if (!shown) coach.SayNow(cfg.noSheetLine);
+                    return;
+                }
+            }
             if (IsReplayCommand(question))
             {
                 // No model call: the guided lesson plays the current bars again (Main has no demo player).
