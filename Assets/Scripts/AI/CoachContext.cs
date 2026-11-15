@@ -135,6 +135,7 @@ public class CoachContext
     public int tempoStep;              // 1-based step on the tempo ladder, 0 = no ladder
     public int tempoStepCount;
     public CoachActionType[] allowedActions; // null = any action; anything else the model picks becomes None
+    public int currentBar;             // the bar the player is on now (questions mid-run); 0 = unknown
 
     public static string TriggerName(CoachTrigger t)
     {
@@ -170,8 +171,10 @@ public class CoachContext
         var s = currentSection ?? new SectionInfo();
         sb.Append(",\"current_section\":{\"bars\":[").Append(s.firstBar).Append(',').Append(s.lastBar)
           .Append("],\"tempo_pct\":").Append(s.tempoPct).Append('}');
+        if (currentBar > 0) sb.Append(",\"current_bar\":").Append(currentBar);
 
-        if (trigger != CoachTrigger.LessonStart)
+        // A question asked before the first finished run has no run to describe (not a 0% run).
+        if (trigger != CoachTrigger.LessonStart && (thisRun != null || trigger != CoachTrigger.UserAsked))
         {
             var r = thisRun ?? new RunStats();
             sb.Append(",\"this_run\":{\"accuracy\":").Append(Number(r.accuracy));

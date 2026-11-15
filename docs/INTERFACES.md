@@ -230,6 +230,25 @@ Voice and config:
 
 Editor test: `AIDebugPanel` in the `AITest` scene.
 
+### Hands-free questions ("hey teacher") — Canady (`Assets/Scripts/AI/`, `Assets/Plugins/Android/WakeWordBridge.java`)
+Added at runtime to any scene with an `AppFlow` (no scene edit; off with `AIConfig.wakeWordEnabled`). Armed only in
+`AppFlow.Step.Lesson` while the coach isn't thinking/speaking (+`muteAfterSpeechSeconds`), and not during VoiceInput listening.
+Flow: trigger → chime → record question (VAD end-of-speech) → Groq Whisper → `AICoach.Ask(question, ctx)` with the song,
+`currentBar` and the last `RunStats`.
+| Member | Purpose |
+|---|---|
+| `IVoiceTrigger { Name; IsActive; SetArmed(bool); event Action<IVoiceTrigger> Triggered }` | A way to start a question. |
+| `IQuestionRecorder { IsRecording; BeginQuestion(); Cancel(); event Action<byte[]> QuestionRecorded }` | Records one question; WAV bytes or null if nothing was heard. |
+| `WakeWordTrigger` (both interfaces) | sherpa-onnx keyword spotter via `com.canady.wakeword.WakeWordBridge`; owns the mic while running (Android only). Any plugin error disables it for the session. |
+| `BackupVoiceTrigger` | **Q** key, or right-hand pinch held `pinchHoldSeconds` (0.6) with the palm NOT down; ignored while `PianoCalibrator.IsCalibrating` and on the system gesture. |
+| `MicQuestionRecorder` | Unity `Microphone` recorder with the same VAD; used in the Editor and when the plugin is unavailable. |
+| `QuestionRouter.IsListening` / `IsTranscribing` | Read by `CoachOrbBridge` → orb Listening / Thinking. |
+| `CoachContext.currentBar` | Bar the player is on (`"current_bar"` in the JSON, only when > 0). |
+| `AIConfig` "Wake word" section | Score/threshold, VAD, cooldown, mute, audio source (`voiceCommunicationSource`), backup inputs, `saveMicDebugClip`. |
+Java bridge methods: `setTuning`, `setVad`, `setAudio`, `start`, `stop`, `pause`, `resume`, `suspendMic`, `resumeMic`,
+`beginQuestion`, `cancelQuestion`, `saveDebugClip(path, seconds)`; callbacks `OnWakeWord`, `OnQuestionAudio(path)`,
+`OnWakeWordStatus`, `OnWakeWordError`. Editor keys: **Q** ask, **F9** save a 10 s mic clip. Logcat: `adb logcat -s Unity WakeWord`.
+
 ---
 
 ## Requested (add asks for other owners here)

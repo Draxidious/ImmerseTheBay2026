@@ -8,9 +8,9 @@ using UnityEngine.Android;
 // Logcat: adb logcat -s Unity WakeWord
 public class WakeWordSpike : MonoBehaviour
 {
-    [Tooltip("Global boosting score; keywords.txt's per-keyword :2.0 overrides it.")]
-    public float keywordsScore = 1.5f;
-    [Tooltip("Global trigger threshold; keywords.txt's per-keyword #0.25 overrides it.")]
+    [Tooltip("Boosting score. Higher triggers more easily.")]
+    public float keywordsScore = 2.0f;
+    [Tooltip("Trigger threshold (0-1). Lower triggers more easily.")]
     public float keywordsThreshold = 0.25f;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -41,6 +41,8 @@ public class WakeWordSpike : MonoBehaviour
             var activity = new AndroidJavaClass("com.unity3d.player.UnityPlayer").GetStatic<AndroidJavaObject>("currentActivity");
             _bridge = new AndroidJavaObject("com.canady.wakeword.WakeWordBridge", activity, gameObject.name);
             _bridge.Call("setTuning", keywordsScore, keywordsThreshold);
+            _bridge.Call("setVad", 0.005f, 3.0f, 1.0f, 8.0f, 3.0f, 0.5f); // minRms, noiseRatio, endSilence, maxQuestion, startTimeout, preRoll
+            _bridge.Call("setAudio", false, true); // VOICE_RECOGNITION, AEC + NS when available
             _bridge.Call("start");
             Debug.Log("[WakeWord] Bridge started.");
         }
@@ -63,4 +65,8 @@ public class WakeWordSpike : MonoBehaviour
     public void OnWakeWord(string keyword) => Debug.Log("[WakeWord] DETECTED " + keyword);
 
     public void OnWakeWordStatus(string text) => Debug.Log("[WakeWord] " + text);
+
+    public void OnQuestionAudio(string path) => Debug.Log("[WakeWord] Question audio: " + (path == "" ? "(no speech)" : path));
+
+    public void OnWakeWordError(string text) => Debug.LogError("[WakeWord] ERROR " + text);
 }

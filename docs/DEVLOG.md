@@ -4,6 +4,21 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 late — Claude Code (for Canady): "hey teacher" wake word, step B (full pipeline)
+- Step A spike confirmed on the puck by a teammate (detection works).
+- `WakeWordBridge.java`: 20 ms frames, energy VAD with adaptive noise floor, KWS fed only while speech is present (0.5 s pre-roll),
+  question capture until 1 s silence / 8 s max / 3 s with no speech, WAV to cacheDir, pause/resume, suspendMic/resumeMic on app
+  pause, mic-open retry, `saveDebugClip`, model recopy on every reinstall. Source VOICE_RECOGNITION (VOICE_COMMUNICATION optional),
+  AEC/NS when available. Any error → `OnWakeWordError`, never a crash.
+- C#: `IVoiceTrigger` / `IQuestionRecorder`, `WakeWordTrigger`, `BackupVoiceTrigger` (Q key; right-hand palm-not-down pinch-hold 0.6 s;
+  T was taken by CoachOrb debug keys), `MicQuestionRecorder` (Editor fallback), `QuestionRouter` (arming, 2 s cooldown, 1 s mute after
+  the coach speaks, chime, Whisper → `AICoach.Ask` with `currentBar` + last RunStats; adds itself to scenes with an AppFlow).
+  `CoachContext.currentBar`; `this_run` is omitted for a question before the first run. `CoachOrbBridge`: 4 lines so the orb shows
+  Listening/Thinking for questions (approved; Nehemiah informed by Canady). AppFlow / PerformanceEvaluator / PianoCalibrator untouched.
+- `keywords.txt` now has no per-keyword score; `AIConfig.keywordsScore` 2.0 / `keywordsThreshold` 0.25 govern.
+- **Untested on the puck.** To verify: both audio sources (coach volume, false triggers), VAD levels with the piano playing, chime and
+  self-trigger after TTS, pinch-hold vs. the blue-ball grab, orb states, debug clip under `/sdcard/Android/data/<pkg>/files/`.
+
 ## 2026-11-14 ~20:40 — Claude Code (for Canady): "hey teacher" wake word, step A spike
 - Added `Assets/Plugins/Android/WakeWordBridge.java` (`com.canady.wakeword`): AudioRecord 16 kHz (VOICE_RECOGNITION) → sherpa-onnx
   keyword spotter on its own thread; logs `DETECTED HEY_TEACHER` (logcat tag `WakeWord`) and sends `OnWakeWord` / `OnWakeWordStatus`.
