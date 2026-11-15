@@ -52,7 +52,7 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - Every four-point pinch is logged with its position relative to the head (right/up/forward cm). Not tested in Play mode; built and
   installed on the puck for an on-device test.
 
-## 2026-11-14 ~14:55 — Claude Code (for Ari): fix "back points aren't behind the front points"
+## 2026-11-14 ~15:10 — Claude Code (for Ari): fix "back points aren't behind the front points"
 - Cause: steps 2/4 only checked the 3D distance (6–25 cm, any direction), but the final fit needs the back points to be
   behind the front ones on the level, toward the panel. A pinch fired while lifting the hand passed the step check, failed
   the fit, and all four points were thrown away. The device log also showed the other, resting hand firing stray pinches.
