@@ -15,6 +15,7 @@ public class SongNote
     public float beats = 1f;  // length in beats
     public PianoHand hand;
     public int finger;        // optional: 1 = thumb ... 5 = little finger, 0 = not specified
+    public string hint;       // optional: how to get to this note, e.g. "tuck your thumb under to reach F"
 }
 
 [Serializable]
@@ -24,6 +25,7 @@ public class SongData
     public string name;
     public int tempoBpm = 100;
     public int beatsPerBar = 4;
+    public string timeSignature; // optional, for display ("3/8"); beatsPerBar is what counts
     public List<SongNote> notes = new List<SongNote>();
 
     public int BarCount

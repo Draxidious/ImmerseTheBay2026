@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba9b5765ddd8745cb909cb2ebc43a2c5, type: 3}
+  m_Name: LessonConfig
+  m_EditorClassIdentifier: Assembly-CSharp::LessonConfig
+  evaluator: 0
+  demoMode: 0
+  cleanStreak: 2
+  accuracyThreshold: 0.95
+  maxSlips: 1
+  hesitationMs: 1500
+  timingThreshold: 0.7
+  timingFullCreditMs: 100
+  timingZeroCreditMs: 300
+  matchWindowMs: 500
+  tempoSteps: 3c0000005000000064000000i
+  dropStepAfterFails: 2
+  leadInSeconds: 2
+  songBarCount: 8
+  phraseLength: 4
+  drillPassCount: 1
+  drillDemoAfterFails: 3
+  drillSkipAfterFails: 7
+  warmupTempoBpm: 80
+  warmupDemoReplayAfterFails: 2
+  coachMaxWaitSeconds: 15

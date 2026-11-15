@@ -28,6 +28,20 @@ public class CoachAction
 
     public static CoachAction None => new CoachAction();
 
+    // The name the model uses for each action type.
+    public static string Name(CoachActionType t)
+    {
+        switch (t)
+        {
+            case CoachActionType.LoopBars: return "loop_bars";
+            case CoachActionType.SetTempo: return "set_tempo";
+            case CoachActionType.Demo: return "demo";
+            case CoachActionType.ShowFingering: return "show_fingering";
+            case CoachActionType.Advance: return "advance";
+            default: return "none";
+        }
+    }
+
     public override string ToString()
     {
         switch (type)
@@ -93,6 +107,9 @@ public class CoachAction
                 a.type = CoachActionType.Advance;
                 break;
         }
+
+        // The curriculum only lets the coach ask for some actions; it decides the progression itself.
+        if (ctx?.allowedActions != null && Array.IndexOf(ctx.allowedActions, a.type) < 0) return new CoachAction();
         return a;
     }
 }

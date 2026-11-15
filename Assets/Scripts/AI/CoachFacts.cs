@@ -89,18 +89,20 @@ public static class CoachFacts
 
         var wrongBars = new HashSet<int>((run.wrongNotes ?? new List<WrongNote>()).Select(w => w.bar));
         var slowBars = new HashSet<int>((run.hesitations ?? new List<Hesitation>()).Where(h => h.ms >= NotableHesitationMs).Select(h => h.bar));
-        var rushed = new HashSet<int>(run.rushedBars ?? new List<int>());
+        var rushed = new HashSet<int>((run.rushedBars ?? new List<int>()).Concat(run.offBeatBars ?? new List<int>()));
+        bool timing = run.timingChecked;
+        string clean = timing ? "right notes, no long pauses, steady timing" : "right notes, no long pauses";
 
-        var clean = new List<int>();
+        var cleanBars = new List<int>();
         for (int bar = section.firstBar; bar <= section.lastBar; bar++)
-            if (!wrongBars.Contains(bar) && !slowBars.Contains(bar) && !rushed.Contains(bar)) clean.Add(bar);
+            if (!wrongBars.Contains(bar) && !slowBars.Contains(bar) && !rushed.Contains(bar)) cleanBars.Add(bar);
 
         int total = section.lastBar - section.firstBar + 1;
-        if (clean.Count == total && total > 0) good.Add("every bar was clean: right notes, no long pauses, steady timing");
-        else if (clean.Count > 0) good.Add("clean bars (right notes, no long pauses, not rushed): " + string.Join(", ", clean));
+        if (cleanBars.Count == total && total > 0) good.Add("every bar was clean: " + clean);
+        else if (cleanBars.Count > 0) good.Add("clean bars (" + clean + "): " + string.Join(", ", cleanBars));
 
-        if (wrongBars.Count == 0 && clean.Count != total) good.Add("every note was right");
-        if (rushed.Count == 0 && slowBars.Count == 0 && clean.Count != total) good.Add("steady timing all the way through");
+        if (wrongBars.Count == 0 && cleanBars.Count != total) good.Add("every note was right");
+        if (timing && rushed.Count == 0 && slowBars.Count == 0 && cleanBars.Count != total) good.Add("steady timing all the way through");
 
         var trend = ctx.history?.accuracyTrend;
         if (trend != null && trend.Count >= 2 && trend[trend.Count - 1] > trend[trend.Count - 2] && trend[trend.Count - 1] > trend[0])
@@ -141,6 +143,8 @@ public static class CoachFacts
                     int[] fingers = Fingering(song, bar, hand, section);
                     if (fingers != null)
                         sb.Append(",\"fingering\":").Append(AIHttp.Quote(string.Join(", ", notes.Select((n, i) => SongFormatter.NoteName(n.midi) + " " + FingerName(fingers[i])))));
+                    var hints = notes.Where(n => !string.IsNullOrEmpty(n.hint)).Select(n => SongFormatter.NoteName(n.midi) + ": " + n.hint).ToList();
+                    if (hints.Count > 0) sb.Append(",\"hints\":").Append(AIHttp.Quote(string.Join("; ", hints)));
                     sb.Append('}');
                 }
             }
@@ -187,6 +191,7 @@ public static class CoachFacts
             while (back >= 0 && notes[back].midi == midi) back--;
             string hint = key + ", " + (hand == PianoHand.Right ? "right hand" : "left hand");
             if (back >= 0) hint += ", " + Motion(notes[back].midi, midi) + " from " + SongFormatter.NoteName(notes[back].midi);
+            if (!string.IsNullOrEmpty(notes[index].hint)) hint += ", " + notes[index].hint;
             return hint;
         }
         return key;
