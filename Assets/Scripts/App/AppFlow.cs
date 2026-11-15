@@ -384,7 +384,10 @@ public class AppFlow : MonoBehaviour
         if (_freePlay) _freePlay.Begin();
         else Debug.LogWarning("[AppFlow] No FreePlayController in the scene.");
         if (_modePanel) _modePanel.ShowSwitchButton();
-        StartCoroutine(Say(freePlayLine));
+        string line = freePlayLine;
+        if (engine && VoiceCommandsConfigured)
+            line = "Free Play. Play anything you like. To open sheet music, say Hey teacher, wait for the chime, then say Show Jingle Bells.";
+        StartCoroutine(Say(line));
     }
 
     bool _sheetPlaced;
