@@ -12,7 +12,7 @@ public class LessonConfig : ScriptableObject
     [Tooltip("Stub = simple timed note matching (StubEvaluator). Jordan = his PerformanceEvaluator through an adapter, see EVALUATOR_CONTRACT.md.")]
     public EvaluatorType evaluator = EvaluatorType.Stub;
     [Header("Clean run")]
-    [Tooltip("DEMO_MODE: one clean run per step and only the first and last tempo steps, for a quick walk-through.")]
+    [Tooltip("DEMO_MODE: one clean run per step, only the first and last tempo steps and the first 4 bars of the song, for a quick walk-through.")]
     public bool demoMode;
     [Tooltip("CLEAN_STREAK. Clean runs in a row needed to pass a tempo step.")]
     public int cleanStreak = 2;
@@ -40,8 +40,13 @@ public class LessonConfig : ScriptableObject
     public List<int> tempoSteps = new List<int> { 60, 80, 100 };
     [Tooltip("Failing this many times in a row on a step above the first drops back one step.")]
     public int dropStepAfterFails = 2;
-    [Tooltip("Seconds between the start of a run and its first note, so falling notes have time to fall.")]
-    public float leadInSeconds = 2f;
+    [Tooltip("Metronome clicks at the run's tempo before its first note (also gives falling notes time to fall).")]
+    public int countInBeats = 4;
+    [Tooltip("Keep clicking on every beat during the run, at steps up to metronomeMaxTempoPct.")]
+    public bool metronomeDuringRun = true;
+    [Tooltip("The click plays during runs only at steps at or below this tempo (60 = the slow step only).")]
+    public int metronomeMaxTempoPct = 60;
+    [Range(0f, 1f)] public float metronomeVolume = 0.6f;
 
     [Header("Song")]
     [Tooltip("How many bars of the song to teach (clamped to the bars the song has).")]
@@ -50,6 +55,10 @@ public class LessonConfig : ScriptableObject
     public int phraseLength = 4;
 
     [Header("Drill")]
+    [Tooltip("DRILL_AFTER_TOTAL_FAILS. After this many missed runs of the same chunk, at any tempo step, its first problem bar is drilled.")]
+    public int drillAfterTotalFails = 3;
+    [Tooltip("Slips allowed in a clean run of a drilled bar. Chunks and the warm-up use maxSlips.")]
+    public int drillMaxSlips = 0;
     [Tooltip("DRILL_PASS_COUNT. Clean runs of the drilled bar at the top step needed before going back to the chunk (at least the clean streak).")]
     public int drillPassCount = 1;
     [Tooltip("After this many failed tries the bar is demoed.")]
@@ -78,6 +87,8 @@ public class LessonConfig : ScriptableObject
     }
 
     public int CleanStreak => demoMode ? 1 : Mathf.Max(1, cleanStreak);
+
+    public int SongBarCount => Mathf.Max(1, demoMode ? Mathf.Min(4, songBarCount) : songBarCount);
 
     // HESITATION_MS is set for the slowest step; at faster steps the same musical pause is shorter.
     public int HesitationLimitMs(int tempoPct) => Mathf.RoundToInt(hesitationMs * Steps[0] / (float)Mathf.Max(1, tempoPct));

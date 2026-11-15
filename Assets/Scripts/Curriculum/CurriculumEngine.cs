@@ -94,8 +94,13 @@ public class CurriculumEngine : MonoBehaviour
     public EvaluationResult LastResult { get; private set; }
     public LessonStats Stats { get; private set; } = new LessonStats();
     public bool IsRunning => running;
+    // Set by StartLesson from LessonConfig; replace it after StartLesson to try another evaluator.
+    public IPerformanceEvaluator Evaluator { get => evaluator; set => evaluator = value; }
+    public int EvaluatorErrors { get; private set; }       // runs this lesson the evaluator threw or left bars out
+    public string LastEvaluatorError { get; private set; }
     public bool IsDemoPlaying => demoPlayer != null && demoPlayer.IsPlaying;
     public RunInfo CurrentRun { get; private set; }
+    public IReadOnlyList<double> Clicks => clicks;           // this run's metronome clicks, in Time.unscaledTimeAsDouble
 
     LessonConfig Cfg => config != null ? config : LessonConfig.Get();
     IReadOnlyList<int> Steps => Cfg.Steps;
@@ -106,14 +111,20 @@ public class CurriculumEngine : MonoBehaviour
     readonly Dictionary<int, int> chunkAttempts = new Dictionary<int, int>();
     IPerformanceEvaluator evaluator;
     int warmupAttempts, warmupFails;
+    int chunkFails;        // missed runs of the current chunk since it started, at any step
+    int drillReturnStep;   // the step the chunk goes back to once its drill passes
     float startedAt;
+    Metronome metronome;
 
     // The run in progress.
     SongData runSong;
     BarRange runBars;
     bool running;
     double runStart, runEnd;   // runEnd is relative to runStart
+    int runStep;               // the tempo step the run is played at
     int dueIndex;
+    readonly List<double> clicks = new List<double>(); // metronome clicks, in Time.unscaledTimeAsDouble
+    int clickIndex;
     List<ExpectedNote> expected = new List<ExpectedNote>();
     bool[] claimed = new bool[0];
     readonly List<PlayedNote> played = new List<PlayedNote>();
@@ -137,6 +148,8 @@ public class CurriculumEngine : MonoBehaviour
         if (coach == null) coach = GetComponent<AICoach>();
         if (demoPlayer == null) demoPlayer = GetComponent<DemoPlayer>();
         if (demoPlayer == null) demoPlayer = gameObject.AddComponent<DemoPlayer>();
+        metronome = GetComponent<Metronome>();
+        if (metronome == null) metronome = gameObject.AddComponent<Metronome>();
     }
 
     void OnEnable()
@@ -178,9 +191,9 @@ public class CurriculumEngine : MonoBehaviour
         var cfg = Cfg;
         evaluator = cfg.CreateEvaluator();
         Warmup = CurriculumSongs.CMajorScale(cfg.warmupTempoBpm);
-        Song = CurriculumSongs.FurElise(Mathf.Max(1, cfg.songBarCount));
-        if (cfg.songBarCount > Song.BarCount)
-            Debug.LogWarning($"[Lesson] songBarCount is {cfg.songBarCount} but {Song.name} only has {Song.BarCount} bars written out.");
+        Song = CurriculumSongs.FurElise(cfg.SongBarCount);
+        if (cfg.SongBarCount > Song.BarCount)
+            Debug.LogWarning($"[Lesson] songBarCount is {cfg.SongBarCount} but {Song.name} only has {Song.BarCount} bars written out.");
         BuildChunks(Song.BarCount, Mathf.Max(1, cfg.phraseLength));
 
         skipped.Clear();
@@ -193,6 +206,8 @@ public class CurriculumEngine : MonoBehaviour
         ResetLadder();
         startedAt = Time.time;
         LastResult = null;
+        EvaluatorErrors = 0;
+        LastEvaluatorError = null;
 
         Debug.Log($"[Lesson] Starting. Tempo steps [{string.Join(", ", Steps)}], {cfg.CleanStreak} clean in a row per step. " +
                   $"Chunks: {string.Join(", ", chunks.Select(c => "[" + c + "]"))}");
@@ -260,9 +275,9 @@ public class CurriculumEngine : MonoBehaviour
 
     enum Step { StreakGoing, StepUp, Passed, Retry, StepDown }
 
-    void ResetLadder()
+    void ResetLadder(int step = 0)
     {
-        TempoStep = 0;
+        TempoStep = Mathf.Clamp(step, 0, Steps.Count - 1);
         CleanStreak = 0;
         StepFails = 0;
         OnTempoChanged?.Invoke(TempoPct, TempoStep + 1);
@@ -331,14 +346,21 @@ public class CurriculumEngine : MonoBehaviour
         }
         v.accuracy = notes == 0 ? 1f : (float)hits / notes;
         v.timingFailed = AtTopStep && r.timingScore < cfg.timingThreshold;
-        // "95%, max 1 slip": one slip is always forgiven, so a short chunk does not have to be perfect.
-        bool notesOk = v.accuracy >= cfg.accuracyThreshold || v.slips <= cfg.maxSlips;
+        // "95%, max 1 slip": one slip is always forgiven, so a short chunk does not have to be perfect. A drilled bar
+        // is a few notes looped on purpose, so it has to be exact (drillMaxSlips).
+        bool notesOk = State == CurriculumState.SongDrill ? v.slips <= cfg.drillMaxSlips
+                     : v.accuracy >= cfg.accuracyThreshold || v.slips <= cfg.maxSlips;
         v.clean = notesOk && !v.hesitated && !v.timingFailed;
         if (v.clean) v.problemBars.Clear();
         return v;
     }
 
-    string Speed() => AtTopStep ? "full speed" : TempoStep == 0 ? "a slow speed" : "a medium speed";
+    string Speed() => SpeedName(TempoStep);
+    string SpeedName(int step) => step >= Steps.Count - 1 ? "full speed" : step <= 0 ? "a slow speed" : "a medium speed";
+
+    // The bar to drill when no single bar was flagged (say timing failed overall): the lowest scoring one.
+    int WorstBar(EvaluationResult r) => r.bars.Where(b => !skipped.Contains(b.barNumber))
+        .OrderBy(b => b.score).ThenBy(b => b.timingScore).Select(b => b.barNumber).FirstOrDefault();
 
     // ------------------------------------------------------------------ Warm-up
 
@@ -417,11 +439,12 @@ public class CurriculumEngine : MonoBehaviour
         AfterCoach(() => StartChunk(0));
     }
 
-    void StartChunk(int index)
+    void StartChunk(int index, int tempoStep = 0)
     {
         ChunkIndex = index;
         DrillBar = 0;
-        ResetLadder();
+        chunkFails = 0;
+        ResetLadder(tempoStep);
         SetState(CurriculumState.SongChain);
         OnChunkStarted?.Invoke(CurrentChunk);
         AfterCoach(() => BeginRun(Song, CurrentChunk));
@@ -439,7 +462,25 @@ public class CurriculumEngine : MonoBehaviour
         bool isFinal = ChunkIndex == chunks.Count - 1;
         if (isFinal) Stats.finalRunAccuracy = r.overallScore * 100f;
 
-        int stepBefore = TempoStep;
+        // Too many misses on this chunk, at whatever steps: drill its worst bar, so a bar that only breaks at full
+        // speed cannot bounce between the top steps forever.
+        if (!v.clean && ++chunkFails >= Mathf.Max(1, cfg.drillAfterTotalFails))
+        {
+            int bar = v.problemBars.Count > 0 ? v.problemBars[0] : WorstBar(r);
+            if (bar > 0)
+            {
+                drillReturnStep = Mathf.Max(0, TempoStep - 1);
+                CleanStreak = StepFails = 0;
+                var drillInfo = Info("song", v, r);
+                drillInfo.attempt = attempts;
+                drillInfo.drillBar = bar;
+                drillInfo.nextStep = $"The app loops bar {bar} on its own until it is clean at full speed, then they play {Bars(chunk)} again at {SpeedName(drillReturnStep)}.";
+                Tell(CoachTrigger.ChunkFailed, Song, chunk, r, v, drillInfo, Key(chunk));
+                EnterDrill(bar);
+                return;
+            }
+        }
+
         var step = Climb(v.clean, cfg.CleanStreak);
         var info = Info("song", v, r);
         info.attempt = attempts;
@@ -477,16 +518,6 @@ public class CurriculumEngine : MonoBehaviour
                 break;
 
             default:
-                // At the slowest step a problem bar gets drilled on its own; higher up they just go again.
-                if (stepBefore == 0 && v.problemBars.Count > 0)
-                {
-                    int bar = v.problemBars[0];
-                    info.drillBar = bar;
-                    info.nextStep = $"The app loops bar {bar} on its own until it is clean at full speed, then they play {Bars(chunk)} again from slow.";
-                    Tell(CoachTrigger.ChunkFailed, Song, chunk, r, v, info, Key(chunk));
-                    EnterDrill(bar);
-                    return;
-                }
                 info.nextStep = $"They play {Bars(chunk)} again at {Speed()}.";
                 Tell(CoachTrigger.RunFinished, Song, chunk, r, v, info, Key(chunk));
                 break;
@@ -525,9 +556,10 @@ public class CurriculumEngine : MonoBehaviour
         switch (step)
         {
             case Step.Passed:
-                info.nextStep = $"Bar {DrillBar} is fixed. They go back to {Bars(CurrentChunk)}, starting slow.";
+                // Back to the chunk one step below where it broke, not all the way down.
+                info.nextStep = $"Bar {DrillBar} is fixed. They go back to {Bars(CurrentChunk)} at {SpeedName(drillReturnStep)}.";
                 Tell(CoachTrigger.DrillPassed, Song, range, r, v, info, Key(range));
-                StartChunk(ChunkIndex);
+                StartChunk(ChunkIndex, drillReturnStep);
                 return;
             case Step.StepUp:
                 info.nextStep = $"They play bar {DrillBar} again at {Speed()}.";
@@ -607,13 +639,26 @@ public class CurriculumEngine : MonoBehaviour
         claimed = new bool[expected.Count];
         played.Clear();
         dueIndex = 0;
-        runStart = Time.unscaledTimeAsDouble + cfg.leadInSeconds;
+        runStep = TempoStep;
         runEnd = expected.Count > 0 ? expected[expected.Count - 1].time + cfg.matchWindowMs / 1000.0 + 0.2 : 0;
+
+        // Count-in: countInBeats clicks on the beats before the first note, then (at slow steps) a click on every beat.
+        // The clicks sit on whole beats of the song, so a first note off the beat still gets an in-time count.
+        float spb = CurriculumSongs.SecondsPerBeat(song, TempoPct);
+        double grid = expected.Count > 0 ? (Math.Floor(expected[0].beat + 1e-4) - expected[0].beat) * spb : 0; // <= 0
+        int countIn = Mathf.Max(0, cfg.countInBeats);
+        runStart = Time.unscaledTimeAsDouble + 0.3 + countIn * spb - grid;
+        clicks.Clear();
+        clickIndex = 0;
+        for (int i = countIn; i >= 1; i--) clicks.Add(runStart + grid - i * spb);
+        if (cfg.metronomeDuringRun && TempoPct <= cfg.metronomeMaxTempoPct && expected.Count > 0)
+            for (double c = grid; c <= expected[expected.Count - 1].time + 1e-4; c += spb) clicks.Add(runStart + c);
+        metronome.volume = cfg.metronomeVolume;
         running = true;
 
         CurrentRun = new RunInfo
         {
-            song = song, bars = bars, tempoPct = TempoPct, secondsPerBeat = CurriculumSongs.SecondsPerBeat(song, TempoPct),
+            song = song, bars = bars, tempoPct = TempoPct, secondsPerBeat = spb,
             startTime = runStart, notes = expected,
         };
         Debug.Log($"[Lesson] {State}: play {Bars(bars)} of {song.name} ({expected.Count} notes) at {TempoPct}%, step {TempoStep + 1}/{Steps.Count}, " +
@@ -624,7 +669,13 @@ public class CurriculumEngine : MonoBehaviour
     void Update()
     {
         if (!running || IsDemoPlaying) return;
-        double t = Time.unscaledTimeAsDouble - runStart;
+        double now = Time.unscaledTimeAsDouble;
+        while (clickIndex < clicks.Count && clicks[clickIndex] <= now + 0.1) // scheduled a little ahead on the audio clock
+        {
+            metronome.ClickAt(clicks[clickIndex], clickIndex == 0);
+            clickIndex++;
+        }
+        double t = now - runStart;
         while (dueIndex < expected.Count && expected[dueIndex].time <= t)
         {
             var note = expected[dueIndex];
@@ -675,12 +726,24 @@ public class CurriculumEngine : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError("[Lesson] Evaluator threw, counting the run as clean: " + e);
-            r = null;
+            // Counted as clean so the lesson can never stall on a broken evaluator, but loudly.
+            EvaluatorError($"threw {e.GetType().Name}: {e.Message}", e);
+            r = new EvaluationResult { overallScore = 1f, timingScore = 1f, passed = true };
         }
-        r = r ?? new EvaluationResult { overallScore = 1f, timingScore = 1f, passed = true };
+        if (r == null)
+        {
+            EvaluatorError("returned null");
+            r = new EvaluationResult { overallScore = 1f, timingScore = 1f, passed = true };
+        }
+        var missing = new List<int>();
         for (int bar = runBars.First; bar <= runBars.Last; bar++)
-            if (r.Bar(bar) == null) r.bars.Add(new BarResult { barNumber = bar, score = 1f, timingScore = 1f, passed = true });
+        {
+            if (r.Bar(bar) != null) continue;
+            missing.Add(bar);
+            r.bars.Add(new BarResult { barNumber = bar, score = 1f, timingScore = 1f, passed = true });
+        }
+        if (missing.Count > 0 && r.bars.Count > missing.Count) // a whole made-up result has already been reported
+            EvaluatorError($"left out bar(s) {string.Join(",", missing)}");
         r.bars.Sort((a, b) => a.barNumber.CompareTo(b.barNumber));
 
         LastResult = r;
@@ -689,6 +752,14 @@ public class CurriculumEngine : MonoBehaviour
                                                        (b.hesitations.Count > 0 ? $" pause {b.hesitations.Max(h => h.ms)}ms" : ""))));
         OnRunEvaluated?.Invoke(r);
         return r;
+    }
+
+    void EvaluatorError(string what, Exception e = null)
+    {
+        EvaluatorErrors++;
+        LastEvaluatorError = $"{Bars(runBars)}: {what}";
+        Debug.LogError($"[Lesson] EVALUATOR ERROR on {Bars(runBars)}: {what}. Counting it as clean so the lesson goes on." +
+                       (e != null ? "\n" + e : ""));
     }
 
     // ------------------------------------------------------------------ Demos and waiting
@@ -772,6 +843,7 @@ public class CurriculumEngine : MonoBehaviour
         coachDemoResume = null;
         running = false;
         if (demoPlayer != null) demoPlayer.Stop();
+        if (metronome != null) metronome.Stop();
         pendingCoach.Clear();
         OnNextNote?.Invoke(null);
     }
@@ -851,6 +923,8 @@ public class CurriculumEngine : MonoBehaviour
             curriculum = info,
             allowedActions = CoachMayAsk,
             currentTempoPct = TempoPct,
+            lastRunSpeed = r != null ? SpeedName(runStep) : null,
+            nextRunSpeed = Speed(),
             tempoStep = TempoStep + 1,
             tempoStepCount = Steps.Count,
             timingRequired = AtTopStep, // for the next run

@@ -121,6 +121,8 @@ public class CoachContext
     public string userQuestion;        // set for the UserAsked trigger
     public CurriculumInfo curriculum;  // set by CurriculumEngine
     public int currentTempoPct = 100;  // the practice tempo; the curriculum owns it, the coach can't change it
+    public string lastRunSpeed;        // "a slow speed", "a medium speed", "full speed": the run that just ended
+    public string nextRunSpeed;        // the same for the next run
     public int tempoStep;              // 1-based step on the tempo ladder, 0 = no ladder
     public int tempoStepCount;
     public bool timingRequired;        // whether timing counts towards passing this step
@@ -206,8 +208,13 @@ public class CoachContext
             sb.Append(",\"user_question\":").Append(AIHttp.Quote(userQuestion ?? ""));
 
         if (tempoStep > 0)
-            sb.Append(",\"tempo\":{\"pct\":").Append(currentTempoPct).Append(",\"step\":").Append(tempoStep)
+        {
+            // Speeds as words: the model must never say the number, and it mixed up which run pct was for.
+            sb.Append(",\"tempo\":{");
+            if (!string.IsNullOrEmpty(lastRunSpeed)) sb.Append("\"this_run\":").Append(AIHttp.Quote(lastRunSpeed)).Append(',');
+            sb.Append("\"next_run\":").Append(AIHttp.Quote(nextRunSpeed ?? "")).Append(",\"step\":").Append(tempoStep)
               .Append(",\"of\":").Append(tempoStepCount).Append(",\"timing_required\":").Append(timingRequired ? "true" : "false").Append('}');
+        }
         if (curriculum != null) AppendCurriculum(sb, curriculum);
         if (allowedActions != null)
         {

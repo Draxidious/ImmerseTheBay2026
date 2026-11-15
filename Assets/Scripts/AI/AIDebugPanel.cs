@@ -331,6 +331,13 @@ public class AIDebugPanel : MonoBehaviour
         GUILayout.EndHorizontal();
 
         GUILayout.Label("Lesson: " + LessonStatus() + (engine.IsDemoPlaying ? "  (demo playing)" : ""));
+        if (engine.EvaluatorErrors > 0)
+        {
+            var color = GUI.color;
+            GUI.color = Color.red;
+            GUILayout.Label($"EVALUATOR ERROR x{engine.EvaluatorErrors} (runs counted as clean): {engine.LastEvaluatorError}");
+            GUI.color = color;
+        }
         GUILayout.BeginHorizontal();
         if (GUILayout.Button(engine.State == CurriculumState.Idle ? "Start lesson" : "Restart lesson", GUILayout.Height(28))) engine.StartLesson();
         GUILayout.Label("Fail bars:", GUILayout.Width(62));
