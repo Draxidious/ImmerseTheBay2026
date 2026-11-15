@@ -18,6 +18,38 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 
 ---
 
+## App flow — `AppFlow` (`Assets/Scripts/App/AppFlow.cs`) ✅ — Jordan
+The only script that knows the order of the app in `Main.unity`. It calls the public members below on the other modules and
+holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophonePermission` → `Intro` → `Listening` → `Calibrating` → `Lesson`.
+
+0. `MicrophonePermission`: hides overlay/evaluator, requests Android microphone permission when needed and waits for
+   grant, denial (including don't-ask-again), or dismissal before the intro. No prompt when already granted, in the Editor,
+   or without a VoiceInput. A denial/dismissal skips recording; it does not block calibration or prompt again in Listening.
+1. `Intro`: speaks `introLine` (`VoiceOutput.Speak`, text via `CoachOrb.ShowText`).
+2. `Listening`: with permission, `VoiceInput.StartListening()` for `listenSeconds` (4 s), then `StopListening()`.
+   Permission is rechecked before listening. Any answer, silence, or unavailable recording moves on.
+3. `Calibrating`: shows the overlay, calls `PianoCalibrator.Recalibrate()` (the scene has `calibrateOnStart` off), speaks `calibrateLine`.
+4. `Lesson`: on the first `PianoCalibrator.Calibrated`, activates the `PerformanceEvaluator` object and speaks `lessonLine`.
+
+During `Lesson` it drives `PianoOverlay.SetKey` from the evaluator: `Restarted` / `NoteJudged` → `Next` on the note to play,
+`NoteJudged` → `Correct` flash, `WrongNotePlayed` → `Wrong` flash on the pressed key.
+
+`SongFinished` sends `RunStats` to `AICoach.Coach` in a `CoachContext` (`RunFinished`, `freeplay`).
+The context contains the evaluator's actual right-hand Für Elise excerpt (including the pickup), bars 1–8,
+target tempo, attempt count and the last five accuracy scores. `coach` is found automatically when unassigned.
+Only `CoachActionType.None` is allowed: Main has no demo/fingering action player. `CoachOrbBridge` presents the
+reply and voice state as usual; missing keys use the coach's existing fallback. The note loop never waits for this request.
+
+On every `Calibrated` event, AppFlow places `sheetDisplay` (`SongNoteDisplay` on the evaluator object) at the midpoint
+between the overlay's lowest/highest drawn key centers plus `sheetOffset` (default 0 m sideways, 0.45 m up, 0.20 m
+toward the fallboard). The offset is in meters and follows keyboard yaw, not calibration scale or roll. The panel stays
+upright and faces the player side of the keyboard. It is positioned before the first activation and repositioned after
+later calibrations without restarting the evaluator. `sheetDisplay` is found on `evaluator` when unassigned.
+
+The three lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
+
+---
+
 ## UI — owner: Ari
 
 ### PianoOverlay (`Assets/Scripts/UI/PianoOverlay.cs`) ✅
@@ -150,6 +182,22 @@ measure). Agreed design, not implemented yet. It needs per-measure ratings and a
   "wrongNotes": [{"expected": 64, "played": 65, "measure": 6}],
   "avgHesitationMs": 820, "slowestNote": {"note": 69, "measure": 7, "ms": 2100} }
 ```
+
+### PerformanceEvaluator (`Assets/Scripts/Lesson/PerformanceEvaluator.cs`) ✅ — Jordan
+Wait-mode judge for the Für Elise excerpt (`SongLibrary.FurElise`). Its song types are `LessonSong` / `LessonNote`
+(renamed so they don't collide with the AI layer's `SongData` / `SongNote`).
+
+| Member | Purpose |
+|---|---|
+| `void HandleNoteOn(int midi, int velocity)` | Feed a key press (subscribed to `MidiPianoReader.NoteOn` automatically). |
+| `void Restart()` | Back to the first note, score cleared. |
+| `LessonNote CurrentNote` / `int CurrentIndex` / `bool IsFinished` | Where the player is. |
+| `event Action Restarted` | A new attempt started. |
+| `event Action<NoteResult> NoteJudged` | The correct key was pressed. |
+| `event Action<int, int> WrongNotePlayed` | `(expectedMidi, playedMidi)`. |
+| `event Action<RunStats> SongFinished` | The run summary in the coach's own type (`CoachContext.thisRun`): accuracy, timing, `tempoRating`, wrong notes as MIDI numbers, rushed / dragged bars. |
+
+Editor debug: `Space` = correct note, `X` = wrong note, `P` = auto-play, `Backspace` = restart.
 
 ## AICoach — `AICoach` (`Assets/Scripts/AI/AICoach.cs`, from main) 🚧
 Takes `PerformanceMetrics` (`Assets/Scripts/AI/PerformanceMetrics.cs`) instead of the proposed `PhraseResult`. Keys live in a

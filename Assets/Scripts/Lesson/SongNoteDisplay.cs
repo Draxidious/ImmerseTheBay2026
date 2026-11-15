@@ -150,12 +150,12 @@ public class SongNoteDisplay : MonoBehaviour
     private void OnWrongNote(int expected, int played)
     {
         if (!_built) return;
-        _feedback.text = $"Wrong: {SongNote.NameOf(played)}   (need {SongNote.NameOf(expected)})";
+        _feedback.text = $"Wrong: {LessonNote.NameOf(played)}   (need {LessonNote.NameOf(expected)})";
         _feedback.color = wrongColor;
         Refresh();
     }
 
-    private void OnFinished(PerformanceMetrics m)
+    private void OnFinished(RunStats m)
     {
         if (!_built) return;
         _next.text = $"Grade {evaluator.Grade}";
@@ -309,8 +309,8 @@ public class SongNoteDisplay : MonoBehaviour
         foreach (var kv in rowOf)
         {
             float y = AreaTop + kv.Value * rowHeight;
-            var label = Text("Row " + SongNote.NameOf(kv.Key), 0f, y, LabelWidth - 8f, rowHeight, 20f, TextAlignmentOptions.Right);
-            label.text = SongNote.NameOf(kv.Key);
+            var label = Text("Row " + LessonNote.NameOf(kv.Key), 0f, y, LabelWidth - 8f, rowHeight, 20f, TextAlignmentOptions.Right);
+            label.text = LessonNote.NameOf(kv.Key);
             Box("Guide", _root, LabelWidth, y + rowHeight * 0.5f - 1f, rollWidth, 2f, guideColor);
         }
 

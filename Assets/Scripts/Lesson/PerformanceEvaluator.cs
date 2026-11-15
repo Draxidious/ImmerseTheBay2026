@@ -11,7 +11,7 @@ public enum TimingJudgement { None, Perfect, Good, Early, Late }
 public class NoteResult
 {
     public int index;
-    public SongNote note;
+    public LessonNote note;
     public int wrongAttempts;      // wrong keys pressed before the right one
     public TimingJudgement timing; // None for the first note (nothing to measure against)
     public float timingErrorMs;    // actual gap minus expected gap since the previous note; negative = early
@@ -24,7 +24,7 @@ public class NoteResult
 /// Judges a player against a song in "wait mode": the song waits for the correct key, so a wrong key never advances.
 ///  - Note accuracy: share of notes hit on the first try.
 ///  - Tempo: the gap between consecutive correct notes is compared with the gap the song asks for at its target tempo.
-/// Listens to MidiPianoReader.NoteOn. No AI involved; SongFinished hands a PerformanceMetrics to whoever wants it (AICoach).
+/// Listens to MidiPianoReader.NoteOn. No AI involved; SongFinished hands a RunStats to whoever wants it (AICoach).
 /// Editor debug keys: Space = play the correct note, X = play a wrong note, P = auto-play on/off, Backspace = restart.
 /// </summary>
 public class PerformanceEvaluator : MonoBehaviour
@@ -47,18 +47,18 @@ public class PerformanceEvaluator : MonoBehaviour
     [Tooltip("After the song ends, playing its first note again starts a new attempt once this many seconds have passed.")]
     public float restartDelay = 1.5f;
 
-    public Song Song { get; private set; }
+    public LessonSong Song { get; private set; }
     public int CurrentIndex { get; private set; }
     public bool IsFinished => Song != null && CurrentIndex >= Song.notes.Count;
-    public SongNote CurrentNote => IsFinished ? null : Song.notes[CurrentIndex];
+    public LessonNote CurrentNote => IsFinished ? null : Song.notes[CurrentIndex];
     public IReadOnlyList<NoteResult> Results => _results;
     public int WrongPressCount { get; private set; }
-    public PerformanceMetrics LastMetrics { get; private set; }
+    public RunStats LastMetrics { get; private set; }
 
     public event Action Restarted;
     public event Action<NoteResult> NoteJudged;          // the correct key was pressed
     public event Action<int, int> WrongNotePlayed;       // expected midi, played midi
-    public event Action<PerformanceMetrics> SongFinished;
+    public event Action<RunStats> SongFinished;
 
     private readonly List<NoteResult> _results = new List<NoteResult>();
     private readonly List<WrongNote> _wrongNotes = new List<WrongNote>();
@@ -116,12 +116,12 @@ public class PerformanceEvaluator : MonoBehaviour
             Restart();
         }
 
-        SongNote expected = Song.notes[CurrentIndex];
+        LessonNote expected = Song.notes[CurrentIndex];
         if (midi != expected.midi)
         {
             WrongPressCount++;
             _wrongAttemptsOnCurrent++;
-            _wrongNotes.Add(new WrongNote { bar = expected.bar, expectedNote = expected.Name, playedNote = SongNote.NameOf(midi) });
+            _wrongNotes.Add(new WrongNote { bar = expected.bar, expected = expected.midi, played = midi });
             WrongNotePlayed?.Invoke(expected.midi, midi);
             return;
         }
@@ -224,27 +224,29 @@ public class PerformanceEvaluator : MonoBehaviour
         return n;
     }
 
-    /// <summary>The summary the AI coach takes (AICoach.GetFeedback / GetCoachResponse).</summary>
-    public PerformanceMetrics BuildMetrics()
+    /// <summary>The run summary the AI coach takes: put it in a CoachContext (thisRun) and call AICoach.Coach.</summary>
+    public RunStats BuildMetrics()
     {
-        var m = new PerformanceMetrics { songName = Song.name, accuracyPercent = AccuracyPercent };
+        var m = new RunStats { accuracy = AccuracyPercent, timing = TimingPercent };
         m.wrongNotes.AddRange(_wrongNotes);
+
+        float played = PlayedBpm;
+        if (played > 0f)
+        {
+            float speed = played / Song.bpm;
+            m.tempoRating = speed > 1f + perfectTolerance ? "too_fast" : speed < 1f / (1f + perfectTolerance) ? "too_slow" : "on_tempo";
+        }
 
         var barSum = new Dictionary<int, float>();
         var barCount = new Dictionary<int, int>();
-        float absMs = 0f;
-        int timed = 0;
         foreach (var r in _results)
         {
             if (r.timing == TimingJudgement.None) continue;
-            timed++;
-            absMs += Mathf.Abs(r.timingErrorMs);
             barSum.TryGetValue(r.note.bar, out float s);
             barCount.TryGetValue(r.note.bar, out int c);
             barSum[r.note.bar] = s + Mathf.Log(Mathf.Max(r.ratio, 0.0001f), 2f); // log so 2x slow and 2x fast cancel out
             barCount[r.note.bar] = c + 1;
         }
-        m.avgTimingErrorMs = timed == 0 ? 0f : absMs / timed;
 
         float limit = Mathf.Log(1f + perfectTolerance, 2f);
         foreach (var kv in barSum)

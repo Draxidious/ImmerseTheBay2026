@@ -4,6 +4,87 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Codex (for Ari): startup mic permission and Main device checklist (handoff commit 9)
+- `AppFlow` requests Android microphone permission before the intro and waits for the system response. An existing
+  grant skips the dialog. Denial or dismissal skips recording and continues to calibration without a second request.
+- Updated `CLAUDE.md` and `INTERFACES.md` for Main's wait-mode flow. `AURA_MAIN_TEST.md` covers permission cases,
+  passthrough, calibration, real MIDI, the full excerpt, and the coach reply.
+- **Verified:** Editor compile and Android development build succeeded with zero errors (Android build reported 355 warnings).
+  `Builds/AuraMain-commit9.apk` declares `RECORD_AUDIO`. Installed on the connected Aura puck with `adb install -r`.
+  The installed app resolves its launch activity, and the puck reports no mic grant or prior user-choice flags.
+- **Pending hands-on test:** open ImmerseTheBay2026 on the puck with the glasses on and follow the checklist. The APK
+  was built without cloud credentials. Check recording starts, then expect fallback feedback rather than a cloud transcript or reply.
+
+## 2026-11-14 night — Codex (for Ari): sheet panel follows calibration (handoff commit 8)
+- `AppFlow` finds the evaluator's `SongNoteDisplay` and positions it from the midpoint of the keyboard's lowest/highest
+  drawn key centers on every `Calibrated` event, including later recalibrations. Default `sheetOffset`: 0 m sideways,
+  0.45 m up, 0.20 m toward the fallboard. The panel follows keyboard yaw, stays upright and keeps its existing size.
+- Placement happens before first activation, so the generated canvas inherits it. Recalibration does not restart the
+  lesson, speak the lesson-start line again, or create another canvas. No scene asset changes or other-owner script edits.
+- **Verified via Unity MCP:** no compile errors. Clean Main Play-mode run reached Lesson through normal startup and
+  scripted calibration; measured offset exactly (0, 0.45, 0.20). Recalibration translated the piano, rotated it 25 degrees,
+  and narrowed its span to 1.14 m: panel position error 0 m, yaw 25 degrees, scale unchanged, note index stayed 1, one canvas.
+  Screenshot visually checked at `Temp/AppFlowVerification/appflow-sheet-calibration.png` (local, not committed).
+- The clean run had no application exceptions; the same six missing-XR/Direct-Preview/secret environment errors remain.
+  An earlier test-harness attempt cleared VoiceInput during its coroutine and was discarded; the clean rerun left startup intact.
+- **Still not done (commit 9, outside this handoff's stopping point):** startup microphone permission, broader Main docs cleanup,
+  and a full Aura/piano test. Cloud coaching/audio also needs local credentials. No push performed.
+
+## 2026-11-14 night — Codex (for Ari): finished wait-mode runs reach the coach (handoff commit 7)
+- `AppFlow` subscribes/unsubscribes `SongFinished`, converts the evaluator's actual 35-note right-hand excerpt into
+  `SongData`, and sends `RunFinished` / `freeplay` context with `RunStats`, bars 1–8 and recent attempt history.
+- Main allows only the `None` coach action because it has no demo/fingering player. The existing orb bridge handles replies.
+- **Verified via Unity MCP:** script compilation completed with no compile errors; Main reached Lesson after scripted
+  four-point calibration. A timed 35-note run sent 100% accuracy and displayed the fallback on the orb. A second run after
+  disabling/re-enabling AppFlow sent one wrong press (77 instead of 76), 97.14% accuracy, and exactly two attempts in history.
+- **Limitations:** no `secrets.json` exists on this machine, so cloud coaching/audio was not tested; native TTS is silent in
+  the Editor. Play mode reports unavailable XR session/camera/eye/hand tracking, Direct Preview adb and missing-secret
+  diagnostics. No AppFlow exceptions were reported. No device test, scene save, or changes to other owners' scripts.
+- **Next:** place the sheet panel relative to calibration (commit 8); microphone startup permission remains commit 9.
+
+## 2026-11-14 night — Claude Code (for Jordan): lesson lights the keys on the overlay
+- `AppFlow` forwards evaluator events to `PianoOverlay.SetKey`: the note to play is `Next`, a right press flashes `Correct`,
+  a wrong press flashes `Wrong` on the key that was pressed.
+- **Works (Editor Play mode, scripted):** E5 `Next` → F5 `Wrong` → E5 `Correct` → D#5 `Next`. Untested on the Aura.
+- **Known:** the calibrator's 5 s "all C keys" preview clears the keys it lit, so a C that is `Next` in that window goes dark once.
+- **Next (not done):** send finished runs to the coach, place the sheet panel from the calibrated overlay, mic permission at startup.
+
+## 2026-11-14 night — Claude Code (for Jordan): `AppFlow` sequences Main (intro → listen → calibrate → lesson)
+- New `Assets/Scripts/App/AppFlow.cs` + an `App Flow` object in `Main`. `PianoCalibrator.calibrateOnStart` is off in `Main` only.
+- Order: coach speaks a fixed intro and asks "are you ready", mic opens 4 s, calibration starts, and on `Calibrated` the evaluator
+  object is switched on. The overlay is hidden until calibration starts.
+- **Works (Editor Play mode):** one full run with real Groq TTS + Whisper (silence came back as "Thank you.", which is fine: any
+  answer moves on); a second run with voice off and scripted calibration points reached `Lesson` with the evaluator active. 0 errors.
+- **Not yet:** mic permission on Android is only asked at the first listen, so the first answer is missed there (fixed in a later
+  commit). Untested on the Aura.
+
+## 2026-11-14 night — Claude Code (for Jordan): Main gets the MIDI reader, evaluator and sheet panel
+- Moved `MidiPianoReader` and `Performance Evaluator` (`PerformanceEvaluator` + `SongNoteDisplay` with the 21 sheet lines) from
+  `JordanScene` into `Main` (JordanScene itself is unchanged). The evaluator object **starts inactive**; nothing turns it on yet.
+- Left behind: JordanScene's rig, Plane, light, EventSystem and the MIDI Log Canvas.
+- **Works (Editor Play mode):** activating the evaluator by hand builds the sheet panel and it advances on key presses, 0 errors.
+  **Not yet:** the panel still sits at its JordanScene position (0.95, 1.5, 1.8), not relative to the piano.
+
+## 2026-11-14 night — Claude Code (for Jordan): `Main.unity` = Dev_Ari + coach orb + AI coach
+- `Assets/Scenes/Main.unity` is a copy of `Dev_Ari` (rig, AR Session, PianoOverlay, PianoCalibrator untouched) plus the `CoachOrb`
+  prefab and an `AI Coach` object (AudioSource, `VoiceOutput`, `AICoach`, `VoiceInput`; no `AIDebugPanel`, its keys clash).
+- Build scenes: `Main` at index 0; `Dev_Ari`, `SampleScene`, `JordanScene` are in the list but disabled.
+- **Works (Editor Play mode, no headset):** orb idles, the bridge finds the coach / voice in / voice out, calibration starts as in
+  `Dev_Ari`, 0 errors. **Not yet:** MIDI, evaluator, any sequencing. Untested on the Aura.
+
+## 2026-11-14 night — Claude Code (for Jordan): coach menu compiles again (Nehemiah's folder, with Jordan's OK)
+- `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs`: **Tools ▸ Coach ▸ Add AI Coach + Orb Bridge** no longer adds `HesitationTracker`
+  or sets `AIDebugPanel.tracker`; both were deleted on Canady's branch. Nothing else in the menu changed.
+- **Works:** 0 compile errors in the Console, so Play mode is available again.
+
+## 2026-11-14 night — Claude Code (for Jordan): Lesson scripts compile again after the AI merge
+- Main had 6 compile errors in `Assets/Scripts/Lesson/` after merging Canady: `SongNote` defined twice, `PerformanceMetrics`
+  deleted, `WrongNote` changed to MIDI numbers.
+- Lesson types renamed `Song` → `LessonSong`, `SongNote` → `LessonNote`. `PerformanceEvaluator.SongFinished` now hands out the
+  coach's `RunStats` (accuracy, timing, `tempoRating`, wrong notes, rushed / dragged bars). `avgTimingErrorMs` and `songName` are gone.
+- **Works:** the runtime assembly compiles. **Still broken:** `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs` references the deleted
+  `HesitationTracker` and `AIDebugPanel.tracker` (2 errors, editor assembly), so Play mode is still blocked.
+
 ## 2026-11-14 evening — Claude Code (for Jordan): coach playbook linked from the docs
 - `docs/COACH_PLAYBOOK.md` (already on main) is now referenced from `CLAUDE.md` (Architecture) and `INTERFACES.md` (LessonEngine).
   It defines the lesson progression: learn each new measure alone at 50% → 75% → 100% tempo, then a full play-through from

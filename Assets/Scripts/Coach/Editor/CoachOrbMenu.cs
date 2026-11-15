@@ -11,7 +11,7 @@ using UnityEngine.XR.Interaction.Toolkit;
 ///
 /// Menu: Tools ▸ Coach ▸ Add Coach Orb             — adds the CoachOrb prefab to the open scene (or selects the existing one).
 ///       Tools ▸ Coach ▸ Add AI Coach + Orb Bridge — the orb prefab + an AI coach (AICoach/VoiceOutput/VoiceInput/
-///                                                    HesitationTracker + AIDebugPanel) for testing.
+///                                                    AIDebugPanel) for testing.
 ///       Tools ▸ Coach ▸ Add Aura XR Rig to Scene  — the project's hands rig + passthrough setup (same as Dev_Ari),
 ///                                                    so the open scene can run on the Aura.
 ///       Tools ▸ Coach ▸ Rebuild CoachOrb Prefab   — regenerates the prefab from the current script defaults.
@@ -89,7 +89,7 @@ public static class CoachOrbMenu
     }
 
     /// <summary>
-    /// AI coach set up the way AIDebugPanel expects (AICoach + VoiceOutput + VoiceInput + HesitationTracker on one object),
+    /// AI coach set up the way AIDebugPanel expects (AICoach + VoiceOutput + VoiceInput on one object),
     /// plus the debug panel. Adds the orb prefab (which carries the bridge) if the scene has no orb.
     /// </summary>
     [MenuItem("Tools/Coach/Add AI Coach + Orb Bridge")]
@@ -114,9 +114,8 @@ public static class CoachOrbMenu
         coach = GetOrAdd<AICoach>(go);
         coach.voiceOutput = output;
         var input = GetOrAdd<VoiceInput>(go);
-        var tracker = GetOrAdd<HesitationTracker>(go);
         var panel = GetOrAdd<AIDebugPanel>(go);
-        panel.coach = coach; panel.voiceOutput = output; panel.voiceInput = input; panel.tracker = tracker;
+        panel.coach = coach; panel.voiceOutput = output; panel.voiceInput = input;
         // The orb prefab carries the bridge; only add one here for an older, hand-built orb without it.
         var orb = Object.FindAnyObjectByType<CoachOrb>();
         if (orb && !Object.FindAnyObjectByType<CoachOrbBridge>()) Undo.AddComponent<CoachOrbBridge>(orb.gameObject);
