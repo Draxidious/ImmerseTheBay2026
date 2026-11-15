@@ -290,11 +290,11 @@ public class PianoCalibrator : MonoBehaviour
         _backHighMarker.SetActive(false);
         SetPhase(Phase.Idle);
         ShowAlignmentPreview();
-        ShowMessage("<b>Calibrated from the markers!</b>\nThe blue bars should sit on every C key.\n" +
-                    (UsesHandMenu ? "Tap Menu on your left hand for options and fine-tuning."
-                        : "Fine-tune: touch the BLUE dot on the back of your left hand.\n" +
-                          (MenuDotPressed != null ? "Menu (redo): touch the ORANGE dot." : "Redo: touch the ORANGE dot.")),
-                    previewSecondsAfterCalibration);
+        if (!UsesHandMenu)
+            ShowMessage("<b>Calibrated from the markers!</b>\nThe blue bars should sit on every C key.\n" +
+                        "Fine-tune: touch the BLUE dot on the back of your left hand.\n" +
+                        (MenuDotPressed != null ? "Menu (redo): touch the ORANGE dot." : "Redo: touch the ORANGE dot."),
+                        previewSecondsAfterCalibration);
         Calibrated?.Invoke();
         return null;
     }
@@ -429,11 +429,11 @@ public class PianoCalibrator : MonoBehaviour
         if (hideMarkersAfter > 0f) _hideMarkersAt = Time.time + hideMarkersAfter;
         SetPhase(Phase.Idle);
         ShowAlignmentPreview();
-        ShowMessage("<b>Calibrated!</b>\nThe blue bars should sit on every C key.\n" +
-                    (UsesHandMenu ? "Tap Menu on the back of your left hand."
-                      : MenuDotPressed != null ? "Menu (restart, free play, redo): touch the\norange dot on the back of your LEFT hand."
-                                            : "To redo: touch the orange dot on the\nback of your LEFT hand for a moment."),
-                    previewSecondsAfterCalibration);
+        if (!UsesHandMenu)
+            ShowMessage("<b>Calibrated!</b>\nThe blue bars should sit on every C key.\n" +
+                        (MenuDotPressed != null ? "Menu (restart, free play, redo): touch the\norange dot on the back of your LEFT hand."
+                                              : "To redo: touch the orange dot on the\nback of your LEFT hand for a moment."),
+                        previewSecondsAfterCalibration);
         Calibrated?.Invoke();
     }
 

@@ -440,7 +440,7 @@ MonoBehaviour:
   introLine: Hi, I'm your piano coach. I can help you play piano through lessons, or we can explore music through Free Play. To begin, let's line up your keyboard.
   calibrateLine:
   lessonLine: Got it. Play the first note whenever you're ready.
-  chooseModeLine: Poke Menu on your left hand, then poke Lesson or Free Play.
+  chooseModeLine: With your right index finger, poke Menu on the back of your left hand. Then poke Lesson or Free Play.
   freePlayLine: Free play. Play anything you like, and I'll listen.
   startDelay: 1.5
   listenSeconds: 4
