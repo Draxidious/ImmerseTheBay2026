@@ -67,6 +67,12 @@ public class RunStats
     public string tempoRating;         // "on_tempo", "too_slow", "too_fast"; null = not rated
     public List<int> judgedBars;       // the bars this run was judged on; null = the current section
     public float timing = -1f;         // 0-100 timing score, -1 = not measured (informational)
+    // Notes the student never played at all. They are not in wrongNotes (no wrong key was pressed for them), so
+    // without these a run where nothing was played would look spotless.
+    public int notesExpected = -1;     // notes in the judged bars, -1 = not reported
+    public int notesMissed;            // of those, never played
+    public List<int> missedBars = new List<int>(); // bars with at least one note never played
+    public bool nothingPlayed;         // no key was pressed during the whole run
 }
 
 [Serializable]
@@ -204,6 +210,14 @@ public class CoachContext
             Join(sb, r.draggedBars ?? new List<int>(), b => b.ToString());
             sb.Append(']');
             if (r.timing >= 0f) sb.Append(",\"timing\":").Append(Number(r.timing));
+            if (r.notesExpected >= 0)
+            {
+                sb.Append(",\"notes_expected\":").Append(r.notesExpected).Append(",\"notes_missed\":").Append(r.notesMissed);
+                sb.Append(",\"missed_bars\":[");
+                Join(sb, r.missedBars ?? new List<int>(), b => b.ToString());
+                sb.Append(']');
+            }
+            if (r.nothingPlayed) sb.Append(",\"nothing_played\":true");
             sb.Append('}');
         }
 

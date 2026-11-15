@@ -19,7 +19,13 @@ using UnityEngine.InputSystem;
 ///   5. Lesson: the evaluator and its sheet panel are switched on, the key to press next is lit, right and wrong presses flash.
 ///      Free Play: the evaluator and sheet are off; FreePlayController lights pressed keys and the coach comments now and then.
 /// The lines here are fixed text: no model call, so the start of the app never waits on the network.
-/// Editor debug key: Enter = skip the current wait (speech or listening). Calibrate with the calibrator's own C key.
+/// Two kinds of lesson, depending on what is in the scene:
+///   - a CurriculumEngine (Main_2): the guided lesson of COACH_PLAYBOOK.md, in timed runs. The engine talks to the coach
+///     itself. Left-hand keys are lit amber, right-hand keys cyan.
+///   - only a PerformanceEvaluator (Main): the whole excerpt once in wait mode, then one summary to the coach.
+/// Editor debug keys: Enter = skip the current wait (speech, listening, a demo or the coach before a run).
+/// With a CurriculumEngine, end the current run at once as: F5 = clean, F6 = one wrong note (Shaky),
+/// F7 = two wrong notes in the last measure (Problem), F8 = clean but 30% too slow. Calibrate with the calibrator's own C key.
 /// </summary>
 public class AppFlow : MonoBehaviour
 {
@@ -35,10 +41,14 @@ public class AppFlow : MonoBehaviour
     [Tooltip("The evaluator object starts inactive in the scene and is switched on after calibration.")]
     public PerformanceEvaluator evaluator;
     public SongNoteDisplay sheetDisplay;
+    [Tooltip("The guided lesson. When there is one in the scene it runs the lesson and the evaluator is switched off.")]
+    public CurriculumEngine engine;
 
     [Header("Sheet placement (meters from the keyboard's drawn center)")]
     [Tooltip("X = along the keys, Y = above the keys, Z = toward the fallboard. Not scaled with calibration.")]
     public Vector3 sheetOffset = new Vector3(0f, 0.45f, 0.20f);
+    [Tooltip("Clear space between the sheet panel's right edge and the coach orb's text, in meters.")]
+    public float orbPanelGap = 0.04f;
 
     [Header("Lines")]
     [TextArea] public string introLine = "Hi, I'm your piano coach. Today we'll play the opening of Für Elise. Are you ready to learn?";
@@ -58,6 +68,8 @@ public class AppFlow : MonoBehaviour
     public Step CurrentStep { get; private set; }
 
     bool _skip, _answered;
+    readonly Dictionary<int, double> _litUntil = new Dictionary<int, double>(); // keys lit as "next", and when to turn them off
+    readonly List<int> _expired = new List<int>();
     readonly LessonHistory _history = new LessonHistory();
 
     void Awake()
@@ -70,18 +82,40 @@ public class AppFlow : MonoBehaviour
         if (!overlay) overlay = FindAnyObjectByType<PianoOverlay>();
         if (!evaluator) evaluator = FindAnyObjectByType<PerformanceEvaluator>(FindObjectsInactive.Include);
         if (!sheetDisplay && evaluator) sheetDisplay = evaluator.GetComponent<SongNoteDisplay>();
-
-        // Show the generated sheet music of the evaluator's song (Assets/Resources/Sheets, one strip per line).
-        // Keeps the images set in the scene if there are none.
-        if (sheetDisplay && evaluator) LessonSongSource.ApplySheets(sheetDisplay, evaluator.songId, evaluator.songSection);
+        if (!sheetDisplay) sheetDisplay = FindAnyObjectByType<SongNoteDisplay>(FindObjectsInactive.Include);
+        if (!engine) engine = FindAnyObjectByType<CurriculumEngine>(FindObjectsInactive.Include);
+        if (engine)
+        {
+            // The engine judges the lesson; the wait-mode evaluator would listen to the same keys.
+            // The panel keeps the sheet images set in the scene: they are numbered like the engine's bars.
+            if (evaluator) evaluator.enabled = false;
+            if (!engine.coach) engine.coach = coach;
+        }
+        else if (sheetDisplay && evaluator)
+        {
+            // Show the generated sheet music of the evaluator's song (Assets/Resources/Sheets, one strip per line).
+            // Keeps the images set in the scene if there are none.
+            LessonSongSource.ApplySheets(sheetDisplay, evaluator.songId, evaluator.songSection);
+        }
     }
+
+    // What is switched on once the piano is calibrated: the sheet panel (and, in Main, the evaluator on the same object).
+    GameObject LessonPanel => sheetDisplay ? sheetDisplay.gameObject : evaluator ? evaluator.gameObject : null;
 
     void OnEnable()
     {
         if (calibrator) calibrator.Calibrated += OnCalibrated;
         if (voiceInput) voiceInput.OnCommand += OnAnswer;
         AppModeSwitch.Requested += OnModeRequested;
-        if (evaluator)
+        if (engine)
+        {
+            engine.OnRunStarted += OnRunStarted;
+            engine.OnNextNote += OnNoteDue;
+            engine.OnNotePlayed += OnNotePlayed;
+            engine.OnDemoNoteDown += OnDemoNoteDown;
+            engine.OnDemoNoteUp += OnDemoNoteUp;
+        }
+        else if (evaluator)
         {
             evaluator.Restarted += ShowNextKey;
             evaluator.NoteJudged += OnNoteJudged;
@@ -95,7 +129,15 @@ public class AppFlow : MonoBehaviour
         if (calibrator) calibrator.Calibrated -= OnCalibrated;
         if (voiceInput) voiceInput.OnCommand -= OnAnswer;
         AppModeSwitch.Requested -= OnModeRequested;
-        if (evaluator)
+        if (engine)
+        {
+            engine.OnRunStarted -= OnRunStarted;
+            engine.OnNextNote -= OnNoteDue;
+            engine.OnNotePlayed -= OnNotePlayed;
+            engine.OnDemoNoteDown -= OnDemoNoteDown;
+            engine.OnDemoNoteUp -= OnDemoNoteUp;
+        }
+        else if (evaluator)
         {
             evaluator.Restarted -= ShowNextKey;
             evaluator.NoteJudged -= OnNoteJudged;
@@ -108,7 +150,7 @@ public class AppFlow : MonoBehaviour
     {
         // Nothing of the lesson is shown until the player has been greeted.
         if (overlay) overlay.gameObject.SetActive(false);
-        if (evaluator) evaluator.gameObject.SetActive(false);
+        if (LessonPanel) LessonPanel.SetActive(false);
 
         CurrentStep = Step.MicrophonePermission;
         yield return RequestMicrophonePermission();
@@ -221,20 +263,23 @@ public class AppFlow : MonoBehaviour
         if (overlay) overlay.ClearAll(); // no key from free play or an old run stays lit
         CurrentStep = Step.Lesson;
         AppModeSwitch.Current = AppMode.Lesson;
-        if (evaluator)
-        {
-            evaluator.gameObject.SetActive(true);
-            evaluator.Restart(); // from the first note; Restarted lights it
-        }
+        if (LessonPanel) LessonPanel.SetActive(true); // before the lesson starts, so the panel hears its first events
         if (_modePanel) _modePanel.ShowSwitchButton();
-        StartCoroutine(Say(lessonLine));
+        if (engine) engine.StartLesson();             // the coach introduces the piece itself
+        else
+        {
+            if (evaluator) evaluator.Restart(); // from the first note; Restarted lights it
+            StartCoroutine(Say(lessonLine));
+        }
     }
 
     void EnterFreePlay()
     {
         ResolveModeObjects();
-        // Off first, so the evaluator stops judging notes and lighting Next keys (its sheet panel is on the same object).
-        if (evaluator) evaluator.gameObject.SetActive(false);
+        // Off first, so the lesson stops judging notes and lighting keys (in Main the evaluator shares the sheet's object).
+        if (engine) engine.StopLesson();
+        _litUntil.Clear(); // a lesson key due to turn off must not turn off a key held in free play
+        if (LessonPanel) LessonPanel.SetActive(false);
         if (overlay) overlay.ClearAll();
         CurrentStep = Step.FreePlay;
         AppModeSwitch.Current = AppMode.FreePlay;
@@ -255,6 +300,16 @@ public class AppFlow : MonoBehaviour
         if (forward.sqrMagnitude < 0.0001f) return;
         Quaternion rotation = Quaternion.LookRotation(forward, Vector3.up);
         sheetDisplay.transform.SetPositionAndRotation(center + rotation * sheetOffset, rotation);
+
+        // The orb's words appear to the left of the orb. Put the orb far enough right of the keyboard's center that
+        // they start past the panel's right edge instead of lying over its status text.
+        if (orb)
+        {
+            float panelRight = sheetOffset.x + sheetDisplay.panelSize.x * sheetDisplay.metersPerUnit * 0.5f;
+            // The text turns to face the player, so out here it takes up about 0.8 of its width along the keyboard.
+            float textReach = orb.orbDiameter * 0.5f + orb.textGap + orb.textWidth * 0.8f;
+            orb.rightOfKeyboardCenter = Mathf.Max(orb.rightOfKeyboardCenter, panelRight + orbPanelGap + textReach);
+        }
     }
 
     // ------------------------------------------------------------------ Evaluator -> piano overlay
@@ -273,6 +328,71 @@ public class AppFlow : MonoBehaviour
     void OnWrongNote(int expected, int played)
     {
         if (overlay) overlay.SetKey(played, KeyState.Wrong);
+    }
+
+    // ------------------------------------------------------------------ CurriculumEngine -> piano overlay
+
+    // A run is about to start (the count-in follows): show where the first note is, in its hand's colour.
+    void OnRunStarted(RunInfo run)
+    {
+        if (!overlay) return;
+        overlay.ClearAll();
+        _litUntil.Clear();
+        if (run.notes.Count == 0) return;
+        foreach (var note in run.notes)
+        {
+            if (note.time > run.notes[0].time + 0.001f) break;
+            overlay.SetKey(note.midi, KeyState.Upcoming, note.hand);
+        }
+    }
+
+    // This note is due now: light its key until the note is over, and show the one after it as coming up.
+    void OnNoteDue(ExpectedNote note)
+    {
+        if (!overlay) return;
+        if (note == null) // the run is over
+        {
+            overlay.ClearAll();
+            _litUntil.Clear();
+            return;
+        }
+        var run = engine.CurrentRun;
+        overlay.SetKey(note.midi, KeyState.Next, note.hand);
+        _litUntil[note.midi] = run.startTime + note.time + Mathf.Max(0.3f, note.duration * run.secondsPerBeat);
+
+        int next = note.index + 1;
+        if (next < run.notes.Count && !_litUntil.ContainsKey(run.notes[next].midi))
+            overlay.SetKey(run.notes[next].midi, KeyState.Upcoming, run.notes[next].hand);
+    }
+
+    void OnNotePlayed(ExpectedNote note, int key, bool correct)
+    {
+        if (!overlay) return;
+        _litUntil.Remove(key);
+        overlay.SetKey(key, correct ? KeyState.Correct : KeyState.Wrong); // flashes, then goes off by itself
+    }
+
+    void OnDemoNoteDown(ExpectedNote note)
+    {
+        if (overlay) overlay.SetKey(note.midi, KeyState.Next, note.hand);
+    }
+
+    void OnDemoNoteUp(ExpectedNote note)
+    {
+        if (overlay) overlay.SetKey(note.midi, KeyState.Off);
+    }
+
+    void TurnOffPlayedOutKeys()
+    {
+        if (_litUntil.Count == 0 || !overlay) return;
+        double now = Time.unscaledTimeAsDouble;
+        _expired.Clear();
+        foreach (var kv in _litUntil) if (kv.Value <= now) _expired.Add(kv.Key);
+        foreach (int midi in _expired)
+        {
+            _litUntil.Remove(midi);
+            overlay.SetKey(midi, KeyState.Off);
+        }
     }
 
     // ------------------------------------------------------------------ Finished run -> coach (outside the note loop)
@@ -350,11 +470,25 @@ public class AppFlow : MonoBehaviour
         for (float t = 0f; t < seconds && !_skip; t += Time.unscaledDeltaTime) yield return null;
     }
 
-#if UNITY_EDITOR
     void Update()
     {
+        TurnOffPlayedOutKeys();
+#if UNITY_EDITOR
         var kb = Keyboard.current;
-        if (kb != null && kb.enterKey.wasPressedThisFrame) _skip = true;
-    }
+        if (kb == null) return;
+        if (kb.enterKey.wasPressedThisFrame)
+        {
+            _skip = true;
+            if (engine && CurrentStep == Step.Lesson) engine.FastForward();
+        }
+        if (!engine || CurrentStep != Step.Lesson) return;
+
+        // End the current run with made-up key presses, to walk the playbook without a piano.
+        int lastBar = engine.State == CurriculumState.SongRepair ? engine.CurrentBlock.Last : engine.CurrentRange.Last;
+        if (kb.f5Key.wasPressedThisFrame) engine.SimulateRun(null);
+        if (kb.f6Key.wasPressedThisFrame) engine.SimulateRun(new Dictionary<int, int> { { lastBar, 1 } });
+        if (kb.f7Key.wasPressedThisFrame) engine.SimulateRun(new Dictionary<int, int> { { lastBar, 2 } });
+        if (kb.f8Key.wasPressedThisFrame) engine.SimulateRun(null, 0.7f);
 #endif
+    }
 }

@@ -17,7 +17,9 @@ public class DemoPlayer : MonoBehaviour
 
     public bool IsPlaying => routine != null;
 
-    AudioSource source;
+    const double Lead = 0.3; // seconds a note is handed to the audio clock before it sounds
+
+    readonly AudioSource[] sources = new AudioSource[12]; // in turn: tones overlap, and a scheduled one must not be replaced
     Coroutine routine;
     Action onDone;
     readonly HashSet<ExpectedNote> down = new HashSet<ExpectedNote>();
@@ -28,9 +30,12 @@ public class DemoPlayer : MonoBehaviour
         // Own child object, so VoiceOutput's GetComponent<AudioSource>() never picks this one.
         var go = new GameObject("DemoAudio");
         go.transform.SetParent(transform, false);
-        source = go.AddComponent<AudioSource>();
-        source.playOnAwake = false;
-        source.spatialBlend = 0f;
+        for (int i = 0; i < sources.Length; i++)
+        {
+            sources[i] = go.AddComponent<AudioSource>();
+            sources[i].playOnAwake = false;
+            sources[i].spatialBlend = 0f;
+        }
     }
 
     // Plays the notes at their ExpectedNote.time. secondsPerBeat sets how long each key stays lit.
@@ -56,27 +61,40 @@ public class DemoPlayer : MonoBehaviour
         onDone = null;
         foreach (var n in down) NoteUp?.Invoke(n);
         down.Clear();
-        if (source != null) source.Stop();
+        foreach (var s in sources)
+            if (s != null) s.Stop();
     }
 
     IEnumerator Run(List<ExpectedNote> notes, float secondsPerBeat)
     {
         yield return new WaitForSeconds(0.4f);
-        float start = Time.time;
+        // The sound is scheduled on the audio clock a little ahead, so the rhythm is even at any frame rate.
+        // The keys light up on the frame clock, at the moment each note sounds.
+        double dspStart = AudioSettings.dspTime + Lead;
+        float start = Time.time + (float)Lead;
         var ups = new List<(float time, ExpectedNote note)>();
+        int scheduled = 0, lit = 0;
 
-        foreach (var n in notes)
+        while (lit < notes.Count)
         {
-            while (Time.time - start < n.time)
+            float now = Time.time - start;
+            while (scheduled < notes.Count && notes[scheduled].time <= now + Lead)
             {
-                ReleaseDue(ups, Time.time - start);
-                yield return null;
+                var s = sources[scheduled % sources.Length];
+                s.clip = Clip(notes[scheduled].midi);
+                s.volume = volume;
+                s.PlayScheduled(Math.Max(AudioSettings.dspTime, dspStart + notes[scheduled].time));
+                scheduled++;
             }
-            ReleaseDue(ups, Time.time - start);
-            source.PlayOneShot(Clip(n.midi), volume);
-            down.Add(n);
-            NoteDown?.Invoke(n);
-            ups.Add((n.time + Mathf.Max(0.12f, n.duration * secondsPerBeat * 0.9f), n));
+            while (lit < notes.Count && notes[lit].time <= now)
+            {
+                var n = notes[lit++];
+                down.Add(n);
+                NoteDown?.Invoke(n);
+                ups.Add((n.time + Mathf.Max(0.12f, n.duration * secondsPerBeat * 0.9f), n));
+            }
+            ReleaseDue(ups, now);
+            yield return null;
         }
         while (ups.Count > 0)
         {

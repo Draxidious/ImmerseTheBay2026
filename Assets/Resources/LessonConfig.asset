@@ -27,10 +27,10 @@ MonoBehaviour:
   metronomeDuringRun: 1
   metronomeMaxTempoPct: 50
   metronomeVolume: 0.6
-  songBarCount: 8
+  songBarCount: 105
   shakyPlayThroughsBeforeRepair: 2
   leadInMeasures: 2
   skipAfterFails: 7
   warmupTempoBpm: 80
-  coachMaxWaitSeconds: 15
+  coachMaxWaitSeconds: 45
   stuckHintMinIntervalSeconds: 10

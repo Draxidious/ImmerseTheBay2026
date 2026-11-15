@@ -52,6 +52,7 @@ public class ExpectedNote
     public float beat;     // start, in beats from the start of the song
     public float duration; // in beats
     public int finger;     // 1 = thumb ... 5 = little finger, 0 = not specified
+    public PianoHand hand; // the hand that plays it (a run holds one hand's notes, or both hands')
     public string hint;    // optional coaching hint for this note
     public float time;     // seconds from the first note of the run at the current practice tempo: when it is due
 }
@@ -104,6 +105,10 @@ public class BarResult
     public float timingScore;    // 0-1, informational
     public float tempoRatio;     // the same tempo measure over this bar
     public int firstTryMisses;   // the bar's notes not right on the first try
+    public int missed;           // of firstTryMisses, the notes never played at all; they are not in wrongNotes, and
+                                 // the coach is told about them (RunStats.notesMissed / missedBars / nothingPlayed)
+    public int rightMisses;      // firstTryMisses split by the hand of the note (they add up to firstTryMisses);
+    public int leftMisses;       // the curriculum rates each hand of a measure from these
     public bool passed;          // informational
     public List<WrongNote> wrongNotes;
     public List<Hesitation> hesitations;

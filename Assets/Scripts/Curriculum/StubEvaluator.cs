@@ -71,7 +71,12 @@ public class StubEvaluator : IPerformanceEvaluator
             if (next >= n) continue; // playing on after the last note
             if (j > 0 && prs[j - 1].midi == prs[j].midi && prs[j].time - prs[j - 1].time < BounceSeconds) continue;
             if (prs[j].midi == exp[next].midi) continue; // the right key struck early or twice; another press of it counted
-            (wrongs[next] = wrongs[next] ?? new List<int>()).Add(prs[j].midi);
+            // Notes due together (both hands, or a chord): the wrong key was meant for the one nearest to it in pitch.
+            int target = next;
+            for (int k = next + 1; k < n && Math.Abs(exp[k].time - exp[next].time) < 0.001; k++)
+                if (match[k] < 0 || match[k] > j)
+                    if (Math.Abs(exp[k].midi - prs[j].midi) < Math.Abs(exp[target].midi - prs[j].midi)) target = k;
+            (wrongs[target] = wrongs[target] ?? new List<int>()).Add(prs[j].midi);
         }
 
         var result = new EvaluationResult();
@@ -96,7 +101,13 @@ public class StubEvaluator : IPerformanceEvaluator
             totalNotes++;
             if (wrongs[i] != null)
                 foreach (int midi in wrongs[i]) b.wrongNotes.Add(new WrongNote { bar = e.bar, expected = e.midi, played = midi });
-            if (match[i] < 0 || wrongs[i] != null) b.firstTryMisses++;
+            if (match[i] < 0 || wrongs[i] != null)
+            {
+                b.firstTryMisses++;
+                if (match[i] < 0) b.missed++;
+                if (e.hand == PianoHand.Left) b.leftMisses++;
+                else b.rightMisses++;
+            }
             else totalFirstTry++;
             if (match[i] < 0) continue;
 
