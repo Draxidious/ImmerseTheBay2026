@@ -8,6 +8,8 @@ public class FreePlayCoachTests
     [TestCase("switch to free-play mode", AppMode.FreePlay)]
     [TestCase("lesson mode.", AppMode.Lesson)]
     [TestCase("Back to the lesson.", AppMode.Lesson)]
+    [TestCase("go back to the normal curriculum", AppMode.Lesson)]
+    [TestCase("regular lesson", AppMode.Lesson)]
     public void ModeCommand_Recognized(string text, AppMode expected)
     {
         Assert.IsTrue(QuestionRouter.TryParseModeCommand(text, out var mode));

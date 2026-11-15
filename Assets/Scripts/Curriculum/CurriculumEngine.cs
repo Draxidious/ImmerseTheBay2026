@@ -255,8 +255,12 @@ public class CurriculumEngine : MonoBehaviour
 
     // ------------------------------------------------------------------ Public control
 
-    public void StartLesson(LessonMode mode = LessonMode.Curriculum)
+    // The song being taught; Für Elise until StartLesson is given another teachable song id (it stays until given a new one).
+    public string SongId { get; private set; } = CurriculumSongs.FurEliseId;
+
+    public void StartLesson(LessonMode mode = LessonMode.Curriculum, string songId = null)
     {
+        if (!string.IsNullOrEmpty(songId)) SongId = songId;
         if (mode == LessonMode.FreePlay)
         {
             Debug.LogWarning("[Lesson] Free play is not built yet (FreePlayMode).");
@@ -267,10 +271,18 @@ public class CurriculumEngine : MonoBehaviour
         var cfg = Cfg;
         evaluator = cfg.CreateEvaluator();
         Warmup = CurriculumSongs.CMajorScale(cfg.warmupTempoBpm);
-        Song = CurriculumSongs.FurElise(cfg.SongBarCount);
-        if (cfg.SongBarCount > Song.BarCount)
+        Song = CurriculumSongs.ForLesson(SongId, cfg.SongBarCount);
+        if (Song == null)
+        {
+            Debug.LogError($"[Lesson] \"{SongId}\" is not a teachable song; teaching Für Elise instead.");
+            SongId = CurriculumSongs.FurEliseId;
+            Song = CurriculumSongs.FurElise(cfg.SongBarCount);
+        }
+        bool furElise = SongId == CurriculumSongs.FurEliseId;
+        if (furElise && cfg.SongBarCount > Song.BarCount)
             Debug.LogWarning($"[Lesson] songBarCount is {cfg.SongBarCount} but {Song.name} only has {Song.BarCount} bars written out.");
-        MeasureCount = Mathf.Max(1, Mathf.Min(cfg.SongBarCount, Song.BarCount));
+        // Für Elise teaches its first songBarCount bars; the short songs are taught whole.
+        MeasureCount = Mathf.Max(1, furElise ? Mathf.Min(cfg.SongBarCount, Song.BarCount) : Song.BarCount);
 
         skipped.Clear();
         trends.Clear();
@@ -305,7 +317,7 @@ public class CurriculumEngine : MonoBehaviour
 
         Debug.Log($"[Lesson] Starting. Tempo steps [{string.Join(", ", Steps)}], {MeasureCount} measures, pass mark {cfg.passAccuracy:0.##}, " +
                   $"set aside after {cfg.skipAfterFails} fails.");
-        if (skipWarmup) EnterSongIntro();
+        if (skipWarmup || !furElise) EnterSongIntro(); // the scale warm-up only opens the Für Elise lesson
         else EnterWarmupDemo();
     }
 

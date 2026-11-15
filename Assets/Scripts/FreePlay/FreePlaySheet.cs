@@ -108,7 +108,7 @@ public class FreePlaySheet : MonoBehaviour
     // ------------------------------------------------------------------ Voice: "show Jingle Bells", "close the music"
 
     static readonly Regex ShowCommand = new Regex(
-        @"^(?:show|open|pull up|bring up|put up|load|play|start|practice|learn|try)(?: me)?(?: the)?(?: (?:sheet music|music|sheet|notes|score)(?: for| of| to)?)?(?: the)? (?<song>.+)$");
+        @"^(?:show|open|pull up|bring up|put up|load|play)(?: me)?(?: the)?(?: (?:sheet music|music|sheet|notes|score)(?: for| of| to)?)?(?: the)? (?<song>.+)$");
     static readonly Regex CloseCommand = new Regex(
         @"^(?:close|hide|remove|put away|take away|clear)(?: the)? (?:sheet music|music|sheet|score|notes)$");
 
@@ -120,6 +120,21 @@ public class FreePlaySheet : MonoBehaviour
         if (!m.Success) return false;
         song = m.Groups["song"].Value.Trim();
         return song.Length > 0 && !CloseCommand.IsMatch("close " + song); // "show the music" alone is not a song
+    }
+
+    static readonly Regex LearnCommand = new Regex(
+        @"^(?:teach me(?: how to play)?|show me how to play|help me (?:learn|play|practice)|learn(?: how to play)?|practice|" +
+        @"start a lesson (?:on|for|with)|(?:a )?lesson (?:on|for))(?: the)?(?: (?:song|piece))?(?: of)? (?<song>.+)$");
+
+    // "teach me Ode to Joy", "I want to learn the entertainer" -> song "ode to joy". The caller looks the name up
+    // (CurriculumSongs.FindTeachable). Not a show command: that one only displays the sheet music.
+    public static bool TryParseLearnCommand(string text, out string song)
+    {
+        song = null;
+        var m = LearnCommand.Match(Normalize(StripPolite(text)));
+        if (!m.Success) return false;
+        song = m.Groups["song"].Value.Trim();
+        return song.Length > 0;
     }
 
     public static bool IsCloseCommand(string text) => CloseCommand.IsMatch(Normalize(StripPolite(text)));

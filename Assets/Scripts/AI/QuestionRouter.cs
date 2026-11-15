@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -115,6 +116,7 @@ public class QuestionRouter : MonoBehaviour
         _backup = GetComponent<BackupVoiceTrigger>();
         if (!_backup) _backup = gameObject.AddComponent<BackupVoiceTrigger>();
         if (!_backup.calibrator) _backup.calibrator = calibrator;
+        _backup.WhyNotArmed = () => WhyNot(Cfg, voiceOutput && voiceOutput.IsSpeaking);
         _mic = GetComponent<MicQuestionRecorder>();
         if (!_mic) _mic = gameObject.AddComponent<MicQuestionRecorder>();
         if (!_mic.voiceInput) _mic.voiceInput = voiceInput;
@@ -226,14 +228,28 @@ public class QuestionRouter : MonoBehaviour
     }
 
     // In the lesson, or anywhere after the first calibration (choosing a mode, free play; AppFlow sets AfterCalibration).
-    bool CanListen(AIConfig cfg, bool speaking) =>
-        cfg.wakeWordEnabled
-        && appFlow && (appFlow.CurrentStep == AppFlow.Step.Lesson || AppModeSwitch.AfterCalibration)
-        && !(voiceInput && voiceInput.IsListening)
-        && !(coach && coach.IsThinking)
-        && !speaking
-        && Time.time >= _lastSpeakingEnd + cfg.muteAfterSpeechSeconds
-        && !IsListening && !IsTranscribing;
+    bool CanListen(AIConfig cfg, bool speaking) => WhyNot(cfg, speaking) == null;
+
+    // Null when a question can be taken now, else the reason (also shown when Q is pressed in vain in the Editor).
+    string WhyNot(AIConfig cfg, bool speaking)
+    {
+        if (!cfg.wakeWordEnabled) return "AIConfig.wakeWordEnabled is off";
+        if (!appFlow) return "no AppFlow in the scene";
+        bool stepOk = appFlow.CurrentStep == AppFlow.Step.Lesson || AppModeSwitch.AfterCalibration;
+#if UNITY_EDITOR
+        // Play mode in the Editor: ask any time after the intro (the Q key needs no calibration; the Aura still does).
+        stepOk |= appFlow.CurrentStep != AppFlow.Step.Intro && appFlow.CurrentStep != AppFlow.Step.Listening
+                  && appFlow.CurrentStep != AppFlow.Step.MicrophonePermission;
+#endif
+        if (!stepOk) return $"the app is still in the {appFlow.CurrentStep} step (finish the intro and calibration first; M simulates calibration)";
+        if (voiceInput && voiceInput.IsListening) return "the intro's voice input is still recording";
+        if (coach && coach.IsThinking) return "the coach is thinking";
+        if (speaking) return "the coach is speaking (press Enter to skip speech)";
+        if (Time.time < _lastSpeakingEnd + cfg.muteAfterSpeechSeconds) return "the coach only just stopped speaking";
+        if (IsListening) return "already listening";
+        if (IsTranscribing) return "still transcribing the last question";
+        return null;
+    }
 
     // ------------------------------------------------------------------ Trigger -> record
 
@@ -342,6 +358,13 @@ public class QuestionRouter : MonoBehaviour
                     _confirmAskedAt = Time.time;
                     return;
                 }
+                // "Lesson" while teaching another song goes back to the normal curriculum (Für Elise).
+                if (mode == AppMode.Lesson && appFlow && appFlow.CurrentStep == AppFlow.Step.Lesson && engine &&
+                    engine.SongId != CurriculumSongs.FurEliseId)
+                {
+                    AppModeSwitch.RequestLearn(CurriculumSongs.FurEliseId, "voice");
+                    return;
+                }
                 AppModeSwitch.Request(mode, "voice");
                 return;
             }
@@ -362,6 +385,34 @@ public class QuestionRouter : MonoBehaviour
                     bool shown = freePlaySheet.Show(entry.id, true);
                     Debug.Log($"[Question] Sheet command \"{question}\" -> {entry.id}{(shown ? "" : " (no sheet music)")}");
                     if (!shown) coach.SayNow(cfg.noSheetLine);
+                    return;
+                }
+            }
+            // "Teach me Ode to Joy": a guided lesson on a teachable song, from free play or the mode choice. During a lesson it does
+            // not switch (the coach says how to leave first). A song we only show gets a spoken explanation. An unknown name is a
+            // question for the coach.
+            if (FreePlaySheet.TryParseLearnCommand(question, out string toLearn))
+            {
+                var teach = CurriculumSongs.FindTeachable(toLearn);
+                bool inLesson = appFlow && appFlow.CurrentStep == AppFlow.Step.Lesson;
+                if (inLesson && (teach != null || FreePlaySheet.FindSong(toLearn, SongDatabase.All) != null))
+                {
+                    Debug.Log($"[Question] Learn command \"{question}\" ignored: a lesson is running.");
+                    coach.SayNow(cfg.stayInLessonLine);
+                    return;
+                }
+                if (teach != null)
+                {
+                    Debug.Log($"[Question] Learn command \"{question}\" -> {teach.id}");
+                    AppModeSwitch.RequestLearn(teach.id, "voice");
+                    return;
+                }
+                var known = FreePlaySheet.FindSong(toLearn, SongDatabase.All);
+                if (known != null)
+                {
+                    string names = string.Join(", ", CurriculumSongs.Teachable.Select(e => e.name));
+                    Debug.Log($"[Question] Learn command \"{question}\" -> {known.id} is not teachable.");
+                    coach.SayNow($"I can show you {known.name}, but I only teach {names}.");
                     return;
                 }
             }
@@ -442,7 +493,7 @@ public class QuestionRouter : MonoBehaviour
 
     static readonly Regex ModeCommand = new Regex(
         @"^(?:(?:switch|go|change|move|get|go back)\s+(?:to|into)\s+|back\s+to\s+|start\s+|play\s+)?(?:the\s+)?" +
-        @"(?:(?<free>free play)|lesson)(?:\s+mode)?$");
+        @"(?:(?<free>free play)|(?:(?:normal|regular|main|original|usual)\s+)?(?:lesson|curriculum))(?:\s+mode)?$");
 
     CoachContext BuildContext()
     {

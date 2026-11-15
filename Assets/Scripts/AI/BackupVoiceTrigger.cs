@@ -24,6 +24,8 @@ public class BackupVoiceTrigger : MonoBehaviour, IVoiceTrigger
     public string Name => "backup";
     public bool IsActive => Cfg.backupKeyEnabled || Cfg.pinchHoldEnabled;
     public event Action<IVoiceTrigger> Triggered;
+    // Set by QuestionRouter: why the trigger is not armed right now, for the log line when Q is pressed in vain.
+    public Func<string> WhyNotArmed;
 
     static readonly List<XRHandSubsystem> s_Subsystems = new List<XRHandSubsystem>();
 
@@ -53,7 +55,7 @@ public class BackupVoiceTrigger : MonoBehaviour, IVoiceTrigger
         if (cfg.backupKeyEnabled && kb != null && kb.qKey.wasPressedThisFrame)
         {
             if (_armed) Fire("Q key");
-            else Debug.Log("[Question] Q ignored (not armed: not in the lesson, or the coach is busy).");
+            else Debug.Log("[Question] Q ignored: " + (WhyNotArmed?.Invoke() ?? "not armed (not in the lesson, or the coach is busy)") + ".");
         }
 
         if (cfg.pinchHoldEnabled) PollPinch(cfg);

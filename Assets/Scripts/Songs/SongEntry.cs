@@ -24,6 +24,7 @@ public class SongEntry
     public string license = "Public domain";
     public string source;           // where the notes came from (typed by hand, file name + site, ...)
     public bool verified;           // checked note by note against the sheet music / by ear
+    public bool teachable;          // the AI coach can run a guided lesson on it ("teach me X"); see CurriculumSongs.Teachable
     // Where the finger numbers (@n in the bar strings, "finger" in notes) come from and what still needs review,
     // e.g. "standard C five-finger position", "copied from <file>", "none — needs review". Empty in older files.
     public string fingering = "";

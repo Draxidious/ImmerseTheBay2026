@@ -63,6 +63,40 @@ public class FreePlaySheetTests
         Assert.AreEqual(song, asked);
     }
 
+    [TestCase("teach me Ode to Joy", "ode to joy")]
+    [TestCase("I want to learn the entertainer", "entertainer")]
+    [TestCase("Can you teach me how to play Twinkle Twinkle please?", "twinkle twinkle")]
+    [TestCase("let's practice Mary Had a Little Lamb", "mary had a little lamb")]
+    public void LearnCommand_Recognized(string text, string song)
+    {
+        Assert.IsTrue(FreePlaySheet.TryParseLearnCommand(text, out string asked));
+        Assert.AreEqual(song, asked);
+        Assert.IsFalse(FreePlaySheet.TryParseShowCommand(text, out _), "a learn command is not a show command");
+    }
+
+    [TestCase("ode to joy", "ode_to_joy")]
+    [TestCase("twinkle twinkle", "twinkle_twinkle")]
+    [TestCase("mary had a little lamb", "mary_had_a_little_lamb")]
+    [TestCase("fur elise", "fur_elise")]
+    public void TeachableSongs_FoundAndLoadable(string asked, string id)
+    {
+        var entry = CurriculumSongs.FindTeachable(asked);
+        Assert.IsNotNull(entry);
+        Assert.AreEqual(id, entry.id);
+        var song = CurriculumSongs.ForLesson(id, 8);
+        Assert.IsNotNull(song);
+        Assert.Greater(song.notes.Count, 0);
+        Assert.Greater(song.BarCount, 0);
+    }
+
+    [Test]
+    public void OtherSongs_AreNotTeachable()
+    {
+        Assert.IsNull(CurriculumSongs.FindTeachable("the entertainer"));
+        Assert.IsNull(CurriculumSongs.ForLesson("the_entertainer", 8));
+        Assert.IsNotNull(FreePlaySheet.FindSong("the entertainer", SongDatabase.All)); // still shown in free play
+    }
+
     [TestCase("show the music")]
     [TestCase("What is the music for this?")]
     [TestCase("")]

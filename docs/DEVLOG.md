@@ -729,3 +729,12 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Untested** in play mode and on the Aura.
 - `SongNoteDisplay`: the big line is now a code-built flexbox (`HorizontalLayoutGroup`, no scene change): the cue/hand text fills the width the BPM badge
   leaves and auto-shrinks its font, so "Press any key when you're ready" cannot overlap the metronome. **Not compiled/tested yet** (Unity was in play mode).
+
+## 2026-11-15 — Jordan (Claude): free play "show" vs "teach me"
+- **Show:** "show / open / pull up / play X" opens the sheet in free play (it ignored "play X" and "I want to play X" before; the request went to the coach).
+- **Teach:** "teach me / learn / practice X" starts the guided lesson on a teachable song. Teachable = Für Elise + `"teachable": true` in `SongDB`
+  (`ode_to_joy`, `twinkle_twinkle`, `mary_had_a_little_lamb`). `CurriculumEngine.StartLesson(mode, songId)`; other songs are taught whole, no scale warm-up.
+  The sheet panel is rebuilt for the song (`SongNoteDisplay.Rebuild`); Für Elise gets the scene's images back. A song that is only shown gets a spoken "I can show you X, but I only teach ...".
+- **Für Elise unchanged:** default song, bars, warm-up and sheet panel take the same path as before (the panel is not rebuilt unless another song was taught first).
+- Tests: `FreePlaySheetTests` (35 pass). **Untested** in play mode and on the Aura. Fingerings: only Ode to Joy RH and Mary RH have them; Twinkle has none.
+- Not done: asking to learn during a running lesson is ignored (it would throw the progress away); no confirmation flow.

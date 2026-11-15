@@ -50,6 +50,7 @@ public class AIConfig : ScriptableObject
     public string cantReplayLine = "I can't play that right now.";
     [Tooltip("Free play: \"show <song>\" names a database song that has no generated sheet music.")]
     public string noSheetLine = "I don't have the sheet music for that one.";
+    public string stayInLessonLine = "We're in the middle of a lesson. Say free play if you want to pick another song.";
     [Tooltip("Spoken when the answer to confirmFreePlayLine is not a yes.")]
     public string keepLessonLine = "Okay, let's keep going with the lesson.";
 

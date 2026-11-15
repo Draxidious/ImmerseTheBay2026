@@ -20,6 +20,15 @@ public static class AppModeSwitch
     // mode, source ("panel", "voice", "debug", ...).
     public static event Action<AppMode, string> Requested;
 
+    // "Teach me <song>": start the guided lesson on that song (CurriculumSongs.Teachable). songId, source.
+    public static event Action<string, string> LearnRequested;
+
+    public static void RequestLearn(string songId, string source)
+    {
+        Debug.Log($"[FreePlay] Lesson on {songId} requested ({source}){(LearnRequested == null ? ", nobody handles it yet" : "")}.");
+        LearnRequested?.Invoke(songId, source);
+    }
+
     public static bool HasHandler => Requested != null;
 
     public static void Request(AppMode mode, string source)

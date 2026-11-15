@@ -107,6 +107,7 @@ public class AppFlow : MonoBehaviour
         if (calibrator) calibrator.Calibrated += OnCalibrated;
         if (voiceInput) voiceInput.OnCommand += OnAnswer;
         AppModeSwitch.Requested += OnModeRequested;
+        AppModeSwitch.LearnRequested += OnLearnRequested;
         if (engine)
         {
             engine.OnRunStarted += OnRunStarted;
@@ -129,6 +130,7 @@ public class AppFlow : MonoBehaviour
         if (calibrator) calibrator.Calibrated -= OnCalibrated;
         if (voiceInput) voiceInput.OnCommand -= OnAnswer;
         AppModeSwitch.Requested -= OnModeRequested;
+        AppModeSwitch.LearnRequested -= OnLearnRequested;
         if (engine)
         {
             engine.OnRunStarted -= OnRunStarted;
@@ -252,12 +254,63 @@ public class AppFlow : MonoBehaviour
             Debug.Log($"[AppFlow] {mode} ({source}) ignored: not calibrated yet.");
             return;
         }
-        if (mode == AppMode.Lesson && CurrentStep != Step.Lesson) EnterLesson();
+        if (mode == AppMode.Lesson && CurrentStep == Step.Lesson && engine && engine.SongId != CurriculumSongs.FurEliseId)
+            EnterLesson(); // the panel's Lesson button while teaching another song: back to the normal curriculum
+        else if (mode == AppMode.Lesson && CurrentStep != Step.Lesson) EnterLesson();
         else if (mode == AppMode.FreePlay && CurrentStep != Step.FreePlay) EnterFreePlay();
     }
 
-    void EnterLesson()
+    // "Teach me <song>" (voice): a fresh guided lesson on that song, from free play or from another lesson.
+    void OnLearnRequested(string songId, string source)
     {
+        if (!AppModeSwitch.AfterCalibration || (calibrator && calibrator.IsCalibrating) || !engine)
+        {
+            Debug.Log($"[AppFlow] Lesson on {songId} ({source}) ignored: not calibrated yet, or no lesson engine.");
+            return;
+        }
+        if (!CurriculumSongs.IsTeachable(songId))
+        {
+            Debug.LogWarning($"[AppFlow] \"{songId}\" is not a teachable song.");
+            return;
+        }
+        EnterLesson(songId);
+    }
+
+    // The sheet strips the scene was built with (Für Elise, numbered like the curriculum's bars), kept so they can come back.
+    List<SheetSystem> _sceneSheet;
+    float _sceneSheetAspect;
+    bool _sceneSheetSaved;
+
+    // Points the lesson panel at the song's sheet music; Für Elise gets the scene's own images back. A song with no generated
+    // sheet gets the panel's text-only layout rather than another song's music.
+    void ApplyLessonSheet(string songId)
+    {
+        if (!sheetDisplay) return;
+        // Für Elise with the scene's own sheet still in place: leave the panel exactly as it was (the original behavior).
+        if (songId == CurriculumSongs.FurEliseId && !_sceneSheetSaved) return;
+        if (!_sceneSheetSaved)
+        {
+            _sceneSheet = sheetDisplay.sheet;
+            _sceneSheetAspect = sheetDisplay.sheetAspect;
+            _sceneSheetSaved = true;
+        }
+        if (songId == CurriculumSongs.FurEliseId)
+        {
+            sheetDisplay.sheet = _sceneSheet;
+            sheetDisplay.sheetAspect = _sceneSheetAspect;
+        }
+        else if (!LessonSongSource.ApplySheets(sheetDisplay, songId, null))
+        {
+            Debug.LogWarning($"[AppFlow] No sheet music for {songId}; the lesson panel shows text only.");
+            sheetDisplay.sheet = new List<SheetSystem>();
+        }
+        sheetDisplay.Rebuild();
+        PlaceSheetPanel();
+    }
+
+    void EnterLesson(string songId = null)
+    {
+        songId = string.IsNullOrEmpty(songId) ? CurriculumSongs.FurEliseId : songId;
         ResolveModeObjects();
         if (_freePlay) _freePlay.End();
         if (overlay) overlay.ClearAll(); // no key from free play or an old run stays lit
@@ -265,7 +318,11 @@ public class AppFlow : MonoBehaviour
         AppModeSwitch.Current = AppMode.Lesson;
         if (LessonPanel) LessonPanel.SetActive(true); // before the lesson starts, so the panel hears its first events
         if (_modePanel) _modePanel.ShowSwitchButton();
-        if (engine) engine.StartLesson();             // the coach introduces the piece itself
+        if (engine)
+        {
+            ApplyLessonSheet(songId);
+            engine.StartLesson(LessonMode.Curriculum, songId); // the coach introduces the piece itself
+        }
         else
         {
             if (evaluator) evaluator.Restart(); // from the first note; Restarted lights it

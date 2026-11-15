@@ -674,6 +674,24 @@ public class SongNoteDisplay : MonoBehaviour
 
     // ------------------------------------------------------------------ Building the panel
 
+    /// <summary>
+    /// Call after changing <see cref="sheet"/> / <see cref="sheetAspect"/> (another song): throws the built panel away so the
+    /// next event lays it out again with the new sheet strips. Does nothing before the panel was first built.
+    /// </summary>
+    public void Rebuild()
+    {
+        _shownSystem = -1;
+        if (!_built) return;
+        _built = false;
+        _barFills.Clear();
+        if (_root)
+        {
+            _root.gameObject.SetActive(false); // Destroy is deferred to the end of the frame
+            Destroy(_root.gameObject);
+        }
+        _root = null;
+    }
+
     private void Build()
     {
         var canvasGo = new GameObject("Song Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));

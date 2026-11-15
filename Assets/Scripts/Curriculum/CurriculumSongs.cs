@@ -53,6 +53,27 @@ public static class CurriculumSongs
         return song;
     }
 
+    // Songs the coach can teach: Für Elise (curriculum file) plus every database song flagged "teachable": true.
+    public static IEnumerable<SongEntry> Teachable =>
+        SongDatabase.All.Where(e => e.teachable || e.id == FurEliseId);
+
+    public static bool IsTeachable(string id) => Teachable.Any(e => e.id == id);
+
+    // The teachable song a spoken name asks for ("ode to joy"), or null.
+    public static SongEntry FindTeachable(string asked) => FreePlaySheet.FindSong(asked, Teachable);
+
+    // The song to run the lesson on. Für Elise keeps its hand-fingered curriculum file (first furEliseBars bars); the others come
+    // from the song database, whole. A fresh copy each time. Null if the id isn't a teachable song with notes.
+    public static SongData ForLesson(string id, int furEliseBars)
+    {
+        if (id == FurEliseId) return FurElise(furEliseBars);
+        var entry = SongDatabase.Entry(id);
+        if (entry == null || !entry.teachable) return null;
+        var song = SongNotation.ToSongData(entry);
+        song.timeSignature = $"{entry.beatsPerBar}/4";
+        return song.notes.Count > 0 ? song : null;
+    }
+
     // Reads Assets/Resources/Songs/<id>.json. Returns an empty song (and logs an error) if the file is missing or bad.
     public static SongData Load(string id)
     {

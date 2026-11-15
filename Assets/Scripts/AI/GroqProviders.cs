@@ -72,7 +72,6 @@ public class GroqStt : ISttProvider
     public string Name => "Groq Whisper";
 
     public GroqStt(AIConfig cfg, AISecrets keys) { this.cfg = cfg; this.keys = keys; }
-
     public async Task<string> Transcribe(byte[] wav)
     {
         if (!Groq.HasKey(keys)) return null;

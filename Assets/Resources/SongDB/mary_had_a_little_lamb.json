@@ -5,6 +5,7 @@
     "license": "Public domain",
     "source": "Typed by hand (Claude Code for Nehemiah, 2026-11-15) from the well-known public-domain melody. Not yet checked against printed sheet music.",
     "verified": false,
+    "teachable": true,
     "fingering": "RH: standard C five-finger position (C=1 D=2 E=3 F=4 G=5). Melody only, no LH part.",
     "arrangement": "melody only",
     "difficulty": 1,
