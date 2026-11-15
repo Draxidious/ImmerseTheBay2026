@@ -4,6 +4,11 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Claude Code (for Jordan): coach menu compiles again (Nehemiah's folder, with Jordan's OK)
+- `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs`: **Tools ▸ Coach ▸ Add AI Coach + Orb Bridge** no longer adds `HesitationTracker`
+  or sets `AIDebugPanel.tracker`; both were deleted on Canady's branch. Nothing else in the menu changed.
+- **Works:** 0 compile errors in the Console, so Play mode is available again.
+
 ## 2026-11-14 night — Claude Code (for Jordan): Lesson scripts compile again after the AI merge
 - Main had 6 compile errors in `Assets/Scripts/Lesson/` after merging Canady: `SongNote` defined twice, `PerformanceMetrics`
   deleted, `WrongNote` changed to MIDI numbers.
