@@ -23,6 +23,7 @@ public class CoachOrbBridge : MonoBehaviour
     [Tooltip("Optional. Found automatically.")] public AICoach coach;
     [Tooltip("Optional. Found automatically.")] public VoiceOutput voiceOutput;
     [Tooltip("Optional. Found automatically.")] public VoiceInput voiceInput;
+    [Tooltip("Optional. Found automatically. Listening / Thinking while a spoken question is recorded / transcribed.")] public QuestionRouter questionRouter;
 
     [Header("Text")]
     [Tooltip("Seconds the reply stays up after the coach stops speaking.")]
@@ -97,6 +98,7 @@ public class CoachOrbBridge : MonoBehaviour
             if (!coach) coach = FindAnyObjectByType<AICoach>();
             if (!voiceOutput) voiceOutput = coach && coach.voiceOutput ? coach.voiceOutput : FindAnyObjectByType<VoiceOutput>();
             if (!voiceInput) voiceInput = FindAnyObjectByType<VoiceInput>();
+            if (!questionRouter) questionRouter = FindAnyObjectByType<QuestionRouter>(); // optional, not counted as missing
         }
         if (coach != _subscribed)
         {
@@ -142,8 +144,8 @@ public class CoachOrbBridge : MonoBehaviour
         Resolve();
         if (!orb) return;
 
-        bool listening = voiceInput && voiceInput.IsListening;
-        bool thinking = coach && coach.IsThinking;
+        bool listening = (voiceInput && voiceInput.IsListening) || (questionRouter && questionRouter.IsListening);
+        bool thinking = (coach && coach.IsThinking) || (questionRouter && questionRouter.IsTranscribing);
         bool speaking = voiceOutput && voiceOutput.IsSpeaking;
 
         if (thinking && _phase != Phase.None) { _phase = Phase.None; _reply = null; } // a new request supersedes the old reply

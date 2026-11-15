@@ -3,7 +3,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 // No-API TTS. On device: Android's TextToSpeech through AndroidJavaObject.
-// In the Editor: logs the line (and uses the macOS "say" command when available).
+// In the Editor: logs the line and speaks it with the system voice (Windows System.Speech through PowerShell, macOS "say").
+// Where there is no voice at all it waits about as long as the line would take, so IsSpeaking still means something.
 public class NativeTts : ITtsProvider
 {
     public string Name => "Native TTS";
@@ -96,10 +97,48 @@ public class NativeTts : ITtsProvider
         {
             Debug.LogWarning("[AI] macOS say failed: " + e.Message);
         }
+#elif UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+        // Windows' built-in voice (System.Speech), so the Editor still talks when the online voice is unavailable.
+        // The text goes in on stdin, so quotes and symbols in it need no escaping.
+        bool started = false;
+        try
+        {
+            var info = new System.Diagnostics.ProcessStartInfo("powershell.exe",
+                "-NoProfile -NonInteractive -Command \"Add-Type -AssemblyName System.Speech; " +
+                "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Speak([Console]::In.ReadToEnd())\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true
+            };
+            sayProcess = System.Diagnostics.Process.Start(info);
+            var mine = sayProcess;
+            if (mine != null)
+            {
+                started = true;
+                mine.StandardInput.Write(text);
+                mine.StandardInput.Close();
+                while (!mine.HasExited && !cancelled()) await Awaitable.NextFrameAsync();
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("[AI] Windows speech failed: " + e.Message);
+        }
+        if (!started) await SilentPause(text, cancelled);
 #else
-        await Task.CompletedTask;
+        await SilentPause(text, cancelled);
 #endif
         return true;
+    }
+
+    // No voice on this platform: take about as long as saying the line would, so whatever waits for the coach to
+    // finish (the lesson, the words appearing beside the orb) keeps its pace instead of rushing on.
+    static async Task SilentPause(string text, Func<bool> cancelled)
+    {
+        int words = text.Split(new[] { ' ', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length;
+        float until = Time.realtimeSinceStartup + Mathf.Max(1.5f, words * 0.35f);
+        while (!cancelled() && Time.realtimeSinceStartup < until) await Awaitable.NextFrameAsync();
     }
 
     public void Stop()

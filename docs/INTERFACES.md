@@ -20,7 +20,7 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 
 ## App flow — `AppFlow` (`Assets/Scripts/App/AppFlow.cs`) ✅ — Jordan
 The only script that knows the order of the app in `Main.unity`. It calls the public members below on the other modules and
-holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophonePermission` → `Intro` → `Listening` → `Calibrating` → `Lesson`.
+holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophonePermission` → `Intro` → `Listening` → `Calibrating` → `ChooseMode` → `Lesson` or `FreePlay`.
 
 0. `MicrophonePermission`: hides overlay/evaluator, requests Android microphone permission when needed and waits for
    grant, denial (including don't-ask-again), or dismissal before the intro. No prompt when already granted, in the Editor,
@@ -29,10 +29,23 @@ holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophoneP
 2. `Listening`: with permission, `VoiceInput.StartListening()` for `listenSeconds` (4 s), then `StopListening()`.
    Permission is rechecked before listening. Any answer, silence, or unavailable recording moves on.
 3. `Calibrating`: shows the overlay, calls `PianoCalibrator.Recalibrate()` (the scene has `calibrateOnStart` off), speaks `calibrateLine`.
-4. `Lesson`: on the first `PianoCalibrator.Calibrated`, activates the `PerformanceEvaluator` object and speaks `lessonLine`.
+4. `ChooseMode`: on the first `PianoCalibrator.Calibrated`, sets `AppModeSwitch.AfterCalibration`, shows `ModeChoicePanel.ShowChoice()`
+   and speaks `chooseModeLine`. `AIConfig.defaultMode` = `Lesson` / `FreePlay` skips the choice (quick tests, demo video).
+5. `Lesson` (`EnterLesson`): ends free play, `PianoOverlay.ClearAll()`, activates the `PerformanceEvaluator` object, `Restart()`s it
+   (always from the first note) and speaks `lessonLine`. `FreePlay` (`EnterFreePlay`): deactivates the evaluator object (stops judging
+   and hides its sheet panel), `ClearAll()`, `FreePlayController.Begin()`, speaks `freePlayLine`. Both show the panel's "Switch mode"
+   button. AppFlow handles `AppModeSwitch.Requested` (panel or voice) at any time after calibration, except while recalibrating.
 
 During `Lesson` it drives `PianoOverlay.SetKey` from the evaluator: `Restarted` / `NoteJudged` → `Next` on the note to play,
 `NoteJudged` → `Correct` flash, `WrongNotePlayed` → `Wrong` flash on the pressed key.
+
+**With a `CurriculumEngine` in the scene (`Main_2`)** AppFlow runs the guided lesson instead: it disables the
+`PerformanceEvaluator`, activates the sheet panel and calls `engine.StartLesson()` after calibration (the coach's own
+lesson-start line replaces `lessonLine`), and sends nothing to the coach itself. Keys come from the engine's events:
+`OnRunStarted` → the first note `Upcoming`, `OnNextNote` → `Next` until the note is over plus the following note
+`Upcoming`, `OnNotePlayed` → `Correct` / `Wrong` flash, demo notes → `Next`. All with the note's hand, so left-hand keys
+are amber. Editor keys in the lesson: Enter = skip waits, F5 clean run, F6 one wrong note, F7 two wrong notes in the
+last measure, F8 30% too slow.
 
 `SongFinished` sends `RunStats` to `AICoach.Coach` in a `CoachContext` (`RunFinished`, `freeplay`).
 The context's song comes from the song database: `LessonSongSource.ForCoach(evaluator.songId, evaluator.songSection)`,
@@ -49,7 +62,7 @@ later calibrations without restarting the evaluator. `sheetDisplay` is found on 
 In `Awake`, AppFlow calls `LessonSongSource.ApplySheets(sheetDisplay, evaluator.songId, evaluator.songSection)`, so the panel
 shows the generated sheet strips of the evaluator's song (fallback: the images set in the scene). Code only, no scene change.
 
-The three lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
+The lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
 
 ---
 
@@ -61,6 +74,7 @@ The three lines are fixed text on the component (no model call). Editor debug: `
 | Member | Purpose |
 |---|---|
 | `void SetKey(int midiNote, KeyState state)` | Set one key's state. `Correct`/`Wrong` auto-revert to `Off` after `flashSeconds`. |
+| `void SetKey(int midiNote, KeyState state, PianoHand hand)` | Same, with the hand that plays it: `Upcoming` / `Next` are amber for `PianoHand.Left` (`leftUpcomingColor`, `leftNextColor`), cyan for the right. `Correct` / `Wrong` look the same for both. Added by Jordan's agent, 2026-11-14. |
 | `void ClearAll()` | All keys `Off`. |
 | `void SetRange(int low, int high)` | Rebuild for a different keyboard range. Default 21 to 108. |
 | `Vector3 GetKeyWorldCenter(int midiNote)` | World position of a key's drawn area (for sheet-to-key lines, effects). |
@@ -253,6 +267,28 @@ measure). Agreed design, not implemented yet. It needs per-measure ratings and a
   "avgHesitationMs": 820, "slowestNote": {"note": 69, "measure": 7, "ms": 2100} }
 ```
 
+### CurriculumEngine (`Assets/Scripts/Curriculum/CurriculumEngine.cs`) ✅ — the guided lesson, in `Main_2`
+Applies `docs/COACH_PLAYBOOK.md` (rules 1–22) in timed runs and tells the coach what happened. Contract with the judge:
+`EVALUATOR_CONTRACT.md`. Song: `Assets/Resources/Songs/fur_elise.json` (both hands, 105 bars, converted from a MIDI file;
+`LessonConfig.songBarCount` says how many are taught).
+
+| Member | Purpose |
+|---|---|
+| `void StartLesson()` / `StopLesson()` | Start from the warm-up (or the song when `skipWarmup` is on) / stop. |
+| `HandMode Hand` | `Right`, `Left` or `Both`: the hand(s) of the current or next run. `Stages` / `StageIndex`: the hand stages of the measure or repair block. |
+| `event Action<RunInfo> OnRunStarted` | A run begins (count-in first). `RunInfo.hand`, `bars`, `tempoPct`, `notes` (only that hand's notes, each with `hand`). |
+| `RunInfo.countIn`, `RunInfo.goTime` | The count-in click times and the beat the music starts (`Time.unscaledTimeAsDouble`): show 4, 3, 2, 1, then "Play!". |
+| `LessonPause Pause`, `bool LastRunSilent` | `WaitingForStudent`: nothing was played for `silentRunsBeforeWaiting` (2) runs; any key (or `FastForward`) starts the run again. A silent run is rated but is not an attempt. |
+| `bool hintsDuringRuns` | Off by default: no spoken stuck hints in the middle of a run; the coach talks between runs only. |
+| `event Action<ExpectedNote> OnNextNote` | This note is due now; `null` when the run is over. |
+| `event Action<ExpectedNote, int, bool> OnNotePlayed` | Live feedback: the matched (or nearest) note, the key, correct. |
+| `event Action<BarRange> OnRunRated` | The run is judged. Read `LastRatings` (bar → clean / shaky / problem), `LastRightRatings`, `LastLeftRatings`, `LastTempoRating`, `LastPassed`, `LastAccuracy`. |
+| `State`, `Measure`, `MeasureCount`, `CurrentRange`, `CurrentBlock`, `LeadInFirstBar`, `TempoPct` | Where the lesson is. |
+| `bool SimulateRun(IDictionary<int,int> wrongNotesPerBar, float tempoRatio = 1)` | Editor testing: end the run with made-up presses. |
+
+The coach is sent at most 16 measures of the song around the current section (the whole 105 bars would be sent with
+every request otherwise).
+
 ### PerformanceEvaluator (`Assets/Scripts/Lesson/PerformanceEvaluator.cs`) ✅ — Jordan
 Wait-mode judge for one right-hand section from the song database: `songId` (default `"fur_elise"`) and `songSection`
 (default `"A section (bars 1–8)"`), loaded with `LessonSongSource.ForLesson` (fallback, or with `songId` empty:
@@ -302,9 +338,46 @@ Voice and config:
 
 Editor test: `AIDebugPanel` in the `AITest` scene.
 
+### Hands-free questions ("hey teacher") — Canady (`Assets/Scripts/AI/`, `Assets/Plugins/Android/WakeWordBridge.java`)
+Added at runtime to any scene with an `AppFlow` (no scene edit; off with `AIConfig.wakeWordEnabled`). Armed only in
+`AppFlow.Step.Lesson` while the coach isn't thinking/speaking (+`muteAfterSpeechSeconds`), and not during VoiceInput listening.
+Flow: trigger → chime → record question (VAD end-of-speech) → Groq Whisper → `AICoach.Ask(question, ctx)` with the song,
+`currentBar` and the last `RunStats`.
+| Member | Purpose |
+|---|---|
+| `IVoiceTrigger { Name; IsActive; SetArmed(bool); event Action<IVoiceTrigger> Triggered }` | A way to start a question. |
+| `IQuestionRecorder { IsRecording; BeginQuestion(); Cancel(); event Action<byte[]> QuestionRecorded }` | Records one question; WAV bytes or null if nothing was heard. |
+| `WakeWordTrigger` (both interfaces) | sherpa-onnx keyword spotter via `com.canady.wakeword.WakeWordBridge`; owns the mic while running (Android only). Any plugin error disables it for the session. |
+| `BackupVoiceTrigger` | **Q** key, or right-hand pinch held `pinchHoldSeconds` (0.6) with the palm NOT down; ignored while `PianoCalibrator.IsCalibrating` and on the system gesture. |
+| `MicQuestionRecorder` | Unity `Microphone` recorder with the same VAD; used in the Editor and when the plugin is unavailable. |
+| `QuestionRouter.IsListening` / `IsTranscribing` | Read by `CoachOrbBridge` → orb Listening / Thinking. |
+| `CoachContext.currentBar` | Bar the player is on (`"current_bar"` in the JSON, only when > 0). |
+| `AIConfig` "Wake word" section | Score/threshold, VAD, cooldown, mute, audio source (`voiceCommunicationSource`), backup inputs, `saveMicDebugClip`. |
+Java bridge methods: `setTuning`, `setVad`, `setAudio`, `start`, `stop`, `pause`, `resume`, `suspendMic`, `resumeMic`,
+`beginQuestion`, `cancelQuestion`, `saveDebugClip(path, seconds)`; callbacks `OnWakeWord`, `OnQuestionAudio(path)`,
+`OnWakeWordStatus`, `OnWakeWordError`. Editor keys: **Q** ask, **F9** save a 10 s mic clip. Logcat: `adb logcat -s Unity WakeWord`.
+
+### Free Play — Canady (`Assets/Scripts/FreePlay/`)
+The player plays anything; pressed keys light up (`KeyState.Correct`); the coach comments now and then and answers "hey teacher"
+questions. Code computes every musical fact (`FreePlayAnalyzer`, pure C#, EditMode tests in `FreePlay/Editor/`); the AI only words them.
+| Member | Purpose |
+|---|---|
+| `enum AppMode { Lesson, FreePlay }`, `enum StartMode { Ask, Lesson, FreePlay }` | Modes; `AIConfig.defaultMode` (Ask = show the panel). |
+| `AppModeSwitch.Request(mode, source)` / `event Requested` / `Current` / `AfterCalibration` | Panel and voice ask, AppFlow switches. |
+| `FreePlayController.Begin()` / `End()` / `IsActive` / `Feed(midi, vel, on)` / `FactsJson(forQuestion)` / `event PhraseFinished` | Runs free play from `MidiPianoReader.NoteOn/NoteOff`. `End()` clears every key it lit. |
+| `ModeChoicePanel.ShowChoice()` / `ShowSwitchButton()` / `Hide()` / `event Chosen` | World-space poke buttons "Lesson" / "Free Play" (+ small "Switch mode"), above the sheet panel, dead while calibrating. |
+| `FreePlayAnalyzer` (`NoteOn`, `NoteOff`, `Poll(now)`, `Peek(now)`, static `IdentifyChord`, `EstimateKey`, `RateSteadiness`, `MatchSong`, `RomanNumeral`) | Phrases (2 s gap), chords within 80 ms (inversions), Krumhansl-Schmuckler key + confidence, tempo steadiness (CV), song match vs `SongDatabase` openings (top voice, transposition-invariant, ≥ 6 notes + distinctiveness guard), range, likely hands. |
+| `FreePlayFacts.Build(...)` / `IsNotable(...)` | Facts JSON for the coach; `can_learn_in_lesson` only for the evaluator's `songId` (today Für Elise). |
+| `CoachTrigger.PhraseEnded`, `CoachContext.freePlayJson`, mode `"free_play"` | Unprompted comment after a notable phrase (song, 3+ chord progression, steady 8+ notes, new key); 25 s cooldown. Free-play replies are trimmed to whole sentences ≤ 110 chars (`AICoach.KeepWholeSentences`). |
+| `QuestionRouter.TryParseModeCommand(text, out mode)` | "hey teacher, free play" / "lesson mode" switch modes instead of asking the coach. |
+| `QuestionRouter.IsYes(text)`, `AIConfig.confirmFreePlayLine` / `keepLessonLine` | "free play" said during the lesson first asks "Do you want to switch to free play?" (once the coach is free), then listens without a wake word: yes switches; no, anything else or silence keeps the lesson. "lesson mode" and the panel switch at once. |
+Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C–F–G–C, Für Elise, Uneven run). Config: `AIConfig` "Free play" + "Mode".
+
 ---
 
 ## Requested (add asks for other owners here)
+- **PianoOverlay — Ari:** a `KeyState.Pressed` color (held key, no flash). Free Play lights held keys with `Correct` and re-lights
+  them every half flash; a steady Pressed state would be cleaner. Not blocking.
 - **SongFormatter — Nehemiah (song DB):** the coach's song text drops rests and pickups (Für Elise bar 1 shows the pickup E5 D#5 as
   its first notes; "A4 r C4" reads as "A4 C4"). Consider printing rests (`r:0.5`) and the pickup separately. Not blocking.
 - **Song model — Nehemiah → Jordan + Canady:** two `SongNote` classes (Lesson vs AI) can't coexist; agree on one (the song DB uses

@@ -65,7 +65,9 @@ public class AICoach : MonoBehaviour
 
         if (result == null)
         {
-            string line = ctx.trigger == CoachTrigger.UserAsked ? cfg.questionFallbackLine : cfg.fallbackLine;
+            // An unprompted free-play comment that failed says nothing; "let's try that again" makes no sense there.
+            string line = ctx.trigger == CoachTrigger.UserAsked ? cfg.questionFallbackLine
+                        : ctx.trigger == CoachTrigger.PhraseEnded ? "" : cfg.fallbackLine;
             result = new CoachResult { say = line, trigger = ctx.trigger, isFallback = true };
             Debug.LogWarning("[AI] Coach using canned fallback line.");
         }
@@ -73,6 +75,7 @@ public class AICoach : MonoBehaviour
         Debug.Log($"[AI] Coach ({CoachContext.TriggerName(ctx.trigger)}) total {sw.ElapsedMilliseconds} ms -> say=\"{result.say}\" action={result.action}");
         if (this == null) return result; // destroyed while waiting
 
+        if (ctx.IsFreePlay && !result.isFallback) result.say = KeepWholeSentences(result.say, FreePlayMaxChars);
         LastResult = result;
         OnCoachAction?.Invoke(result.action);
         OnResponse?.Invoke(result);
@@ -98,6 +101,19 @@ public class AICoach : MonoBehaviour
         c.userQuestion = question;
         c.lastFeedback = null;
         return Coach(c);
+    }
+
+    // Free play asks for under 110 characters, but the model often runs long and the 2nd sentence is where it starts inventing.
+    const int FreePlayMaxChars = 110;
+
+    // Whole sentences up to maxChars; always at least the first sentence.
+    public static string KeepWholeSentences(string text, int maxChars)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxChars) return text;
+        var parts = System.Text.RegularExpressions.Regex.Split(text.Trim(), @"(?<=[.!?])\s+");
+        string kept = parts[0];
+        for (int i = 1; i < parts.Length && kept.Length + 1 + parts[i].Length <= maxChars; i++) kept += " " + parts[i];
+        return kept;
     }
 
     // Read on every request so the prompt file can be edited while the app is running in the Editor.

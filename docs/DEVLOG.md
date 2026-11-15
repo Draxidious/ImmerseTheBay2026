@@ -4,6 +4,141 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~22:45 — Claude Code (for Canady): "hey teacher" in Main_2's guided lesson
+- **Bug:** a question during the `CurriculumEngine` lesson lost the run it just judged (`QuestionRouter` overwrote `thisRun`
+  with the wait-mode evaluator's, which never runs in Main_2) and read the bar from that disabled evaluator.
+- **Fix (`QuestionRouter.cs` only):** while the engine is not Idle, a question reuses the engine's last coach context as is and
+  takes `current_bar` from the engine's note due now (`OnNextNote`), else the start of the next run. Main is unchanged.
+- **Works (Main_2, Editor Play mode, injected speech + Jordan's F5–F8 path via `SimulateRun`):** lesson question answered from the
+  engine's last run and bar; "free play" / "lesson mode" by voice; panel Switch mode → Free Play / Lesson taps (0.5 s debounce
+  holds); free-play question ("what key") answered from the analyzer facts. 51/51 EditMode tests.
+- **Note:** with nobody playing, the guided lesson talks after every empty run, so the router only arms in the gaps; on the piano
+  it is armed during runs. Untested on the Aura.
+- **Free play asks first during a lesson:** "hey teacher, free play" in the lesson → coach asks "Do you want to switch to free
+  play? Say yes or no." (queued until the coach is free, up to 40 s) → router listens with no wake word (20 s) → yes / "free play"
+  switches; no, anything else or silence says "Okay, let's keep going with the lesson." Leaving the lesson by the panel cancels it.
+  `QuestionRouter.IsYes` (+10 tests, 61/61). Fixed while testing: a busy coach dropped the request; listening started in the same
+  frame the question began (stale `armed`). **Works in Main and Main_2** (Editor, injected speech): yes, no (Main keeps the note
+  index), silence, busy coach, "lesson mode" still instant.
+
+## 2026-11-15 early — Claude Code (for Jordan): metronome and demo steady at low frame rates
+- **Metronome jitter below 60 fps:** every click converted its time from the game clock (start of frame) to the audio
+  clock at the moment it was scheduled, only 0.1 s ahead, so each click carried a different error and slow frames made
+  clicks late. Now `Metronome.Anchor()` fixes one game-to-audio offset per run (tracked over many frames, so one slow
+  frame can't skew it) and the engine hands clicks over 0.5 s ahead.
+- `DemoPlayer` played each note with `PlayOneShot` on the frame it fell due: same unevenness. It now schedules the
+  sound on the audio clock 0.3 s ahead (12 sources in turn); the keys still light on the frame clock.
+- **Measured in Editor Play mode at 10 fps:** the anchor used for a run and an independent estimate differed by 0.9 ms.
+  Not listened to by a person yet, and not tried on the puck.
+
+## 2026-11-15 early — Claude Code (for Jordan): silent runs, count-in cue, no hints during runs
+- **Coach praised a run where nothing was played.** The judge was right (measure red, accuracy 0); nothing auto-fills
+  notes. The coach was only told about wrong keys and pauses, so a run with every note *missed* had no wrong notes and
+  `CoachFacts.WentWell` called every bar clean. Now `BarResult.missed`, `RunStats.notesExpected / notesMissed /
+  missedBars / nothingPlayed` (AI folder, Canady's), bars with missed notes are not "clean", and `CoachPrompt.txt`
+  explains the new fields.
+- **Silent runs** (no key pressed) are rated and shown red but are not attempts: no step-down, help or set-aside. The
+  coach says it heard nothing; after 2 in a row the engine stops and waits for any key (`Pause`, `LastRunSilent`).
+- **Count-in:** the sheet panel counts 4, 3, 2, 1 with the clicks and shows "Play!" on the beat the music starts
+  (`RunInfo.countIn`, `goTime`). Clicks during the run are at 30% of the count-in volume
+  (`LessonConfig.metronomeRunVolume`). "Play" is shown, not spoken: online speech can't be timed to the beat.
+- **No hints during runs:** the stuck hint ("Next is E...") spoke in the middle of a run, just before it failed.
+  `CurriculumEngine.hintsDuringRuns` is off by default; the coach talks between runs only.
+- **Verified in Editor Play mode, nothing played:** countdown and Play!, no speech during the run, coach said "I didn't
+  hear any notes that time...", failed-run count stayed 0, second silent run → "Press any key when you're ready", a key
+  press started the run again. **Not tested:** a run with only some notes missed, and all of it with a real piano.
+
+## 2026-11-14 ~22:10 — Claude Code (for Canady): Free Play mode with the AI coach
+- New `Assets/Scripts/FreePlay/`: `FreePlayAnalyzer` (pure C#: phrases, chords incl. inversions, Krumhansl-Schmuckler key + confidence,
+  steadiness, song match vs all `SongDatabase` openings with a distinctiveness guard, range, likely hands), `SongTemplates`,
+  `FreePlayFacts`, `FreePlayController` (lights pressed keys, comments on notable phrases, 25 s cooldown), `ModeChoicePanel`
+  (world-space "Lesson" / "Free Play" poke buttons above the sheet, "Switch mode" afterwards), `AppMode`/`AppModeSwitch`,
+  `FreePlayDebugPanel` (Editor), EditMode tests (`FreePlayAnalyzerTests`, `FreePlayCoachTests`).
+- `AppFlow` (Jordan approved): `ChooseMode` → `Lesson` / `FreePlay` after calibration, switchable any time after; `AIConfig.defaultMode`.
+  Lesson path unchanged apart from `ClearAll()` + `Restart()` on entry. `CoachContext`: `PhraseEnded`, `free_play` JSON.
+  `QuestionRouter`: voice "free play" / "lesson mode", free-play facts for questions. `CoachPrompt.txt`: FREE PLAY section.
+  `AICoach`: free-play replies trimmed to whole sentences ≤ 110 chars; a failed unprompted comment stays silent.
+- **Verified:** 51/51 EditMode tests in Unity. Play mode (Main, via MCP): ChooseMode panel renders (cyan rims, transparent);
+  panel → Free Play (evaluator + sheet off); C–F–G–C → "chords C F G C (I IV V I), key C major" → coach comment in 1.3 s;
+  Für Elise recognized (comment held by cooldown); question "what song was I just playing?" → "That sounded like Für Elise…
+  just say lesson mode"; voice "lesson mode" → Lesson without asking the coach; mid-song switch Lesson → Free Play leaves no lit
+  key; back to Lesson restarts at note 1 with only the Next key lit (held free-play keys cleared).
+- Found + fixed: `PlayedNote` name clash with `Curriculum/EvaluatorContract.cs` (renamed `FreePlayNote`); replies ran to 120–153 chars
+  and added "sounds clear" (prompt tightened + code trim).
+- **Not verified:** real MIDI on the P71, panel poke reach/readability on the Aura (panel ≈ 0.8 m above the keys), phrase-gap feel.
+
+## 2026-11-14 late — Claude Code (for Jordan): coach voice in the Editor, lesson waits for it, orb clear of the sheet
+- **Root cause of "the coach doesn't say the words" and "the lesson doesn't wait":** Groq TTS was over its daily limit
+  (429, 3,600 tokens per day on the free tier), so every line fell back to `NativeTts`, which in the Windows Editor only
+  logged the line and returned in ~50 ms. No sound, and `VoiceOutput.IsSpeaking` was false at once, so the engine and
+  coach-requested demos started straight away.
+- `NativeTts` (Canady's folder): the Windows Editor now speaks with the system voice (System.Speech through PowerShell,
+  text on stdin); platforms with no voice wait about as long as the line would take. Android is unchanged.
+- `LessonConfig.coachMaxWaitSeconds` 15 → 45: the longest the lesson waits for the coach before a run.
+- `AppFlow.PlaceSheetPanel` moves the orb right (`CoachOrb.rightOfKeyboardCenter`, about 0.84 m) so its words start
+  past the sheet panel's right edge (`orbPanelGap`). Applies to `Main` too.
+- **Verified in Editor Play mode:** the intro line took 9.5 s instead of 50 ms; after calibration the first run did not
+  start while the coach's lesson-start line was speaking; the orb text was clear of the panel.
+- **Still open:** the orb is now ~50° to the right of straight ahead, a real head turn (text under the orb instead of
+  beside it would bring it closer; that is a change to the orb itself). The Groq daily limit also applies on the
+  glasses, where the fallback is Android's own voice. F5–F8 and Enter skip the wait by design.
+
+## 2026-11-14 night — Claude Code (for Jordan): playbook now distinguishes hands (doc only)
+- `docs/COACH_PLAYBOOK.md`: each new measure is learned in three stages (right hand, left hand, both hands), each up the
+  tempo ladder. Play-throughs are both hands. Repairs fix each weak hand alone (slow, then song tempo), then replay the
+  block both hands at song tempo. A hand with no notes in a measure is skipped. **Rules are renumbered (now 1–22).**
+- **Implemented the same night, in `Main_2`** (a copy of `Main` with a `Lesson` object: `CurriculumEngine`, `skipWarmup` on):
+  - Engine: hand stages per measure and per repair block, per-hand measure ratings, `Hand` / `Stages` / `OnRunRated` /
+    `LastRightRatings` / `LastLeftRatings`. Judge (`StubEvaluator`): misses split by hand; a wrong key in a chord is charged
+    to the nearest note. `ExpectedNote.hand`, `BarResult.rightMisses` / `leftMisses`, `HandMode`.
+  - Song: `fur_elise_rh.json` → `fur_elise.json`, converted from a MIDI file Jordan supplied: both hands, 905 notes,
+    105 bars matching the sheet images (first/second endings = bars 8/9; the MIDI's short first-ending bar was put back on
+    the bar grid). Existing fingerings kept (bars 1–8); none for the rest. `LessonConfig.songBarCount` 8 → 105.
+    The `.mid` itself is not in the repo (its source and licence are unknown).
+  - `AppFlow` starts and follows the engine when one is in the scene (`Main` is unchanged: no engine there).
+    `PianoOverlay.SetKey(..., PianoHand)`: left-hand keys amber. `SongNoteDisplay` shows the run's measures, hand, tempo
+    step and each measure's rating. The coach gets at most 16 measures of song text per request.
+  - **Verified in Editor Play mode (scripted, coach off):** measure 1 right hand only (the left rests) 50/75/100 → measure 2
+    right, left (a Shaky run and a too-slow run both repeat), both → play-through 1–2 both hands → 3 wrong notes in bar 2
+    (right Shaky, left Problem) → repair right 50/100, left 50/100, both 100 → play-through → measure 3. No Console errors.
+  - **Not tested:** real key presses in timed runs, the coach's spoken lines for the new hand steps, demo sound, the full
+    intro → calibration → lesson path in `Main_2`, and anything on the glasses (amber on the real keys, panel readability).
+    A full lesson is long: at least 9 passed runs per two-hand measure. For a short demo set `LessonConfig.demoMode`
+    (first 4 measures, two tempo steps) or lower `songBarCount`.
+
+## 2026-11-14 late — Claude Code (for Canady): "hey teacher" wake word, step B (full pipeline)
+- Step A spike confirmed on the puck by a teammate (detection works).
+- `WakeWordBridge.java`: 20 ms frames, energy VAD with adaptive noise floor, KWS fed only while speech is present (0.5 s pre-roll),
+  question capture until 1 s silence / 8 s max / 3 s with no speech, WAV to cacheDir, pause/resume, suspendMic/resumeMic on app
+  pause, mic-open retry, `saveDebugClip`, model recopy on every reinstall. Source VOICE_RECOGNITION (VOICE_COMMUNICATION optional),
+  AEC/NS when available. Any error → `OnWakeWordError`, never a crash.
+- C#: `IVoiceTrigger` / `IQuestionRecorder`, `WakeWordTrigger`, `BackupVoiceTrigger` (Q key; right-hand palm-not-down pinch-hold 0.6 s;
+  T was taken by CoachOrb debug keys), `MicQuestionRecorder` (Editor fallback), `QuestionRouter` (arming, 2 s cooldown, 1 s mute after
+  the coach speaks, chime, Whisper → `AICoach.Ask` with `currentBar` + last RunStats; adds itself to scenes with an AppFlow).
+  `CoachContext.currentBar`; `this_run` is omitted for a question before the first run. `CoachOrbBridge`: 4 lines so the orb shows
+  Listening/Thinking for questions (approved; Nehemiah informed by Canady). AppFlow / PerformanceEvaluator / PianoCalibrator untouched.
+- `keywords.txt` now has no per-keyword score; `AIConfig.keywordsScore` 2.0 / `keywordsThreshold` 0.25 govern.
+- **Verified in Editor Play mode (Main, via Unity MCP):** router adds itself; arms only in the lesson after the coach stops + 1 s;
+  backup trigger → orb Listening → Unity mic, no speech → ends at 3.0 s (MacBook noise floor 0.0026); a `say` WAV injected as the
+  question → Whisper 278 ms "Hey teacher, what is the next note I should play?" → stripped → `coach.Ask` 1.25 s → correct answer
+  (E5 ring finger…), orb Listening → Thinking → Speaking; context has `current_bar: 1`, no `this_run`, `allowed_actions: ["none"]`;
+  trigger while the coach speaks ignored (fixed a same-frame gap: `OnTriggered` re-checks `CanListen`); 2 s cooldown ignores a
+  second trigger. Not covered in the Editor: real mic speech, pinch-hold, the Java plugin.
+- **Untested on the puck.** To verify: both audio sources (coach volume, false triggers), VAD levels with the piano playing, chime and
+  self-trigger after TTS, pinch-hold vs. the blue-ball grab, orb states, debug clip under `/sdcard/Android/data/<pkg>/files/`.
+
+## 2026-11-14 ~20:40 — Claude Code (for Canady): "hey teacher" wake word, step A spike
+- Added `Assets/Plugins/Android/WakeWordBridge.java` (`com.canady.wakeword`): AudioRecord 16 kHz (VOICE_RECOGNITION) → sherpa-onnx
+  keyword spotter on its own thread; logs `DETECTED HEY_TEACHER` (logcat tag `WakeWord`) and sends `OnWakeWord` / `OnWakeWordStatus`.
+  Model copied from `StreamingAssets/kws` to `filesDir/kws` on first run (version marker).
+- Bundled sherpa-onnx v2.0.1: pure-Java `sherpa-onnx-jvm-2.0.1.jar` (no Kotlin) + static-link `libsherpa-onnx-jni.so` (24 MB, ARM64, LFS).
+  Model: `kws-zipformer-gigaspeech-3.3M-2024-01-01` int8 encoder/decoder/joiner (5.2 MB). Licences in `THIRD_PARTY_NOTICES.md`.
+- **The `-mobile` model variant crashes on sherpa-onnx 2.0.1** (`/downsample/Reshape_1` reshape error on first decode); the full
+  variant's int8 files work. Desktop check (Python sherpa-onnx 2.0.1, same files and settings, macOS `say` voices): 3/3 normal
+  "hey teacher" detected, 1 very fast robotic voice missed, 0 false hits on 8 other sentences except "Hey, teach her" (homophone).
+- Spike: `WakeWordSpike.cs` + **Tools ▸ Wake Word ▸ Build Spike APK** (builds `Builds/WakeWordSpike.apk` from
+  `Dev_Canady_WakeWord.unity` only; build scene list untouched). Not in Main.
+- **Untested on the puck.** Next: confirm the jar + .so load on the Aura, then step B (VAD, question capture, Whisper, QuestionRouter).
 
 ## 2026-11-14 ~22:30 — Claude Code (for Nehemiah): sheet music at 5 lines per page
 - `render_sheets.py`: renders once to get Verovio's line breaks, then re-renders with those breaks encoded plus a page break
