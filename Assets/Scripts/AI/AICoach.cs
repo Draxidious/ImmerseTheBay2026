@@ -21,6 +21,11 @@ public class AICoach : MonoBehaviour
     // The full reply (line + action), also raised for fallbacks.
     public event Action<CoachResult> OnResponse;
 
+    // Added to the spoken line (not to result.say): NonVisualGuide reads out the next run's notes here, so the lesson,
+    // which waits for the coach to finish speaking, counts in after them.
+    // Either text (spoken by TTS after the line) or cached word clips (played after it); both may be null.
+    public Func<CoachResult, (string text, IReadOnlyList<AudioClip> clips)> LineSuffix;
+
     public CoachResult LastResult { get; private set; }
     public CoachContext LastContext { get; private set; }
     public bool IsThinking { get; private set; }
@@ -126,7 +131,12 @@ public class AICoach : MonoBehaviour
         if (fromModel) LastResult = result;
         OnCoachAction?.Invoke(result.action);
         OnResponse?.Invoke(result);
-        if (speakReplies && voiceOutput != null && !string.IsNullOrWhiteSpace(result.say)) _ = voiceOutput.Speak(result.say);
+        string say = result.say;
+        var (extra, clips) = LineSuffix != null ? LineSuffix(result) : default; // non-visual: the next run's notes
+        if (!string.IsNullOrWhiteSpace(extra)) say = string.IsNullOrWhiteSpace(say) ? extra : say.TrimEnd() + " " + extra;
+        bool hasClips = clips != null && clips.Count > 0;
+        if (hasClips) say = KeepWholeSentences(say, 1); // the readout gives the notes and fingers: the first sentence is enough
+        if (speakReplies && voiceOutput != null && (!string.IsNullOrWhiteSpace(say) || hasClips)) _ = voiceOutput.Speak(say, clips);
         return result;
     }
 

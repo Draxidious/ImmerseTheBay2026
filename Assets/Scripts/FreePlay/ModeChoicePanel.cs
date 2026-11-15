@@ -54,11 +54,20 @@ public class ModeChoicePanel : MonoBehaviour
     readonly List<Button> _buttons = new List<Button>();
     float _shownAt;
     bool _placedAtHead;
+    bool _usesRadialControls;
 
     // ------------------------------------------------------------------ API
 
-    public void ShowChoice() => Show(View.Choice);
-    public void ShowSwitchButton() => Show(View.Switch);
+    public void ShowChoice()
+    {
+        if (!_usesRadialControls) Show(View.Choice);
+    }
+
+    public void ShowSwitchButton()
+    {
+        if (_usesRadialControls) FindAnyObjectByType<RadialMenu>()?.Close();
+        else Show(View.Switch);
+    }
 
     public void Hide()
     {
@@ -72,6 +81,9 @@ public class ModeChoicePanel : MonoBehaviour
 
     void Awake()
     {
+        // Main_2 supplies the in-game controls through its radial menu.
+        _usesRadialControls = FindAnyObjectByType<FingeringGuide>() != null;
+        if (_usesRadialControls) return;
         if (!sheet) sheet = FindAnyObjectByType<SongNoteDisplay>(FindObjectsInactive.Include);
         if (!calibrator) calibrator = FindAnyObjectByType<PianoCalibrator>(FindObjectsInactive.Include);
         Build();
@@ -179,7 +191,8 @@ public class ModeChoicePanel : MonoBehaviour
         UpdateButtons();
     }
 
-    bool Usable => _view != View.Hidden && Time.time >= _shownAt + debounceSeconds && !(calibrator && calibrator.IsCalibrating);
+    bool Usable => _view != View.Hidden && Time.time >= _shownAt + debounceSeconds && !(calibrator && calibrator.IsCalibrating)
+                   && !VisualsMode.NonVisual; // hidden then: an unseen button must not be poked by accident
 
     void Press(Button b)
     {

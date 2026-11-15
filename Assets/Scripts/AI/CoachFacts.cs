@@ -202,6 +202,9 @@ public static class CoachFacts
         return "Next is " + SpokenNoteName(midi) + ": " + Find(song, bar, midi, SpokenNoteName, false) + ".";
     }
 
+    // Where a note is, spoken: "a white key, right hand, a step down from F".
+    public static string Where(SongData song, int bar, int midi) => Find(song, bar, midi, SpokenNoteName, false);
+
     // Song hints are written for the model and may hold finger numbers, so the spoken version leaves those out.
     static string Find(SongData song, int bar, int midi, Func<int, string> name, bool allowDigits)
     {

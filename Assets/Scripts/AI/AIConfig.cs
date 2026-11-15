@@ -101,6 +101,25 @@ public class AIConfig : ScriptableObject
     [Tooltip("The rolling key estimate uses the last this many notes.")]
     public int freePlayKeyWindowNotes = 32;
 
+    [Header("Non-visual")]
+    [Tooltip("Start with nothing drawn (VisualsMode): no calibration, the mode is chosen by voice. \"Hey teacher, visuals on\" " +
+             "brings the visuals back (calibrating first if needed).")]
+    public bool nonVisualDefault;
+    [Tooltip("Added to the intro (visual start only): how to choose voice only. Empty = not said.")]
+    public string audioOnlyIntroHint = "If you'd rather use voice only, say audio only.";
+    [Tooltip("Non-visual start: spoken instead of showing the Lesson / Free Play panel.")]
+    public string nonVisualChooseModeLine = "Say lesson mode or free play.";
+    [Tooltip("\"Visuals on\" before the piano was ever calibrated.")]
+    public string visualsCalibrateFirstLine = "Let's line up the keyboard first.";
+    [Tooltip("Spoken when the visuals are switched off, so it is heard that it worked.")]
+    public string visualsOffLine = "Visuals off.";
+    [Tooltip("Non-visual lesson: no right key for this long while a note is waiting -> the note, finger and where it is.")]
+    public float nonVisualStuckSeconds = 2.5f;
+    [Tooltip("Non-visual lesson: at most one \"No, E: ...\" per this many seconds.")]
+    public float nonVisualWrongCooldownSeconds = 2f;
+    [Tooltip("Non-visual lesson: runs with more notes than this are not read out (play-throughs of many measures).")]
+    public int nonVisualReadoutMaxNotes = 16;
+
     [Header("Mode")]
     [Tooltip("Ask = show the Lesson / Free Play panel after calibration. Lesson / FreePlay skip it, for quick tests and the demo video.")]
     public StartMode defaultMode = StartMode.Ask;

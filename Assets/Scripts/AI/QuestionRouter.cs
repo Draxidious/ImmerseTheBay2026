@@ -235,7 +235,9 @@ public class QuestionRouter : MonoBehaviour
     {
         if (!cfg.wakeWordEnabled) return "AIConfig.wakeWordEnabled is off";
         if (!appFlow) return "no AppFlow in the scene";
-        bool stepOk = appFlow.CurrentStep == AppFlow.Step.Lesson || AppModeSwitch.AfterCalibration;
+        // Also during the first calibration, so "visuals off" can skip it (it needs sight).
+        bool stepOk = appFlow.CurrentStep == AppFlow.Step.Lesson || appFlow.CurrentStep == AppFlow.Step.Calibrating
+                      || AppModeSwitch.AfterCalibration;
 #if UNITY_EDITOR
         // Play mode in the Editor: ask any time after the intro (the Q key needs no calibration; the Aura still does).
         stepOk |= appFlow.CurrentStep != AppFlow.Step.Intro && appFlow.CurrentStep != AppFlow.Step.Listening
@@ -347,6 +349,14 @@ public class QuestionRouter : MonoBehaviour
                 return;
             }
             if (string.IsNullOrEmpty(question)) { coach.SayNow(cfg.questionFallbackLine); return; }
+
+            // "Visuals off / on": no model call. VisualsGate hides or shows everything (and calibrates first if needed).
+            if (VisualsMode.TryParseCommand(question, out bool visualsOn))
+            {
+                Debug.Log($"[Question] Visuals command \"{question}\" -> {(visualsOn ? "on" : "off")}");
+                VisualsMode.Set(!visualsOn, "voice");
+                return;
+            }
 
             if (TryParseModeCommand(question, out var mode))
             {
@@ -612,7 +622,7 @@ public class QuestionRouter : MonoBehaviour
 
 #if UNITY_EDITOR
         var kb = Keyboard.current;
-        if (kb != null && kb.f9Key.wasPressedThisFrame) SaveDebugClip(cfg.micDebugClipSeconds);
+        if (kb != null && kb.f11Key.wasPressedThisFrame) SaveDebugClip(cfg.micDebugClipSeconds); // F9 = visuals on/off
 #endif
     }
 

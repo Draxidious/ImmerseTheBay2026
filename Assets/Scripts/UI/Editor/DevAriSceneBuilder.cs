@@ -42,10 +42,8 @@ public static class DevAriSceneBuilder
         var rig = InstantiatePrefab(RigPrefab);
         InstantiatePrefab(HandPermissionsPrefab);
 
-        // Optical see-through: clear to transparent black (black = invisible on the Aura).
-        // Android XR stays in OPAQUE blend mode (100% lens dimming) unless passthrough is on: that needs the
-        // "Android XR: Session" + "Android XR: Camera (Passthrough)" OpenXR features, an ARSession, and an
-        // enabled ARCameraManager on the camera (then the package switches to ALPHA_BLEND, 0% dimming).
+        // Match Main_2's clear and AR Foundation components. The OpenXR session and camera features
+        // provide runtime passthrough support. See docs/AURA_DISPLAY.md for the tested blend-mode history.
         var origin = rig ? rig.GetComponentInChildren<XROrigin>() : null;
         var cam = origin && origin.Camera ? origin.Camera : null;
         if (cam)

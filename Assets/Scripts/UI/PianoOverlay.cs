@@ -64,6 +64,7 @@ public class PianoOverlay : MonoBehaviour
     readonly Dictionary<int, Renderer[]> _outlines = new Dictionary<int, Renderer[]>();  // outline segments per key
     readonly List<GameObject> _keyRoots = new List<GameObject>();
     readonly Dictionary<int, Vector3> _keyCenters = new Dictionary<int, Vector3>();
+    readonly Dictionary<int, Bounds> _keySurfaces = new Dictionary<int, Bounds>();
     readonly Dictionary<int, KeyState> _states = new Dictionary<int, KeyState>();
     readonly Dictionary<int, float> _flashUntil = new Dictionary<int, float>();
     readonly Dictionary<int, bool> _leftHand = new Dictionary<int, bool>(); // keys lit for the left hand
@@ -118,6 +119,9 @@ public class PianoOverlay : MonoBehaviour
     /// <summary>World-space center of a key's drawn area (for lines from the sheet panel, particles, etc.).</summary>
     public Vector3 GetKeyWorldCenter(int midiNote) =>
         _keyCenters.TryGetValue(midiNote, out var c) ? transform.TransformPoint(c) : transform.position;
+
+    internal bool TryGetKeySurface(int midiNote, out Bounds surface) =>
+        _keySurfaces.TryGetValue(midiNote, out surface);
 
     /// <summary>
     /// Snap the overlay onto the real piano. Pass the world positions the user pinched on the
@@ -207,6 +211,7 @@ public class PianoOverlay : MonoBehaviour
         foreach (var r in _keys.Values) if (r && r.transform.parent == transform) Destroy(r.gameObject); // older layout
         _keyRoots.Clear(); _outlines.Clear();
         _keys.Clear(); _keyCenters.Clear(); _states.Clear(); _flashUntil.Clear();
+        _keySurfaces.Clear();
 
         if (keyMaterial == null)
         {
@@ -279,6 +284,9 @@ public class PianoOverlay : MonoBehaviour
             _keys[n] = r;
             _outlines[n] = segs.ToArray();
             _keyCenters[n] = center;
+            _keySurfaces[n] = new Bounds(
+                new Vector3(centerX, y - hoverHeight, zStart + length * 0.5f),
+                new Vector3(width, 0f, length));
             _states[n] = KeyState.Off;
             Paint(n, 1f);
         }

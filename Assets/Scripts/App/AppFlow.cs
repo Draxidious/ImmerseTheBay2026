@@ -108,6 +108,7 @@ public class AppFlow : MonoBehaviour
         if (voiceInput) voiceInput.OnCommand += OnAnswer;
         AppModeSwitch.Requested += OnModeRequested;
         AppModeSwitch.LearnRequested += OnLearnRequested;
+        VisualsMode.Changed += OnVisualsChanged;
         if (engine)
         {
             engine.OnRunStarted += OnRunStarted;
@@ -131,6 +132,7 @@ public class AppFlow : MonoBehaviour
         if (voiceInput) voiceInput.OnCommand -= OnAnswer;
         AppModeSwitch.Requested -= OnModeRequested;
         AppModeSwitch.LearnRequested -= OnLearnRequested;
+        VisualsMode.Changed -= OnVisualsChanged;
         if (engine)
         {
             engine.OnRunStarted -= OnRunStarted;
@@ -158,7 +160,9 @@ public class AppFlow : MonoBehaviour
         yield return RequestMicrophonePermission();
         CurrentStep = Step.Intro;
         yield return Wait(startDelay);
-        yield return Say(introLine);
+        // Visual start: say how to choose voice only. The answer below can ask for it ("audio only").
+        string hint = AIConfig.Get().audioOnlyIntroHint;
+        yield return Say(VisualsMode.NonVisual || string.IsNullOrWhiteSpace(hint) ? introLine : introLine + " " + hint);
 
         CurrentStep = Step.Listening;
         if (voiceInput && HasMicrophonePermission())
@@ -171,6 +175,15 @@ public class AppFlow : MonoBehaviour
                 voiceInput.StopListening(); // OnCommand follows once the recording is transcribed
                 for (float t = 0f; !_answered && !_skip && t < transcriptTimeout; t += Time.unscaledDeltaTime) yield return null;
             }
+        }
+
+        if (VisualsMode.NonVisual)
+        {
+            // MIDI gives the keys; calibration only places the overlay, which is hidden. "Visuals on" calibrates later.
+            Debug.Log("[AppFlow] Non-visual: no calibration.");
+            AppModeSwitch.AfterCalibration = true; // mode switching and voice questions open once setup is over
+            StartAfterSetup(AIConfig.Get().nonVisualChooseModeLine);
+            yield break;
         }
 
         CurrentStep = Step.Calibrating;
@@ -214,6 +227,18 @@ public class AppFlow : MonoBehaviour
     {
         _answered = true;
         Debug.Log($"[AppFlow] Player answered: \"{transcript}\"");
+        if (CurrentStep == Step.Listening && VisualsMode.AsksForNonVisual(transcript)) VisualsMode.Set(true, "intro");
+    }
+
+    // "Visuals off" during the first calibration: it needs sight, so skip it and ask for the mode by voice, as a
+    // non-visual start does. "Visuals on" later calibrates (VisualsGate).
+    void OnVisualsChanged(bool nonVisual, string source)
+    {
+        if (!nonVisual || CurrentStep != Step.Calibrating || AppModeSwitch.AfterCalibration) return;
+        Debug.Log("[AppFlow] Non-visual during calibration: calibration skipped.");
+        if (calibrator) calibrator.CancelCalibration();
+        AppModeSwitch.AfterCalibration = true;
+        StartAfterSetup(AIConfig.Get().nonVisualChooseModeLine);
     }
 
     // Also raised after a later recalibration; the lesson is only started the first time.
@@ -222,6 +247,12 @@ public class AppFlow : MonoBehaviour
         PlaceSheetPanel();
         if (CurrentStep != Step.Calibrating) return;
         AppModeSwitch.AfterCalibration = true;
+        StartAfterSetup(chooseModeLine);
+    }
+
+    // After the first calibration, or straight after the intro when non-visual: the default mode, or ask for one.
+    void StartAfterSetup(string chooseLine)
+    {
         switch (AIConfig.Get().defaultMode)
         {
             case StartMode.Lesson: EnterLesson(); break;
@@ -230,7 +261,7 @@ public class AppFlow : MonoBehaviour
                 CurrentStep = Step.ChooseMode;
                 ResolveModeObjects();
                 if (_modePanel) _modePanel.ShowChoice();
-                StartCoroutine(Say(chooseModeLine));
+                StartCoroutine(Say(chooseLine));
                 break;
         }
     }
