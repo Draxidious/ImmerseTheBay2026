@@ -100,6 +100,10 @@ Events must be raised on Unity's main thread. Not yet wired to `PianoOverlay`.
 ## LessonEngine — owner: TBD 📝 (not built)
 Listens to `MidiPianoReader.NoteOn/NoteOff`, drives `PianoOverlay.SetKey`, and at the end of each phrase fills a
 `PerformanceMetrics` for `AICoach.GetCoachResponse` (the `PhraseResult` below is superseded by `PerformanceMetrics`).
+
+**Lesson progression rules:** `docs/COACH_PLAYBOOK.md` (which measures to play next, at what tempo, when to repair a weak
+measure). Agreed design, not implemented yet. It needs per-measure ratings and a tempo rating per run from the LessonEngine.
+
 | Member | Purpose |
 |---|---|
 | `void StartPiece(string pieceId, LessonMode mode)` | `LessonMode { Curriculum, Freeplay }` |

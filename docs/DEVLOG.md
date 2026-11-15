@@ -4,6 +4,13 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 evening — Claude Code (for Jordan): coach playbook linked from the docs
+- `docs/COACH_PLAYBOOK.md` (already on main) is now referenced from `CLAUDE.md` (Architecture) and `INTERFACES.md` (LessonEngine).
+  It defines the lesson progression: learn each new measure alone at 50% → 75% → 100% tempo, then a full play-through from
+  measure 1 at song tempo, then repair any Problem measures (with a lead-in when the measures before were shaky).
+- **Not implemented yet.** `PerformanceEvaluator` (`Assets/Scripts/Lesson/`) still plays the whole Für Elise excerpt at one tempo.
+  Next: per-measure ratings, a tempo rating per run, section looping and tempo steps in the evaluator.
+
 ## 2026-11-14 ~18:00 — Claude Code (for Ari): docs caught up with the merged branch
 - CLAUDE.md: owners (MIDI = Jordan, AICoach = Canady, LessonEngine still TBD), current dev scenes, AI key setup (secrets.json
   in StreamingAssets ships inside the APK), recording/alpha and hand-material-slot rules, new "Device tooling" section

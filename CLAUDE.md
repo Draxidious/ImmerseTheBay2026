@@ -45,6 +45,9 @@ even if the AI is slow or offline. The AI only receives a short JSON summary of 
 **Rule: the AI does not generate notes.** Pieces come from MIDI files in `Assets/Music/`. The AI picks exercises
 and coaches; it doesn't compose.
 
+**Lesson progression** (measure by measure, tempo ladder, full play-throughs, repairing weak measures) follows
+`docs/COACH_PLAYBOOK.md`. Read it before working on the LessonEngine or the coach's actions.
+
 ## Ownership (update when this changes)
 | Area | Owner | Folder |
 |---|---|---|
