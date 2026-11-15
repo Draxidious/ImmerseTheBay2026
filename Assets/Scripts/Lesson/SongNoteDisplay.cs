@@ -276,6 +276,7 @@ public class SongNoteDisplay : MonoBehaviour
             _title.text = LessonHeader();
             _runActive = false;
             _next.text = "Well done!";
+            ShowTempo(null, 0);
             if (UseSheet) RefreshSheet(_lessonBar, false, RatingColor);
             return;
         }
@@ -304,11 +305,13 @@ public class SongNoteDisplay : MonoBehaviour
 
         var state = engine.State;
         _title.text = LessonHeader();
+        bool warmup = state == CurriculumState.WarmupDemo || state == CurriculumState.WarmupPlay;
         bool song = state == CurriculumState.SongIntro || state == CurriculumState.SongLearn ||
                     state == CurriculumState.SongPlayThrough || state == CurriculumState.SongRepair;
+        ShowTempo(state == CurriculumState.SongIntro || !(song || warmup) ? null : warmup ? engine.Warmup : engine.Song, engine.TempoPct);
         if (!song) return;
         if (state != CurriculumState.SongIntro)
-            _title.text += $"  ·  {HandName(engine.Hand)}  ·  {engine.TempoPct}%";
+            _title.text += $"  ·  {HandName(engine.Hand)}";
 
         if (!UseSheet) return;
         int bar = state == CurriculumState.SongRepair ? (engine.LeadInFirstBar > 0 ? engine.LeadInFirstBar : engine.CurrentBlock.First)
@@ -361,8 +364,9 @@ public class SongNoteDisplay : MonoBehaviour
         _statsFingering = false;
         _ratings.Clear();
         _lessonBar = run.notes.Count > 0 ? run.notes[0].bar : run.bars.First;
-        _title.text = $"{LessonHeader()}  ·  {HandName(run.hand)}  ·  {run.tempoPct}%";
-        _runLine = $"{HandName(run.hand)}   <size=70%>{run.tempoPct}% speed</size>";
+        _title.text = $"{LessonHeader()}  ·  {HandName(run.hand)}";
+        _runLine = HandName(run.hand);
+        ShowTempo(run.song, run.tempoPct);
         _cue = null;
         ShowCue("<size=60%>Get ready</size>");
         _feedback.text = "Start playing when it says Play";
@@ -433,6 +437,67 @@ public class SongNoteDisplay : MonoBehaviour
         }
         _stats.text = engine.LastRunSilent ? "" : string.Join("\n", lines);
         if (UseSheet && engine.State != CurriculumState.WarmupPlay) RefreshSheet(_lessonBar, false, RatingColor);
+    }
+
+    // The big line is a flexbox row: the cue / hand text takes whatever width is left (and shrinks its font to fit), and the
+    // speed badge - a white metronome icon (Resources/UI/metronome.png) and "40 BPM" - sits at the right with its own width.
+    // So a long cue like "Press any key when you're ready" can never run into the badge.
+    private GameObject _bpmBadge;
+    private TMP_Text _bpmText;
+
+    private void ShowTempo(SongData song, int tempoPct)
+    {
+        if (_bpmBadge == null) return;
+        bool show = song != null;
+        _bpmBadge.SetActive(show);
+        if (show) _bpmText.text = $"{Mathf.RoundToInt(song.tempoBpm * tempoPct / 100f)} BPM";
+    }
+
+    private void BuildNextRow(float y)
+    {
+        var rowGo = new GameObject("Next Row", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        Place(rowGo, _root, 0f, y, panelSize.x, 70f);
+        var row = rowGo.GetComponent<HorizontalLayoutGroup>();
+        row.childAlignment = TextAnchor.MiddleCenter;
+        row.childControlWidth = row.childControlHeight = true;
+        row.childForceExpandWidth = false;
+        row.childForceExpandHeight = true;
+        row.spacing = 16f;
+        row.padding = new RectOffset(10, 10, 0, 0);
+
+        // The cue takes all the room the badge leaves, and shrinks its text rather than spilling over.
+        _next.transform.SetParent(rowGo.transform, false);
+        _next.enableAutoSizing = true;
+        _next.fontSizeMax = 56f;
+        _next.fontSizeMin = 20f;
+        var cue = _next.gameObject.AddComponent<LayoutElement>();
+        cue.flexibleWidth = 1f;
+        cue.preferredWidth = 0f;
+
+        _bpmBadge = new GameObject("Tempo Badge", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        _bpmBadge.transform.SetParent(rowGo.transform, false);
+        var badge = _bpmBadge.GetComponent<HorizontalLayoutGroup>();
+        badge.childAlignment = TextAnchor.MiddleCenter;
+        badge.childControlWidth = badge.childControlHeight = true;
+        badge.childForceExpandWidth = badge.childForceExpandHeight = false;
+        badge.spacing = 8f;
+
+        var iconGo = new GameObject("Metronome Icon", typeof(RectTransform), typeof(RawImage), typeof(LayoutElement));
+        iconGo.transform.SetParent(_bpmBadge.transform, false);
+        var icon = iconGo.GetComponent<RawImage>();
+        icon.texture = Resources.Load<Texture2D>("UI/metronome");
+        icon.color = Color.white; // the texture is white on transparent: black would be invisible on the glasses
+        icon.raycastTarget = false;
+        var iconSize = iconGo.GetComponent<LayoutElement>();
+        iconSize.preferredWidth = iconSize.preferredHeight = 42f;
+
+        _bpmText = Text("Tempo", 0f, 0f, 150f, 70f, 40f, TextAlignmentOptions.MidlineLeft);
+        _bpmText.transform.SetParent(_bpmBadge.transform, false);
+        _bpmText.color = Color.white;
+        _bpmText.fontStyle = FontStyles.Bold;
+        var label = _bpmText.gameObject.AddComponent<LayoutElement>();
+        label.preferredWidth = 150f; // fixed, so the cue does not jiggle as the number changes
+        ShowTempo(null, 0);
     }
 
     // Two chips beside the verdict: how steady the speed was, and how accurate the notes were.
@@ -629,6 +694,7 @@ public class SongNoteDisplay : MonoBehaviour
         _stats = Text("Stats", 0f, below + 130f, panelSize.x, 110f, 26f, TextAlignmentOptions.Top);
         if (engine != null)
         {
+            BuildNextRow(below);
             // The verdict is centred in its own box; the chips go to the right of it, so keep that box left-aligned.
             float chipY = below + 75f + 4f, chipH = 42f, gap = 12f;
             float chipW = (panelSize.x * 0.72f - gap * 3f) / 2f;

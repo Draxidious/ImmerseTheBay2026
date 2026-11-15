@@ -643,3 +643,11 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Sheet rendered only at the first run:** the panel only drew a sheet line in `OnRunStarted`; `OnLessonState` just set the title. New
   `ShowUpcoming()` draws the line (with the box on the first bar) on every state change and when a demo starts.
 - **Untested:** all of it in play mode (compiles with no errors). Check: left-hand demo plays on measure 1, F5 result stays 4 s, sheet visible at SongLearn.
+
+## 2026-11-15 — Jordan (Claude)
+- `SongNoteDisplay`: the run's speed is now shown as `<n> BPM` with a white metronome icon (`Assets/Resources/UI/metronome.png`, white on transparent)
+  at the right of the big line, instead of "50% speed" (BPM = song tempo x step %). The "· 50%" is gone from the title. Shown on the upcoming
+  measure, during the run and the warm-up; hidden at the intro and at the end.
+- **Untested** in play mode and on the Aura.
+- `SongNoteDisplay`: the big line is now a code-built flexbox (`HorizontalLayoutGroup`, no scene change): the cue/hand text fills the width the BPM badge
+  leaves and auto-shrinks its font, so "Press any key when you're ready" cannot overlap the metronome. **Not compiled/tested yet** (Unity was in play mode).
