@@ -1,0 +1,142 @@
+using System.Collections;
+using UnityEngine;
+#if UNITY_EDITOR
+using UnityEngine.InputSystem;
+#endif
+
+/// <summary>
+/// Runs the app in order and connects the modules; it owns no lesson or AI logic of its own.
+///   1. The coach speaks an introduction and asks if the player is ready.
+///   2. The microphone opens for a few seconds. Any answer (or none) moves on.
+///   3. Calibration starts (PianoCalibrator.Recalibrate).
+///   4. Once calibrated, the evaluator and its sheet panel are switched on.
+/// The lines here are fixed text: no model call, so the start of the app never waits on the network.
+/// Editor debug key: Enter = skip the current wait (speech or listening). Calibrate with the calibrator's own C key.
+/// </summary>
+public class AppFlow : MonoBehaviour
+{
+    public enum Step { Intro, Listening, Calibrating, Lesson }
+
+    [Header("Found automatically when empty")]
+    public VoiceOutput voiceOutput;
+    public VoiceInput voiceInput;
+    public CoachOrb orb;
+    public PianoCalibrator calibrator;
+    public PianoOverlay overlay;
+    [Tooltip("The evaluator object starts inactive in the scene and is switched on after calibration.")]
+    public PerformanceEvaluator evaluator;
+
+    [Header("Lines")]
+    [TextArea] public string introLine = "Hi, I'm your piano coach. Today we'll play the opening of Für Elise. Are you ready to learn?";
+    [TextArea] public string calibrateLine = "Great. First show me where your piano is. Follow the steps in front of you.";
+    [TextArea] public string lessonLine = "Got it. Play the first note whenever you're ready.";
+
+    [Header("Timing (seconds)")]
+    [Tooltip("Wait before the introduction, so tracking and the orb have settled.")]
+    public float startDelay = 1.5f;
+    [Tooltip("How long the microphone stays open for the player's answer.")]
+    public float listenSeconds = 4f;
+    [Tooltip("Longest wait for the answer to be transcribed before moving on anyway.")]
+    public float transcriptTimeout = 6f;
+
+    public Step CurrentStep { get; private set; }
+
+    bool _skip, _answered;
+
+    void Awake()
+    {
+        if (!voiceOutput) voiceOutput = FindAnyObjectByType<VoiceOutput>();
+        if (!voiceInput) voiceInput = FindAnyObjectByType<VoiceInput>();
+        if (!orb) orb = FindAnyObjectByType<CoachOrb>();
+        if (!calibrator) calibrator = FindAnyObjectByType<PianoCalibrator>();
+        if (!overlay) overlay = FindAnyObjectByType<PianoOverlay>();
+        if (!evaluator) evaluator = FindAnyObjectByType<PerformanceEvaluator>(FindObjectsInactive.Include);
+    }
+
+    void OnEnable()
+    {
+        if (calibrator) calibrator.Calibrated += OnCalibrated;
+        if (voiceInput) voiceInput.OnCommand += OnAnswer;
+    }
+
+    void OnDisable()
+    {
+        if (calibrator) calibrator.Calibrated -= OnCalibrated;
+        if (voiceInput) voiceInput.OnCommand -= OnAnswer;
+    }
+
+    IEnumerator Start()
+    {
+        // Nothing of the lesson is shown until the player has been greeted.
+        if (overlay) overlay.gameObject.SetActive(false);
+        if (evaluator) evaluator.gameObject.SetActive(false);
+
+        CurrentStep = Step.Intro;
+        yield return Wait(startDelay);
+        yield return Say(introLine);
+
+        CurrentStep = Step.Listening;
+        if (voiceInput)
+        {
+            _answered = false;
+            voiceInput.StartListening();
+            if (voiceInput.IsListening)
+            {
+                yield return Wait(listenSeconds);
+                voiceInput.StopListening(); // OnCommand follows once the recording is transcribed
+                for (float t = 0f; !_answered && !_skip && t < transcriptTimeout; t += Time.unscaledDeltaTime) yield return null;
+            }
+        }
+
+        CurrentStep = Step.Calibrating;
+        if (overlay) overlay.gameObject.SetActive(true);
+        if (calibrator) calibrator.Recalibrate();
+        yield return Say(calibrateLine);
+    }
+
+    void OnAnswer(VoiceCommand command, string transcript)
+    {
+        _answered = true;
+        Debug.Log($"[AppFlow] Player answered: \"{transcript}\"");
+    }
+
+    // Also raised after a later recalibration; the lesson is only started the first time.
+    void OnCalibrated()
+    {
+        if (CurrentStep != Step.Calibrating) return;
+        CurrentStep = Step.Lesson;
+        if (evaluator) evaluator.gameObject.SetActive(true);
+        StartCoroutine(Say(lessonLine));
+    }
+
+    // Speaks a fixed line and shows it beside the orb. Ends when the speech does (or on the debug skip).
+    IEnumerator Say(string line)
+    {
+        Debug.Log($"[AppFlow] {CurrentStep}: \"{line}\"");
+        if (!voiceOutput)
+        {
+            if (orb) orb.ShowText(line);
+            yield break;
+        }
+        if (orb) orb.ShowText(line, 600f); // stays up for as long as the speech takes
+        var speech = voiceOutput.Speak(line);
+        _skip = false;
+        while (!speech.IsCompleted && !_skip) yield return null;
+        if (orb && orb.DisplayedText.Length > 0 && line.StartsWith(orb.DisplayedText.TrimEnd('.')))
+            orb.ShowText(line, 2f); // still our line: let it linger briefly, then fade
+    }
+
+    IEnumerator Wait(float seconds)
+    {
+        _skip = false;
+        for (float t = 0f; t < seconds && !_skip; t += Time.unscaledDeltaTime) yield return null;
+    }
+
+#if UNITY_EDITOR
+    void Update()
+    {
+        var kb = Keyboard.current;
+        if (kb != null && kb.enterKey.wasPressedThisFrame) _skip = true;
+    }
+#endif
+}

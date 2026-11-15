@@ -4,6 +4,15 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Claude Code (for Jordan): `AppFlow` sequences Main (intro → listen → calibrate → lesson)
+- New `Assets/Scripts/App/AppFlow.cs` + an `App Flow` object in `Main`. `PianoCalibrator.calibrateOnStart` is off in `Main` only.
+- Order: coach speaks a fixed intro and asks "are you ready", mic opens 4 s, calibration starts, and on `Calibrated` the evaluator
+  object is switched on. The overlay is hidden until calibration starts.
+- **Works (Editor Play mode):** one full run with real Groq TTS + Whisper (silence came back as "Thank you.", which is fine: any
+  answer moves on); a second run with voice off and scripted calibration points reached `Lesson` with the evaluator active. 0 errors.
+- **Not yet:** mic permission on Android is only asked at the first listen, so the first answer is missed there (fixed in a later
+  commit). Untested on the Aura.
+
 ## 2026-11-14 night — Claude Code (for Jordan): Main gets the MIDI reader, evaluator and sheet panel
 - Moved `MidiPianoReader` and `Performance Evaluator` (`PerformanceEvaluator` + `SongNoteDisplay` with the 21 sheet lines) from
   `JordanScene` into `Main` (JordanScene itself is unchanged). The evaluator object **starts inactive**; nothing turns it on yet.
