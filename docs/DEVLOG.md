@@ -4,6 +4,22 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 late — Claude Code (for Jordan): coach voice in the Editor, lesson waits for it, orb clear of the sheet
+- **Root cause of "the coach doesn't say the words" and "the lesson doesn't wait":** Groq TTS was over its daily limit
+  (429, 3,600 tokens per day on the free tier), so every line fell back to `NativeTts`, which in the Windows Editor only
+  logged the line and returned in ~50 ms. No sound, and `VoiceOutput.IsSpeaking` was false at once, so the engine and
+  coach-requested demos started straight away.
+- `NativeTts` (Canady's folder): the Windows Editor now speaks with the system voice (System.Speech through PowerShell,
+  text on stdin); platforms with no voice wait about as long as the line would take. Android is unchanged.
+- `LessonConfig.coachMaxWaitSeconds` 15 → 45: the longest the lesson waits for the coach before a run.
+- `AppFlow.PlaceSheetPanel` moves the orb right (`CoachOrb.rightOfKeyboardCenter`, about 0.84 m) so its words start
+  past the sheet panel's right edge (`orbPanelGap`). Applies to `Main` too.
+- **Verified in Editor Play mode:** the intro line took 9.5 s instead of 50 ms; after calibration the first run did not
+  start while the coach's lesson-start line was speaking; the orb text was clear of the panel.
+- **Still open:** the orb is now ~50° to the right of straight ahead, a real head turn (text under the orb instead of
+  beside it would bring it closer; that is a change to the orb itself). The Groq daily limit also applies on the
+  glasses, where the fallback is Android's own voice. F5–F8 and Enter skip the wait by design.
+
 ## 2026-11-14 night — Claude Code (for Jordan): playbook now distinguishes hands (doc only)
 - `docs/COACH_PLAYBOOK.md`: each new measure is learned in three stages (right hand, left hand, both hands), each up the
   tempo ladder. Play-throughs are both hands. Repairs fix each weak hand alone (slow, then song tempo), then replay the

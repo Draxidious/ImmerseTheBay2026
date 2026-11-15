@@ -45,6 +45,8 @@ public class AppFlow : MonoBehaviour
     [Header("Sheet placement (meters from the keyboard's drawn center)")]
     [Tooltip("X = along the keys, Y = above the keys, Z = toward the fallboard. Not scaled with calibration.")]
     public Vector3 sheetOffset = new Vector3(0f, 0.45f, 0.20f);
+    [Tooltip("Clear space between the sheet panel's right edge and the coach orb's text, in meters.")]
+    public float orbPanelGap = 0.04f;
 
     [Header("Lines")]
     [TextArea] public string introLine = "Hi, I'm your piano coach. Today we'll play the opening of Für Elise. Are you ready to learn?";
@@ -221,6 +223,16 @@ public class AppFlow : MonoBehaviour
         if (forward.sqrMagnitude < 0.0001f) return;
         Quaternion rotation = Quaternion.LookRotation(forward, Vector3.up);
         sheetDisplay.transform.SetPositionAndRotation(center + rotation * sheetOffset, rotation);
+
+        // The orb's words appear to the left of the orb. Put the orb far enough right of the keyboard's center that
+        // they start past the panel's right edge instead of lying over its status text.
+        if (orb)
+        {
+            float panelRight = sheetOffset.x + sheetDisplay.panelSize.x * sheetDisplay.metersPerUnit * 0.5f;
+            // The text turns to face the player, so out here it takes up about 0.8 of its width along the keyboard.
+            float textReach = orb.orbDiameter * 0.5f + orb.textGap + orb.textWidth * 0.8f;
+            orb.rightOfKeyboardCenter = Mathf.Max(orb.rightOfKeyboardCenter, panelRight + orbPanelGap + textReach);
+        }
     }
 
     // ------------------------------------------------------------------ Evaluator -> piano overlay
