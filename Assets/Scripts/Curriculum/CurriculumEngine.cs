@@ -205,6 +205,7 @@ public class CurriculumEngine : MonoBehaviour
     Action coachDemoResume;
     BarRange lastDemo;
     float lastDemoEnded = float.NegativeInfinity;
+    bool demoNewMeasure; // the next run is the first of a new measure: demo it first
 
     // Coach requests go out one at a time, in order. If the student plays faster than the coach talks, only the
     // newest MaxPendingCoach wait (so a warm-up result is still spoken before the song intro).
@@ -672,7 +673,7 @@ public class CurriculumEngine : MonoBehaviour
     void StartMeasure(int n)
     {
         SetupMeasure(n);
-        BeginRun(Song, CurrentRange);
+        BeginRunOrDemo(Song, CurrentRange);
     }
 
     // The Setup methods get the next run ready without starting it, so Tell can describe it. Step 1:
@@ -687,6 +688,7 @@ public class CurriculumEngine : MonoBehaviour
         SetStages(StagesFor(Song, CurrentRange));
         SetStep(0);
         SetState(CurriculumState.SongLearn);
+        demoNewMeasure = Cfg.autoDemoNewMeasure;
         OnMeasureStarted?.Invoke(n);
     }
 
@@ -978,7 +980,17 @@ public class CurriculumEngine : MonoBehaviour
     void NextRun()
     {
         var song = CurrentSong;
-        AfterCoach(() => BeginRun(song, CurrentRange));
+        AfterCoach(() => BeginRunOrDemo(song, CurrentRange));
+    }
+
+    // The first run of a new measure is played for them first, unless those bars were just demoed (e.g. the coach asked).
+    void BeginRunOrDemo(SongData song, BarRange bars)
+    {
+        bool demo = demoNewMeasure && !RecentlyDemoed(bars);
+        demoNewMeasure = false;
+        if (!demo) { BeginRun(song, bars); return; }
+        Debug.Log($"[Lesson] Demo: {Measures(bars)} {HandWords(Hand)} at {TempoPct}%.");
+        PlayDemo(song, bars, TempoPct, () => BeginRun(song, bars));
     }
 
     // Rule 5 at the slow step: the coach was asked for help. If it neither played a demo nor showed the fingering
@@ -1252,6 +1264,28 @@ public class CurriculumEngine : MonoBehaviour
 
     // ------------------------------------------------------------------ Demos and waiting
 
+    // "Play it again": the demo of the current bars, for the hand being practised, at the step's tempo. A run in progress
+    // stops and starts again afterwards. False when there is nothing to replay right now.
+    public bool ReplayDemo()
+    {
+        if (State == CurriculumState.Idle || State == CurriculumState.SongComplete || State == CurriculumState.SongIntro) return false;
+        bool ok = RequestDemo(CurrentSong, CurrentRange, TempoPct);
+        if (ok) Debug.Log($"[Lesson] Replay demo: {Measures(CurrentRange)} {HandWords(Hand)} at {TempoPct}%.");
+        return ok;
+    }
+
+    // A demo asked for by the coach or the student, once the coach has finished speaking.
+    bool RequestDemo(SongData song, BarRange bars, int tempoPct)
+    {
+        if (IsDemoPlaying || State == CurriculumState.WarmupDemo || coachDemoRoutine != null) return false;
+        bool resume = running;
+        running = false;
+        OnNextNote?.Invoke(null);
+        coachDemoResume = () => { if (resume) BeginRun(runSong, runBars); };
+        coachDemoRoutine = StartCoroutine(CoachDemo(song, bars, tempoPct));
+        return true;
+    }
+
     void PlayDemo(SongData song, BarRange bars, int tempoPct, Action then)
     {
         // The hand(s) being practised; if they have nothing in these bars (the coach asked for other bars), everything.
@@ -1355,15 +1389,8 @@ public class CurriculumEngine : MonoBehaviour
             case CoachActionType.Demo:
                 var song = CurrentSong;
                 var bars = new BarRange(Mathf.Clamp(a.firstBar, 1, song.BarCount), Mathf.Clamp(a.lastBar, 1, song.BarCount));
-                if (IsDemoPlaying || State == CurriculumState.WarmupDemo) return;
                 if (RecentlyDemoed(bars)) return;
-                if (coachDemoRoutine != null) return;
-                Debug.Log($"[Lesson] Coach asked for a demo of {Measures(bars)}.");
-                bool resume = running;
-                running = false;
-                OnNextNote?.Invoke(null);
-                coachDemoResume = () => { if (resume) BeginRun(runSong, runBars); };
-                coachDemoRoutine = StartCoroutine(CoachDemo(song, bars, TempoPct));
+                if (RequestDemo(song, bars, TempoPct)) Debug.Log($"[Lesson] Coach asked for a demo of {Measures(bars)}.");
                 break;
 
             case CoachActionType.ShowFingering:

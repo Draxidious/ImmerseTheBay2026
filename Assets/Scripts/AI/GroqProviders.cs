@@ -156,7 +156,7 @@ public class GroqTts : ITtsProvider
             }
             rate = partRate;
             channels = partChannels;
-            samples.AddRange(part);
+            samples.AddRange(TrimSilence(part, partChannels, partRate));
         }
         if (samples.Count == 0) return false;
 
@@ -171,6 +171,27 @@ public class GroqTts : ITtsProvider
     }
 
     public void Stop() { }
+
+    const float SilenceLevel = 0.015f, KeepBeforeSeconds = 0.05f, KeepAfterSeconds = 0.12f;
+
+    // Orpheus pads every clip with 0.3-0.55 s of silence before the speech and 0.4-1 s after ("Now bar 2." is 1.4 s of speech
+    // in a 2.8 s clip). The lesson waits for speech to end, so cut it, keeping a short margin on each side.
+    public static float[] TrimSilence(float[] samples, int channels, int rate)
+    {
+        if (samples == null || samples.Length == 0) return samples;
+        channels = Mathf.Max(1, channels);
+        int first = -1, last = -1;
+        for (int i = 0; i < samples.Length; i++)
+            if (Mathf.Abs(samples[i]) > SilenceLevel) { if (first < 0) first = i; last = i; }
+        if (first < 0) return samples; // all quiet: leave it alone
+        int start = Mathf.Max(0, first - Mathf.RoundToInt(KeepBeforeSeconds * rate) * channels);
+        int end = Mathf.Min(samples.Length, last + 1 + Mathf.RoundToInt(KeepAfterSeconds * rate) * channels);
+        start -= start % channels; // whole frames
+        end -= (end - start) % channels;
+        var kept = new float[end - start];
+        System.Array.Copy(samples, start, kept, 0, kept.Length);
+        return kept;
+    }
 
     // Pieces of at most maxChars, cut after sentence punctuation where possible, otherwise at a space.
     static List<string> Split(string text, int maxChars)

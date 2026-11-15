@@ -154,6 +154,29 @@ public class CoachPolicyTests
         Assert.LessOrEqual(kept.Length, CoachPolicy.MaxChars);
     }
 
+    // Real play-through and lesson-start replies (Main_2): the line before a new measure keeps the bars and drops the rest.
+    [TestCase("Bars one to three were clean and steady; now bar four alone, right hand, slowly.", CoachTrigger.PlayThroughPassed,
+              "Bars one to three were clean and steady.")]
+    [TestCase("Bars one and two are solid, clean and steady. Next we learn bar three on its own.", CoachTrigger.PlayThroughPassed,
+              "Bars one and two are solid, clean and steady.")]
+    [TestCase("Bar three is still too slow to feel like a phrase; try a little faster.", CoachTrigger.RunFinished,
+              "Bar three is still too slow to feel like a phrase; try a little faster.")]
+    public void Tidy_NewMeasureLinesAreShortest(string say, CoachTrigger trigger, string expected)
+    {
+        Assert.AreEqual(expected, CoachPolicy.Tidy(say, trigger));
+    }
+
+    [Test]
+    public void TrimSilence_KeepsTheSpeechAndAShortMargin()
+    {
+        const int rate = 24000;
+        var clip = new float[rate * 3]; // 0.5 s silence, 1 s tone, 1.5 s silence
+        for (int i = rate / 2; i < rate * 3 / 2; i++) clip[i] = 0.3f * UnityEngine.Mathf.Sin(i * 0.1f);
+        var kept = GroqTts.TrimSilence(clip, 1, rate);
+        Assert.AreEqual(1f + 0.05f + 0.12f, kept.Length / (float)rate, 0.01f);
+        Assert.AreEqual(rate, GroqTts.TrimSilence(new float[rate], 1, rate).Length); // all silence: unchanged
+    }
+
     [Test]
     public void RepeatsOpening_MatchesTheFirstFourWords()
     {

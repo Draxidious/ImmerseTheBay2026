@@ -71,11 +71,11 @@ public class AICoach : MonoBehaviour
         {
             result = await AskModel(ctx, cfg, null);
             // Starts like a recent line: ask once more, then use the cue (or nothing). Questions always get their answer.
-            if (result != null && !question && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, false), _recent))
+            if (result != null && !question && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, ctx.trigger), _recent))
             {
                 Debug.Log($"[AI] Coach reply repeats a recent opening, asking again: \"{result.say}\"");
                 result = await AskModel(ctx, cfg, RepeatNote);
-                if (result != null && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, false), _recent))
+                if (result != null && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, ctx.trigger), _recent))
                 {
                     Debug.Log($"[AI] Coach repeated itself again, skipping: \"{result.say}\"");
                     result = new CoachResult { say = cue ?? "", trigger = ctx.trigger };
@@ -101,7 +101,7 @@ public class AICoach : MonoBehaviour
 
         if (!result.isFallback && !string.IsNullOrWhiteSpace(result.say))
         {
-            result.say = CoachPolicy.Tidy(result.say, question);
+            result.say = CoachPolicy.Tidy(result.say, ctx.trigger);
             _recent.Enqueue(result.say);
             while (_recent.Count > RecentLines) _recent.Dequeue();
         }

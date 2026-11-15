@@ -46,6 +46,8 @@ public class AIConfig : ScriptableObject
     public string questionFallbackLine = "Sorry, could you say that again?";
     [Tooltip("Asked when the player says \"free play\" during the lesson; their next answer decides.")]
     public string confirmFreePlayLine = "Do you want to switch to free play? Say yes or no.";
+    [Tooltip("Spoken when \"play it again\" has nothing to replay (Main, or the lesson is between steps).")]
+    public string cantReplayLine = "I can't play that right now.";
     [Tooltip("Spoken when the answer to confirmFreePlayLine is not a yes.")]
     public string keepLessonLine = "Okay, let's keep going with the lesson.";
 

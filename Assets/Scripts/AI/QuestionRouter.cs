@@ -345,6 +345,14 @@ public class QuestionRouter : MonoBehaviour
                 AppModeSwitch.Request(mode, "voice");
                 return;
             }
+            if (IsReplayCommand(question))
+            {
+                // No model call: the guided lesson plays the current bars again (Main has no demo player).
+                bool replayed = engine && engine.ReplayDemo();
+                Debug.Log($"[Question] Replay command \"{question}\" -> {(replayed ? "demo" : "not possible now")}");
+                if (!replayed) coach.SayNow(cfg.cantReplayLine);
+                return;
+            }
 
             Debug.Log($"[Question] Asking the coach: \"{question}\"");
             await coach.Ask(question, BuildContext());
@@ -382,6 +390,21 @@ public class QuestionRouter : MonoBehaviour
         mode = m.Groups["free"].Success ? AppMode.FreePlay : AppMode.Lesson;
         return true;
     }
+
+    // "play it again", "can you play that again please", "play this one more time", "show me again". The whole question
+    // must be the command, like TryParseModeCommand.
+    public static bool IsReplayCommand(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        string t = Regex.Replace(text.ToLowerInvariant(), @"[^a-z\s]", " ");
+        t = Regex.Replace(t, @"\s+", " ").Trim();
+        t = Regex.Replace(t, @"^(?:(?:please|can you|could you|will you|ok|okay)\s+)*", "");
+        t = Regex.Replace(t, @"\s+(?:please|for me)$", "");
+        return ReplayCommand.IsMatch(t);
+    }
+
+    static readonly Regex ReplayCommand = new Regex(
+        @"^(?:play|show me|show)\s+(?:(?:it|that|this)(?:\s+(?:one|bar|part))?\s+)?(?:for me\s+)?(?:again|one more time)$");
 
     // A yes to "do you want to switch to free play?". Any no-word wins ("okay, no thanks" is a no).
     public static bool IsYes(string text)

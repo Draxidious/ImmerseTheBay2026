@@ -18,6 +18,7 @@ public static class CoachPolicy
 
     public const int MaxChars = 80;
     public const int QuestionMaxChars = 180;
+    public const int NewMeasureMaxChars = 50; // lesson start and play-through: the bars and one detail, the overlay shows the rest
 
     // A full run: Main's whole excerpt in wait mode, a passed play-through of bars 1..N, or the finished piece.
     public static bool PraiseAllowed(CoachContext ctx) =>
@@ -109,10 +110,12 @@ public static class CoachPolicy
     }
 
     // One sentence of up to MaxChars; a "hey teacher" answer may have two. Always at least the first sentence.
-    public static string Limit(string say, bool question)
+    public static string Limit(string say, bool question) =>
+        Limit(say, question ? 2 : 1, question ? QuestionMaxChars : MaxChars);
+
+    public static string Limit(string say, int maxSentences, int maxChars)
     {
         if (string.IsNullOrWhiteSpace(say)) return say;
-        int maxSentences = question ? 2 : 1, maxChars = question ? QuestionMaxChars : MaxChars;
         var parts = Regex.Split(say.Trim(), @"(?<=[.!?])\s+");
         string kept = parts[0];
         for (int i = 1; i < parts.Length && i < maxSentences && kept.Length + 1 + parts[i].Length <= maxChars; i++) kept += " " + parts[i];
@@ -132,6 +135,14 @@ public static class CoachPolicy
     }
 
     public static string Tidy(string say, bool question) => Limit(StripFiller(say), question);
+
+    // Per trigger: a question may have two sentences; the lines before a new measure are kept shortest.
+    public static string Tidy(string say, CoachTrigger trigger)
+    {
+        if (trigger == CoachTrigger.UserAsked) return Tidy(say, true);
+        bool newMeasure = trigger == CoachTrigger.LessonStart || trigger == CoachTrigger.PlayThroughPassed;
+        return Limit(StripFiller(say), 1, newMeasure ? NewMeasureMaxChars : MaxChars);
+    }
 
     // True when the line starts with the same words as one of the recent lines.
     public static bool RepeatsOpening(string say, IEnumerable<string> recent, int words = 4)
