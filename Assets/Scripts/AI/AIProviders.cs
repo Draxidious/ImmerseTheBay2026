@@ -8,7 +8,7 @@ using UnityEngine;
 public interface ICoachProvider
 {
     string Name { get; }
-    // Returns the raw JSON text of the {say, action, bar} object, or null on failure.
+    // Returns the raw JSON text of the coach reply (see CoachResult.Raw), or null on failure.
     Task<string> GetCoachJson(string systemPrompt, string userJson);
 }
 

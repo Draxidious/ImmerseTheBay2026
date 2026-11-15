@@ -1,0 +1,25 @@
+{
+  "id": "c_major_scale",
+  "name": "C major scale",
+  "tempoBpm": 80,
+  "timeSignature": "4/4",
+  "beatsPerBar": 4,
+  "comment": "Right hand, C4 up to C5 and back down, one note per beat. Up: C1 D2 E3 F1 G2 A3 B4 C5. Down: C5 B4 A3 G2 F1 E3 D2 C1 (top C played once). tempoBpm is replaced by LessonConfig.warmupTempoBpm. hint is told to the coach for the crossing notes.",
+  "notes": [
+    { "note": "C4", "bar": 1, "beat": 1, "beats": 1, "finger": 1 },
+    { "note": "D4", "bar": 1, "beat": 2, "beats": 1, "finger": 2 },
+    { "note": "E4", "bar": 1, "beat": 3, "beats": 1, "finger": 3 },
+    { "note": "F4", "bar": 1, "beat": 4, "beats": 1, "finger": 1, "hint": "tuck your thumb under to reach F" },
+    { "note": "G4", "bar": 2, "beat": 1, "beats": 1, "finger": 2 },
+    { "note": "A4", "bar": 2, "beat": 2, "beats": 1, "finger": 3 },
+    { "note": "B4", "bar": 2, "beat": 3, "beats": 1, "finger": 4 },
+    { "note": "C5", "bar": 2, "beat": 4, "beats": 1, "finger": 5 },
+    { "note": "B4", "bar": 3, "beat": 1, "beats": 1, "finger": 4 },
+    { "note": "A4", "bar": 3, "beat": 2, "beats": 1, "finger": 3 },
+    { "note": "G4", "bar": 3, "beat": 3, "beats": 1, "finger": 2 },
+    { "note": "F4", "bar": 3, "beat": 4, "beats": 1, "finger": 1 },
+    { "note": "E4", "bar": 4, "beat": 1, "beats": 1, "finger": 3, "hint": "cross your middle finger over to E" },
+    { "note": "D4", "bar": 4, "beat": 2, "beats": 1, "finger": 2 },
+    { "note": "C4", "bar": 4, "beat": 3, "beats": 2, "finger": 1 }
+  ]
+}
