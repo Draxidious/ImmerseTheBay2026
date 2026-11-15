@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 848409ee8ba454f42a5ddff137688a27, type: 3}
+  m_Name: PianoCornerMarkers
+  m_EditorClassIdentifier: Unity.XR.ARSubsystems::UnityEngine.XR.ARSubsystems.XRReferenceImageLibrary
+  m_GuidLow: 5735658034914486384
+  m_GuidHigh: 8528817096255158663
+  m_DataStore:
+    m_Storage: []
+  m_Images:
+  - m_SerializedGuid:
+      m_GuidLow: 4866014439448023484
+      m_GuidHigh: 3267227024196069292
+    m_SerializedTextureGuid:
+      m_GuidLow: 0
+      m_GuidHigh: 0
+    m_Size: {x: 0.033, y: 0.033}
+    m_SpecifySize: 1
+    m_Name: ArUco4x4_50-0
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5608764669850793603
+      m_GuidHigh: 16074785553146787477
+    m_SerializedTextureGuid:
+      m_GuidLow: 0
+      m_GuidHigh: 0
+    m_Size: {x: 0.033, y: 0.033}
+    m_SpecifySize: 1
+    m_Name: ArUco4x4_50-1
+    m_Texture: {fileID: 0}

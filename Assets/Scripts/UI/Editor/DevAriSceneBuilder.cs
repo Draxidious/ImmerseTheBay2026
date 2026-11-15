@@ -143,6 +143,8 @@ public static class DevAriSceneBuilder
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(scene, ScenePath);
         AssetDatabase.SaveAssets();
+        // Corner markers take over the four pinch steps (ARTrackedImageManager, MarkerCalibration, EventSystem).
+        MarkerCalibrationSetup.AddToOpenScene();
         Debug.Log($"[DevAriSceneBuilder] Built {ScenePath}. Play-mode keys: C = fake calibration, R = recalibrate, 1/2/3/0 = overlay debug.");
     }
 

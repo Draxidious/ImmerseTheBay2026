@@ -4,7 +4,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
-## 2026-11-15 early — Claude Code (for Canady): quieter coach
+## 2026-11-15 ~00:10 — Claude Code (for Ari): corner markers take over calibration (Dev_Ari)
+- New `MarkerCalibration` (UI folder), ported from the AuraMarkerTest prototype: two 33 mm ArUco markers on the P71's rear
+  corners replace the four pinch steps. Hands, occlusion, the orange recalibrate dot and all XRI interaction are unchanged.
+- `PianoCalibrator`: `CalibrateFromMarkers` / `ApplyMarkerAdjustment` (fit from the back outer corners of A0/C8, real keyboard
+  width), `CalibrationStarted`, `ShowInfo`, `markersAvailable` (pinches off while markers run), and a blue second dot below the
+  orange one (`OffsetsDotPressed`) that opens the offset sliders.
+- Setup tool `Tools/Piano/Add Marker Calibration To Open Scene` (applied to Dev_Ari; idempotent, for Main later) and
+  `Enable Marker Tracking (OpenXR Android)`: **project-wide**, Google `XRSessionFeature` + `XRMarkerTrackingFeature` are now on.
+- Editor-verified (play mode, simulated lock): `Calibrated` fires once, scale 1.000, A0–C8 span = 1.1985 m, Height +10 mm raises
+  the keys 10.0 mm, arrows step 1 mm, Sideways moves the keyboard, recalibrate closes the panel, fallback restores pinches.
+- **Not yet verified on the Aura:** marker lock in the main app (Google extensions 1.5.0 vs 1.3.1 in the prototype), the
+  permission dialog, panel reachability, offsets accuracy. History and evidence: `docs/marker-tracking/PIANO_CORNERS_HANDOFF.md` and `PIANO_CORNERS_ITERATIONS.md` (from the AuraMarkerTest prototype).
 - New `CoachPolicy` (AI folder): passed measures, tempo steps and hand changes no longer call the model. They get a code cue
   ("Now bar 2.", "Now the left hand.", "Both hands now.", "Now bars 1 to 3.") or silence when only the speed changes.
 - Praise only after a full run: Main's whole 35-note excerpt, a guided-lesson play-through, or the finished song. Failed runs
