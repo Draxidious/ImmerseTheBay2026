@@ -26,7 +26,6 @@ internal sealed class FingeringGuide : MonoBehaviour
         XRHandJointID.RingDistal, XRHandJointID.LittleDistal
     };
 
-    const string PreferenceKey = "PianoFingeringOverlay";
     const string IntroKey = "PianoFingeringIntroHeard";
     const string IntroLine = "One is your thumb. Match the number on your finger to the badge on the key. To turn fingering off, poke Menu on your left hand, then poke Fingering.";
     const float BadgeDiameter = 0.017f;
@@ -68,15 +67,12 @@ internal sealed class FingeringGuide : MonoBehaviour
     internal void ToggleOverlay()
     {
         _showFingering = !_showFingering;
-        PlayerPrefs.SetInt(PreferenceKey, _showFingering ? 1 : 0);
-        PlayerPrefs.Save();
         _introPending = _showFingering && PlayerPrefs.GetInt(IntroKey, 0) == 0;
         if (!_showFingering) HideLabels();
     }
 
     void Awake()
     {
-        _showFingering = PlayerPrefs.GetInt(PreferenceKey, 0) != 0;
         _glowSprite = CreateCueSprite(false);
         _ringSprite = CreateCueSprite(true);
         for (int i = 0; i < _fingers.Length; i++)

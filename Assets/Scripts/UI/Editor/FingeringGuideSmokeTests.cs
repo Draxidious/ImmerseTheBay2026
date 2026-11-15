@@ -53,7 +53,7 @@ public static class FingeringGuideSmokeTests
         SuspendStreaming();
         SessionState.SetInt(FingeringState, PlayerPrefs.GetInt(FingeringPref, -1));
         SessionState.SetInt(FingeringIntroState, PlayerPrefs.GetInt(FingeringIntroPref, -1));
-        PlayerPrefs.DeleteKey(FingeringPref);
+        PlayerPrefs.SetInt(FingeringPref, 1); // Simulate upgrading from a build that saved Fingering On.
         PlayerPrefs.DeleteKey(FingeringIntroPref);
         SessionState.SetBool(Running, true);
         Debug.Log("[Fingering smoke] Starting Main_2 with simulated hands.");
@@ -176,10 +176,11 @@ public static class FingeringGuideSmokeTests
 
         PokeAt(startTarget);
         Require(flow.CurrentStep == AppFlow.Step.Lesson && !menu.IsOpen, "A fast poke through Start Lesson did not work.");
-        Require(!(bool)guide.GetType().GetProperty("OverlayEnabled", flags).GetValue(guide),
-            "Fingering should default to off.");
+        var overlayEnabled = guide.GetType().GetProperty("OverlayEnabled", flags);
+        bool FingeringEnabled() => (bool)overlayEnabled.GetValue(guide);
+        Require(!FingeringEnabled(), "Fingering should start off even with a previously saved On setting.");
         Poke(RadialMenu.Choice.Fingering);
-        Require(PlayerPrefs.GetInt(FingeringPref) == 1, "The first Fingering poke did not enable it.");
+        Require(FingeringEnabled(), "The first Fingering poke did not enable it.");
         var badge = FindLabel(flow, "Key badge R5");
         var nextBadge = FindLabel(flow, "Key badge R4");
         var glow = flow.transform.Find("Fingertip glow R5").GetComponent<SpriteRenderer>();
@@ -207,7 +208,7 @@ public static class FingeringGuideSmokeTests
 
         Poke(RadialMenu.Choice.Fingering);
         Require(!badge.enabled && !glow.enabled && !rightPinky.enabled && !leftThumb.enabled &&
-            !menu.IsOpen && PlayerPrefs.GetInt(FingeringPref) == 0,
+            !menu.IsOpen && !FingeringEnabled(),
             "Turning off fingering left a cue active.");
         var coachAction = flow.engine.GetType().GetMethod("HandleCoachAction", flags);
         var stats = (TMP_Text)flow.sheetDisplay.GetType().GetField("_stats", flags).GetValue(flow.sheetDisplay);
@@ -215,7 +216,7 @@ public static class FingeringGuideSmokeTests
         coachAction.Invoke(flow.engine, new object[] { help });
         Require(stats.text.StartsWith("Fingering,", StringComparison.Ordinal), "Coach fingering should use the sheet with the overlay off.");
         Poke(RadialMenu.Choice.Fingering);
-        Require(PlayerPrefs.GetInt(FingeringPref) == 1, "Turning on fingering did not save.");
+        Require(FingeringEnabled(), "Turning on fingering did not restore it.");
         coachAction.Invoke(flow.engine, new object[] { help });
         Require(!stats.text.StartsWith("Fingering,", StringComparison.Ordinal), "Coach replay duplicated the sheet text.");
         yield return WaitFor(() => flow.engine.IsDemoPlaying, "coach fingering replay");

@@ -876,3 +876,5 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - Added step-by-step marker cues, pinch fallback, and the wrist mode handoff. The wrist now names each confirmation and explains how to restore visuals by voice.
 - Lesson identifies demos and the player handoff. Fingering starts off for new installs and explains the toggle on first use. Free Play introduces voice sheet requests when configured.
 - Editor smoke covers marker steps and retry, pinch fallback, wrist choices, fingering, and mode handoffs. Real permissions, gestures, voice and optical clarity require the Aura run.
+
+- Fingering now starts off on every launch, including upgrades with an older saved On setting. The toggle applies to the current session. The one-time spoken explanation is still remembered.
