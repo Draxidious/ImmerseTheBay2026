@@ -81,8 +81,11 @@ add a request to `docs/INTERFACES.md` under "Requested".
 - Android: request microphone permission **before the intro** and wait for grant, denial, or dismissal. With permission
   already granted there is no dialog. Denial/dismissal skips recording without asking again during the intro flow;
   calibration and the piano lesson still work. The Editor skips this Android permission step.
-- Intro speech → listen for 4 seconds (when permitted) → four-point calibration → lesson. Any answer or silence continues.
-  Pinch FAR then NEAR end of A0, then FAR then NEAR end of C8. Sheet placement is 0.45 m above / 0.20 m behind the drawn
+- Intro speech → listen for 4 seconds (when permitted) → **marker calibration** → lesson. Any answer or silence continues.
+  Look at the left corner marker (ArUco ID 0, behind A0), then the right one (ID 1, behind C8); first launch asks for the
+  scene-understanding permission. Blue left-hand dot = offset sliders, orange = recalibrate. If markers can't run (permission
+  denied, tracker down 5 s, nothing found in 45 s) the old four pinches come back: FAR then NEAR end of A0, then of C8.
+  Editor: **M** simulates a marker lock. See `docs/HANDOVER_MARKER_CALIBRATION.md`. Sheet placement is 0.45 m above / 0.20 m behind the drawn
   keyboard center; it updates after recalibration without restarting the lesson.
 - Next key lights up; correct/wrong presses flash. At the end of all 35 notes, the coach receives `RunStats` and speaks
   feedback via the orb. After the restart delay (1.5 s), play the first E5 again for a new attempt.

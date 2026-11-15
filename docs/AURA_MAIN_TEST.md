@@ -21,7 +21,7 @@ CurriculumEngine is not in Main. Device checks below require someone wearing the
 | Denial / dismissal | Deny or dismiss the dialog: intro still runs, no recording and no second mic prompt, then calibration. |
 | Permanent denial | After repeated denial / disabled permission, relaunch still reaches calibration without getting stuck waiting for permission. |
 | Passthrough | Room and real keys remain visible; the glasses do not black out. |
-| Calibration | Pinch FAR then NEAR ends of lowest key A0, then FAR then NEAR ends of highest key C8. Overlay aligns with real keys. |
+| Calibration | Allow scene understanding (first launch). Look at the left corner marker, then the right one (`[MarkerCalibration] … locked`). Overlay aligns with real keys; blue left-hand dot opens offset sliders. Fallback: pinch FAR/NEAR of A0 then C8. |
 | Panel and orb | Sheet sits above the keyboard, readable from the seated position. Orb and text remain visible. |
 | MIDI | First expected note E5 (MIDI 76) lights. Press a wrong key: red flash, no advance. Press E5: correct flash and D#5 becomes next. |
 | Full run | Follow all 35 notes: sheet highlight advances; completed-run coach feedback appears and speaks (cloud or fallback). |

@@ -34,10 +34,10 @@ public class MarkerCalibration : MonoBehaviour
     [Header("Markers")]
     public string leftMarker = "ArUco4x4_50-0";
     public string rightMarker = "ArUco4x4_50-1";
-    [Tooltip("Marker centre → back outer corner of A0 (inward, down, toward player), metres. Calibrated on the Aura 2026-11-14.")]
-    public Vector3 leftOffset = new Vector3(-0.010f, 0.012f, 0.091f);
-    [Tooltip("Marker centre → back outer corner of C8 (inward, down, toward player), metres. Calibrated on the Aura 2026-11-14.")]
-    public Vector3 rightOffset = new Vector3(0.020f, 0.012f, 0.075f);
+    [Tooltip("Marker centre → back outer corner of A0 (inward, down, toward player), metres. Saved on the Aura 2026-11-15 (Dev_Ari).")]
+    public Vector3 leftOffset = new Vector3(-0.005f, 0.012f, 0.091f);
+    [Tooltip("Marker centre → back outer corner of C8 (inward, down, toward player), metres. Saved on the Aura 2026-11-15 (Dev_Ari).")]
+    public Vector3 rightOffset = new Vector3(0.015f, 0.012f, 0.090f);
     [Tooltip("Use the real keyboard width; take only the centre and direction from the markers (tracked spans read ~2% long).")]
     public bool useKnownWidth = true;
 

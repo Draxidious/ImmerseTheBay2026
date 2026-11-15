@@ -4,6 +4,13 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~00:35 — Claude Code (for Ari): marker calibration in Main
+- Ran Tools/Piano/Add Marker Calibration To Open Scene on `Main.unity` (disabled ARTrackedImageManager + library on the XR Origin,
+  MarkerCalibration, EventSystem with XRUIInputModule). Defaults now = offsets saved on the Aura: left (-0.005, 0.012, 0.091),
+  right (0.015, 0.012, 0.090). CLAUDE.md flow + AURA_MAIN_TEST updated.
+- Editor (Main, Play mode): AppFlow Intro → Listening → Calibrating → simulated marker lock → ChooseMode; no exceptions.
+- **Not yet tested on the Aura in Main** (full flow: mic, intro, markers, lesson, coach, MIDI). Handover: `docs/HANDOVER_MARKER_CALIBRATION.md`.
+
 ## 2026-11-15 ~00:10 — Claude Code (for Ari): corner markers take over calibration (Dev_Ari)
 - New `MarkerCalibration` (UI folder), ported from the AuraMarkerTest prototype: two 33 mm ArUco markers on the P71's rear
   corners replace the four pinch steps. Hands, occlusion, the orange recalibrate dot and all XRI interaction are unchanged.
