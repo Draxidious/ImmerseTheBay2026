@@ -347,6 +347,14 @@ public static class FingeringGuideSmokeTests
             var marker = UnityEngine.Object.FindAnyObjectByType<MarkerCalibration>();
             Require(marker, "Main_2 is missing marker calibration.");
             var lockMarker = marker.GetType().GetMethod("OnMarkerLocked", BindingFlags.Instance | BindingFlags.NonPublic);
+            Require(calibrator.promptLabel.text.Contains("1 of 2") && calibrator.promptLabel.text.Contains("amber dot"),
+                "The first marker cue should explain when to move on.");
+            lockMarker.Invoke(marker, new object[] { center - right * 0.62f });
+            Require(calibrator.promptLabel.text.Contains("2 of 2") && calibrator.promptLabel.text.Contains("key guides"),
+                "The second marker cue should explain when calibration is complete.");
+            lockMarker.Invoke(marker, new object[] { center });
+            Require(calibrator.IsCalibrating && calibrator.promptLabel.text.Contains("1 of 2") &&
+                calibrator.promptLabel.text.Contains("two end keys"), "Rejected span did not return to the first marker.");
             lockMarker.Invoke(marker, new object[] { center - right * 0.62f });
             lockMarker.Invoke(marker, new object[] { center + right * 0.62f });
         }

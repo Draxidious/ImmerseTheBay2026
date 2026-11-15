@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,6 +27,9 @@ public class MarkerCalibration : MonoBehaviour
 {
     const string ScenePermission = "android.permission.SCENE_UNDERSTANDING_COARSE";
     const string OffsetFile = "marker-offsets.json";
+    const string LeftCue = "Look at the marker behind the far-left key. Keep looking until the amber dot appears.";
+    const string RightCue = "Look at the marker behind the far-right key. Keep looking until the key guides appear.";
+    const string RetryCue = "Check that the markers are behind the two end keys.";
 
     [Header("References (auto-found if empty)")]
     public PianoCalibrator calibrator;
@@ -71,6 +75,7 @@ public class MarkerCalibration : MonoBehaviour
     Vector3 _defaultLeft, _defaultRight;
     GameObject _leftDot;
     Canvas _panel;
+    VoiceOutput _voice;
 
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     static readonly int ColorId = Shader.PropertyToID("_Color");
@@ -155,18 +160,44 @@ public class MarkerCalibration : MonoBehaviour
         Debug.Log($"[MarkerCalibration] Scan started. Look at {leftMarker} (left), then {rightMarker} (right).");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-        if (UnityEngine.Android.Permission.HasUserAuthorizedPermission(ScenePermission)) { StartTracker(); return; }
+        if (UnityEngine.Android.Permission.HasUserAuthorizedPermission(ScenePermission)) { ShowLeftCue(); StartTracker(); return; }
         if (_waitingForPermission) return;
         _waitingForPermission = true;
         _permissionGranted = _permissionDenied = false;
+        StartCoroutine(RequestScenePermission());
+#else
+        ShowLeftCue();
+        Debug.Log("[MarkerCalibration] Editor: no marker tracking. Press M to simulate a marker lock (or C for the pinch fake).");
+#endif
+    }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    IEnumerator RequestScenePermission()
+    {
+        const string line = "Allow scene access so I can find the piano markers.";
+        calibrator.ShowInfo(line, 0f);
+        var speech = Speak(line);
+        while (speech != null && !speech.IsCompleted && _scanning) yield return null;
+        if (!_scanning || !calibrator.IsCalibrating) { _waitingForPermission = false; yield break; }
         var callbacks = new UnityEngine.Android.PermissionCallbacks();
         callbacks.PermissionGranted += _ => _permissionGranted = true;     // may arrive on a Java thread
         callbacks.PermissionDenied += _ => _permissionDenied = true;
+        callbacks.PermissionRequestDismissed += _ => _permissionDenied = true;
         UnityEngine.Android.Permission.RequestUserPermission(ScenePermission, callbacks);
         Debug.Log("[MarkerCalibration] Requested scene-understanding permission.");
-#else
-        Debug.Log("[MarkerCalibration] Editor: no marker tracking. Press M to simulate a marker lock (or C for the pinch fake).");
+    }
 #endif
+
+    System.Threading.Tasks.Task Speak(string line)
+    {
+        if (!_voice) _voice = FindAnyObjectByType<AppFlow>()?.voiceOutput;
+        return _voice ? _voice.Speak(line) : null;
+    }
+
+    void ShowLeftCue(bool retry = false)
+    {
+        calibrator.ShowInfo(retry ? $"<b>1 of 2</b>\n{RetryCue}\n{LeftCue}" : $"<b>1 of 2</b>\n{LeftCue}", 0f);
+        _ = Speak(retry ? RetryCue + " " + LeftCue : LeftCue);
     }
 
     void StartTracker()
@@ -197,8 +228,8 @@ public class MarkerCalibration : MonoBehaviour
     {
         if (_waitingForPermission)
         {
-            if (_permissionGranted) { _waitingForPermission = false; Debug.Log("[MarkerCalibration] Permission granted."); if (_scanning) StartTracker(); }
-            else if (_permissionDenied) { _waitingForPermission = false; FallBackToPinches("scene permission denied"); }
+            if (_permissionGranted) { _waitingForPermission = false; Debug.Log("[MarkerCalibration] Permission granted."); if (_scanning && calibrator.IsCalibrating) { ShowLeftCue(); StartTracker(); } }
+            else if (_permissionDenied) { _waitingForPermission = false; if (_scanning && calibrator.IsCalibrating) FallBackToPinches("scene permission denied"); }
         }
 
         if (_scanning)
@@ -260,7 +291,8 @@ public class MarkerCalibration : MonoBehaviour
             _left = center;
             ShowLeftDot(center);
             Debug.Log($"[MarkerCalibration] Left marker locked at {center:F3}.");
-            calibrator.ShowInfo("Left marker locked.\nNow look at the RIGHT corner marker\n(behind the highest key).", 30f);
+            calibrator.ShowInfo($"<b>2 of 2</b>\n{RightCue}", 0f);
+            _ = Speak(RightCue);
             return;
         }
 
@@ -271,7 +303,7 @@ public class MarkerCalibration : MonoBehaviour
             Debug.LogWarning($"[MarkerCalibration] Rejected span {span:F3} m (expected {spanRange.x:F2}–{spanRange.y:F2}); starting over.");
             _left = null;
             if (_leftDot) _leftDot.SetActive(false);
-            calibrator.ShowInfo($"The markers measured {span * 100f:F0} cm apart (should be ~124 cm).\nLook at the LEFT marker again, then the RIGHT one.", 6f);
+            ShowLeftCue(retry: true);
             return;
         }
 
@@ -294,7 +326,9 @@ public class MarkerCalibration : MonoBehaviour
             _hasMarkerPose = false;
             _left = null;
             SetKeyboardVisible(false);
-            calibrator.ShowInfo($"Marker calibration failed ({reason}).\nLook at the LEFT marker again.", 6f);
+            Debug.LogWarning($"[MarkerCalibration] Fit failed: {reason}");
+            if (_leftDot) _leftDot.SetActive(false);
+            ShowLeftCue(retry: true);
             _scanning = true;
             StartTracker();
             return;
