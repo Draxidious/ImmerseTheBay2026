@@ -5,7 +5,7 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 ---
 
 
-## 2026-11-15 ~07:50 PT — Claude Code (for Nehemiah): 4 beginner songs + fingering (uncommitted, for review)
+## 2026-11-14 ~23:40 PT — Claude Code (for Nehemiah): 4 beginner songs + fingering
 - **New songs** (Assets/Resources/SongDB, RH melody, C five-finger position, typed from memory, `verified: false`): Mary Had a Little Lamb,
   Au Clair de la Lune (A phrase ×2), Jingle Bells (chorus), When the Saints Go Marching In (opening). Curriculum `order` renumbered so
   beginner songs come first (11 songs total).
@@ -17,6 +17,25 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   there is no in-app runtime toggle (that would need an overlay in Jordan's SongNoteDisplay).
 - **Checked (Unity via MCP):** 11 songs, 0 duplicate ids/titles, 0 errors/warnings, fingers 1–5 on the right notes; all sheets generated
   with every bar/note placed; free play's matchable list builds with all 11; Main still gets 35 lesson/coach notes.
+
+## 2026-11-15 early — Claude Code (for Canady): quieter coach
+- New `CoachPolicy` (AI folder): passed measures, tempo steps and hand changes no longer call the model. They get a code cue
+  ("Now bar 2.", "Now the left hand.", "Both hands now.", "Now bars 1 to 3.") or silence when only the speed changes.
+- Praise only after a full run: Main's whole 35-note excerpt, a guided-lesson play-through, or the finished song. Failed runs
+  get one fix with no opener. All replies are one sentence ≤80 chars (questions two); filler openers are stripped.
+- No repeats: the last 5 lines go to the model as `do_not_reuse`; a reply opening with the same 4 words is retried once, then dropped.
+- `CoachPrompt.txt` rewritten for brevity; "praise what improved first" removed. Fallback lines shortened.
+- Free play: 40 s cooldown, comments only on a recognized song or a new key.
+- `CoachFacts.WentWell` names the judged bars (the bar facts describe the next run, so the model praised "bar four" after bars 1-3).
+- Pass cues (`PassCues`, `AIConfig.passCues` / `passCueVolume`): ding for a pass at the same bars and hand, two-note chime for a
+  new hand or bars, three notes for a measure learned / play-through (before the line). Never over speech; the count-in waits for them.
+- A reply sentence over 80 chars is cut at its last clause break that fits (the real model gave 89 and 113 char failed-run lines).
+- **Verified (Editor, Main_2, `LessonWalkthrough.Run(2, true)`):** measure 2, right hand: ding, count-in 889 ms beats (75%), ding,
+  count-in 667 ms (100%), step-up chime, "Now the left hand.", count-in 1333 ms (50%, left). Measure learned and play-through: milestone, then the line.
+  Failed runs (F7, F6, F7 -> help, F8) with the real model: one fix each, no praise. EditMode 77/77. **Untested:** volume against the piano on the puck.
+- **Verified (Editor, Main_2, `LessonWalkthrough.Run(4)`, all runs pass):** before 34 spoken lines / 1166 words, after 13 / 77,
+  praise only on the three play-throughs. EditMode tests 73/73. **Untested:** device, failed-run lines with a live model in Main.
+
 ## 2026-11-14 ~22:45 — Claude Code (for Canady): "hey teacher" in Main_2's guided lesson
 - **Bug:** a question during the `CurriculumEngine` lesson lost the run it just judged (`QuestionRouter` overwrote `thisRun`
   with the wait-mode evaluator's, which never runs in Main_2) and read the bar from that disabled evaluator.
