@@ -304,6 +304,7 @@ Applies `docs/COACH_PLAYBOOK.md` (rules 1–22) in timed runs and tells the coac
 | `event Action<RunInfo> OnRunStarted` | A run begins (count-in first). `RunInfo.hand`, `bars`, `tempoPct`, `notes` (only that hand's notes, each with `hand`). |
 | `RunInfo.countIn`, `RunInfo.goTime` | The count-in click times and the beat the music starts (`Time.unscaledTimeAsDouble`): show 4, 3, 2, 1, then "Play!". |
 | `LessonPause Pause`, `bool LastRunSilent` | `WaitingForStudent`: nothing was played for `silentRunsBeforeWaiting` (2) runs; any key (or `FastForward`) starts the run again. A silent run is rated but is not an attempt. |
+| `bool ResultHeld` | True while the lesson waits to go on and the last run's result should still be shown: `LessonConfig.resultMinSeconds` (4 s) since it was rated, or the coach is still talking. `SongNoteDisplay` keeps the verdict up until it is false. |
 | `bool hintsDuringRuns` | Off by default: no spoken stuck hints in the middle of a run; the coach talks between runs only. |
 | `event Action<ExpectedNote> OnNextNote` | This note is due now; `null` when the run is over. |
 | `event Action<ExpectedNote, int, bool> OnNotePlayed` | Live feedback: the matched (or nearest) note, the key, correct. |

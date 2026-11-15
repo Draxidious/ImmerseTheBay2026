@@ -144,7 +144,10 @@ public class CurriculumEngine : MonoBehaviour
     // WaitingForStudent: nothing was played for silentRunsBeforeWaiting runs; the next run starts when any key is pressed.
     public LessonPause Pause { get; private set; }
     public bool LastRunSilent { get; private set; }          // no key was pressed during the last run (it did not count)
-    public IReadOnlyList<double> Clicks => clicks;           // this run's metronome clicks, in Time.unscaledTimeAsDouble
+    // The last run's result should still be on the panel: LessonConfig.resultMinSeconds have not passed, or the coach is still
+    // talking about it. Only while the lesson is waiting to go on; false once a demo or the next run has begun.
+    public bool ResultHeld => waitRoutine != null && !IsDemoPlaying && (Time.time < resultHoldUntil || CoachBusy);
+    public IReadOnlyList<double> Clicks => clicks;          // this run's metronome clicks, in Time.unscaledTimeAsDouble
 
     LessonConfig Cfg => config != null ? config : LessonConfig.Get();
     IReadOnlyList<int> Steps => Cfg.Steps;
@@ -204,6 +207,8 @@ public class CurriculumEngine : MonoBehaviour
     Coroutine coachDemoRoutine;
     Action coachDemoResume;
     BarRange lastDemo;
+    HandMode lastDemoHand;
+    float resultHoldUntil; // the next run or demo waits for this, so the result of the last run stays on the panel
     float lastDemoEnded = float.NegativeInfinity;
     bool demoNewMeasure; // the next run is the first of a new measure: demo it first
 
@@ -517,6 +522,7 @@ public class CurriculumEngine : MonoBehaviour
         lastLeft = new Dictionary<int, string>(v.left);
         LastTempoRating = v.tempo;
         LastPassed = v.passed;
+        resultHoldUntil = Time.time + Cfg.resultMinSeconds;
 
         string bars = v.ratings.Count == 0 ? "nothing judged" : string.Join(", ", v.ratings.Select(p => $"bar {p.Key} {p.Value}"));
         string leadIn = runBars.First < judged.First ? $", lead-in {new BarRange(runBars.First, judged.First - 1)} not judged" : "";
@@ -763,6 +769,7 @@ public class CurriculumEngine : MonoBehaviour
                     NextStage();
                     attempt = 0;
                     SetStep(0);
+                    demoNewMeasure = Cfg.autoDemoNewMeasure; // the new hand is played for them first too
                     info.nextStep = $"Measure {n} is learned {HandWords(runHand)}. Next they play measure {n} {HandWords(Hand)} at {Speed()}.";
                     Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, RunKey());
                     NextRun();
@@ -898,6 +905,7 @@ public class CurriculumEngine : MonoBehaviour
                     NextStage();
                     attempt = 0;
                     SetStep(RepairStartStep());
+                    demoNewMeasure = Cfg.autoDemoNewMeasure;
                     info.nextStep = $"{Cap(Measures(block))} {IsAre(block)} fixed {HandWords(runHand)}. {BlockPlan()}";
                     Tell(CoachTrigger.RunFinished, Song, CurrentRange, r, v, info, RunKey());
                     NextRun();
@@ -1291,15 +1299,19 @@ public class CurriculumEngine : MonoBehaviour
         // The hand(s) being practised; if they have nothing in these bars (the coach asked for other bars), everything.
         var notes = CurriculumSongs.Expected(song, bars.First, bars.Last, tempoPct, Hand);
         if (notes.Count == 0) notes = CurriculumSongs.Expected(song, bars.First, bars.Last, tempoPct, HandMode.Both);
+        var demoHand = Hand;
         demoPlayer.Play(notes, CurriculumSongs.SecondsPerBeat(song, tempoPct), () =>
         {
             lastDemo = bars;
+            lastDemoHand = demoHand;
             lastDemoEnded = Time.time;
             then?.Invoke();
         });
     }
 
-    bool RecentlyDemoed(BarRange bars) => bars.First == lastDemo.First && bars.Last == lastDemo.Last && Time.time - lastDemoEnded < 5f;
+    // The same bars with the same hand(s): the right hand's demo does not count for the left hand.
+    bool RecentlyDemoed(BarRange bars) => bars.First == lastDemo.First && bars.Last == lastDemo.Last && Hand == lastDemoHand
+                                          && Time.time - lastDemoEnded < 5f;
 
     // Plays the demo the coach asked for once it has finished saying why.
     IEnumerator CoachDemo(SongData song, BarRange bars, int tempoPct)
@@ -1333,6 +1345,8 @@ public class CurriculumEngine : MonoBehaviour
         float until = Time.time + Cfg.coachMaxWaitSeconds;
         while (Time.time < until && (CoachBusy || IsDemoPlaying || coachDemoRoutine != null)) yield return null;
         while (IsDemoPlaying) yield return null; // a demo the coach asked for always finishes
+        // A short coach line must not flip the panel to the next measure before the result could be read.
+        while (Time.time < resultHoldUntil) yield return null;
         RunWaitNow();
     }
 

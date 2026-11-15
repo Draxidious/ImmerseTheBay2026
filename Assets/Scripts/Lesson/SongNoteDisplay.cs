@@ -96,6 +96,7 @@ public class SongNoteDisplay : MonoBehaviour
             engine.OnRunRated += OnRunRated;
             engine.OnStateChanged += OnLessonState;
             engine.OnShowFingering += OnShowFingering;
+            engine.OnDemoNoteDown += OnDemoNoteDown;
             return;
         }
         if (evaluator == null) evaluator = GetComponent<PerformanceEvaluator>();
@@ -117,6 +118,7 @@ public class SongNoteDisplay : MonoBehaviour
             engine.OnRunRated -= OnRunRated;
             engine.OnStateChanged -= OnLessonState;
             engine.OnShowFingering -= OnShowFingering;
+            engine.OnDemoNoteDown -= OnDemoNoteDown;
             return;
         }
         if (evaluator == null) return;
@@ -133,6 +135,8 @@ public class SongNoteDisplay : MonoBehaviour
         float pulse = 0.65f + 0.35f * Mathf.Sin(Time.unscaledTime * 6f);
         if (engine != null)
         {
+            // The lesson went on while the verdict was held; show what is next once it has been on screen long enough.
+            if (_statePending && _resultShown && !engine.ResultHeld) ShowUpcoming();
             UpdateCue();
             if (!UseSheet || !_runActive) return;
             Color c = frameColor;
@@ -260,16 +264,57 @@ public class SongNoteDisplay : MonoBehaviour
         }
     }
 
+    private bool _resultShown;     // the last run's verdict is on the panel and must stay until it has been read
+    private bool _statePending;    // the lesson moved on while the verdict was held: show what is next once it is released
+    private bool _statsFingering;
+
     private void OnLessonState(CurriculumState state)
     {
         if (!_built) Build();
-        _title.text = LessonHeader();
         if (state == CurriculumState.SongComplete)
         {
+            _title.text = LessonHeader();
             _runActive = false;
             _next.text = "Well done!";
             if (UseSheet) RefreshSheet(_lessonBar, false, RatingColor);
+            return;
         }
+        // The engine sets up the next measure right after rating a run: keep the verdict (and its bar) up until it is released.
+        if (_resultShown) _statePending = true;
+        else ShowUpcoming();
+    }
+
+    private void OnDemoNoteDown(ExpectedNote note)
+    {
+        if (!_built || !_resultShown) return;
+        ShowUpcoming(); // a demo only starts once the result has been held long enough
+        ShowCue("<size=60%>Listen first</size>");
+    }
+
+    // What is about to be played, before its run starts: header, and the sheet line with the box on the first bar.
+    // This is what makes the sheet appear when the lesson reaches the song, not on the first run.
+    private void ShowUpcoming()
+    {
+        _resultShown = false;
+        _statePending = false;
+        SetChips(false);
+        _feedback.text = "";
+        if (!_statsFingering) _stats.text = "";
+        _ratings.Clear();
+
+        var state = engine.State;
+        _title.text = LessonHeader();
+        bool song = state == CurriculumState.SongIntro || state == CurriculumState.SongLearn ||
+                    state == CurriculumState.SongPlayThrough || state == CurriculumState.SongRepair;
+        if (!song) return;
+        if (state != CurriculumState.SongIntro)
+            _title.text += $"  ·  {HandName(engine.Hand)}  ·  {engine.TempoPct}%";
+
+        if (!UseSheet) return;
+        int bar = state == CurriculumState.SongRepair ? (engine.LeadInFirstBar > 0 ? engine.LeadInFirstBar : engine.CurrentBlock.First)
+                : state == CurriculumState.SongIntro ? 1 : engine.CurrentRange.First;
+        _lessonBar = Mathf.Max(1, bar);
+        RefreshSheet(_lessonBar, state != CurriculumState.SongIntro, RatingColor);
     }
 
     private string _cue;      // what the big line shows now
@@ -311,6 +356,9 @@ public class SongNoteDisplay : MonoBehaviour
     {
         if (!_built) Build();
         _runActive = true;
+        _resultShown = false;
+        _statePending = false;
+        _statsFingering = false;
         _ratings.Clear();
         _lessonBar = run.notes.Count > 0 ? run.notes[0].bar : run.bars.First;
         _title.text = $"{LessonHeader()}  ·  {HandName(run.hand)}  ·  {run.tempoPct}%";
@@ -350,6 +398,7 @@ public class SongNoteDisplay : MonoBehaviour
     {
         if (!_built || fingers == null || fingers.Length == 0) return;
         _stats.text = $"Fingering, measure {bar}: {string.Join(" ", fingers)}   (1 = thumb)";
+        _statsFingering = true;
     }
 
     // The run has been judged: tint every judged measure by its rating and say how the run went.
@@ -369,8 +418,10 @@ public class SongNoteDisplay : MonoBehaviour
         }
         else ShowRunChips();
 
+        _resultShown = true;
+        _statePending = false;
+        _statsFingering = false;
         var lines = new List<string>();
-        lines.Add($"Notes right first try {engine.LastAccuracy * 100f:0}%");
         foreach (var kv in engine.LastRatings)
         {
             if (kv.Value == "clean") continue;
@@ -378,9 +429,9 @@ public class SongNoteDisplay : MonoBehaviour
             bool left = engine.LastLeftRatings.TryGetValue(kv.Key, out string l) && l != "clean";
             string hands = right && left ? "both hands" : left ? "left hand" : "right hand";
             lines.Add($"Measure {kv.Key}: {kv.Value}, {hands}");
-            if (lines.Count >= 4) break;
+            if (lines.Count >= 3) break;
         }
-        _stats.text = string.Join("\n", lines);
+        _stats.text = engine.LastRunSilent ? "" : string.Join("\n", lines);
         if (UseSheet && engine.State != CurriculumState.WarmupPlay) RefreshSheet(_lessonBar, false, RatingColor);
     }
 

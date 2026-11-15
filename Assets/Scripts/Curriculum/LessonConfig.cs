@@ -75,6 +75,8 @@ public class LessonConfig : ScriptableObject
     [Header("Pacing")]
     [Tooltip("Before a run, a demo or the song, wait for the coach to finish speaking, at most this long.")]
     public float coachMaxWaitSeconds = 45f;
+    [Tooltip("After a run is rated, its result stays on the panel at least this long, or until the coach has finished speaking, whichever is later.")]
+    public float resultMinSeconds = 4f;
     [Tooltip("A stuck hint (no correct key within the pause limit) is spoken at most this often.")]
     public float stuckHintMinIntervalSeconds = 10f;
 

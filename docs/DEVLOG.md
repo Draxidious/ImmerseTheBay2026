@@ -632,3 +632,14 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   and **Accuracy** (first-try %). Green = good, yellow = off but not what failed the run, red = what failed it. Replaces the old "Passed   on tempo" text.
   Chips hide when the next run starts and on a silent run. New field `chipYellowColor`.
 - **Untested:** on the Aura (readability of the translucent chip fills) and in play mode; compile console showed no errors.
+
+## 2026-11-15 — Jordan (Claude)
+- `SongNoteDisplay`: chips are rounded (9-sliced pill sprite built in code); the stats block no longer repeats accuracy (only up to 3 problem
+  measures, and nothing on a silent run).
+- **Left hand is demoed too.** The demo flag was only set when a measure started, and `RecentlyDemoed` ignored the hand, so the right hand's demo
+  counted for the left. Now each new hand stage (learn and repair) sets `demoNewMeasure`, and `RecentlyDemoed` also compares `lastDemoHand`.
+- **Result stays up:** `CurriculumEngine.ResultHeld` + `LessonConfig.resultMinSeconds` (4): the next demo/run waits until 4 s after the rating
+  and until the coach has finished. `SongNoteDisplay` defers its header/sheet switch to the next measure while `ResultHeld`.
+- **Sheet rendered only at the first run:** the panel only drew a sheet line in `OnRunStarted`; `OnLessonState` just set the title. New
+  `ShowUpcoming()` draws the line (with the box on the first bar) on every state change and when a demo starts.
+- **Untested:** all of it in play mode (compiles with no errors). Check: left-hand demo plays on measure 1, F5 result stays 4 s, sheet visible at SongLearn.
