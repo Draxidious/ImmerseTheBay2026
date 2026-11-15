@@ -10,6 +10,7 @@ using UnityEngine.InputSystem;
 ///   2. The microphone opens for a few seconds. Any answer (or none) moves on.
 ///   3. Calibration starts (PianoCalibrator.Recalibrate).
 ///   4. Once calibrated, the evaluator and its sheet panel are switched on.
+///   5. During the lesson the key to press next is lit on the overlay; right and wrong presses flash.
 /// The lines here are fixed text: no model call, so the start of the app never waits on the network.
 /// Editor debug key: Enter = skip the current wait (speech or listening). Calibrate with the calibrator's own C key.
 /// </summary>
@@ -57,12 +58,24 @@ public class AppFlow : MonoBehaviour
     {
         if (calibrator) calibrator.Calibrated += OnCalibrated;
         if (voiceInput) voiceInput.OnCommand += OnAnswer;
+        if (evaluator)
+        {
+            evaluator.Restarted += ShowNextKey;
+            evaluator.NoteJudged += OnNoteJudged;
+            evaluator.WrongNotePlayed += OnWrongNote;
+        }
     }
 
     void OnDisable()
     {
         if (calibrator) calibrator.Calibrated -= OnCalibrated;
         if (voiceInput) voiceInput.OnCommand -= OnAnswer;
+        if (evaluator)
+        {
+            evaluator.Restarted -= ShowNextKey;
+            evaluator.NoteJudged -= OnNoteJudged;
+            evaluator.WrongNotePlayed -= OnWrongNote;
+        }
     }
 
     IEnumerator Start()
@@ -108,6 +121,26 @@ public class AppFlow : MonoBehaviour
         if (evaluator) evaluator.gameObject.SetActive(true);
         StartCoroutine(Say(lessonLine));
     }
+
+    // ------------------------------------------------------------------ Evaluator -> piano overlay
+
+    void ShowNextKey()
+    {
+        if (overlay && evaluator && !evaluator.IsFinished) overlay.SetKey(evaluator.CurrentNote.midi, KeyState.Next);
+    }
+
+    void OnNoteJudged(NoteResult result)
+    {
+        if (overlay) overlay.SetKey(result.note.midi, KeyState.Correct); // flashes, then goes off by itself
+        ShowNextKey();
+    }
+
+    void OnWrongNote(int expected, int played)
+    {
+        if (overlay) overlay.SetKey(played, KeyState.Wrong);
+    }
+
+    // ------------------------------------------------------------------ Helpers
 
     // Speaks a fixed line and shows it beside the orb. Ends when the speech does (or on the debug skip).
     IEnumerator Say(string line)

@@ -27,6 +27,9 @@ holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `Intro` → 
 3. `Calibrating`: shows the overlay, calls `PianoCalibrator.Recalibrate()` (the scene has `calibrateOnStart` off), speaks `calibrateLine`.
 4. `Lesson`: on the first `PianoCalibrator.Calibrated`, activates the `PerformanceEvaluator` object and speaks `lessonLine`.
 
+During `Lesson` it drives `PianoOverlay.SetKey` from the evaluator: `Restarted` / `NoteJudged` → `Next` on the note to play,
+`NoteJudged` → `Correct` flash, `WrongNotePlayed` → `Wrong` flash on the pressed key.
+
 The three lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
 
 ---

@@ -4,6 +4,13 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Claude Code (for Jordan): lesson lights the keys on the overlay
+- `AppFlow` forwards evaluator events to `PianoOverlay.SetKey`: the note to play is `Next`, a right press flashes `Correct`,
+  a wrong press flashes `Wrong` on the key that was pressed.
+- **Works (Editor Play mode, scripted):** E5 `Next` → F5 `Wrong` → E5 `Correct` → D#5 `Next`. Untested on the Aura.
+- **Known:** the calibrator's 5 s "all C keys" preview clears the keys it lit, so a C that is `Next` in that window goes dark once.
+- **Next (not done):** send finished runs to the coach, place the sheet panel from the calibrated overlay, mic permission at startup.
+
 ## 2026-11-14 night — Claude Code (for Jordan): `AppFlow` sequences Main (intro → listen → calibrate → lesson)
 - New `Assets/Scripts/App/AppFlow.cs` + an `App Flow` object in `Main`. `PianoCalibrator.calibrateOnStart` is off in `Main` only.
 - Order: coach speaks a fixed intro and asks "are you ready", mic opens 4 s, calibration starts, and on `Calibrated` the evaluator
