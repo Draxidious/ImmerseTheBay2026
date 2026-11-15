@@ -1,0 +1,49 @@
+{
+  "id": "twinkle_twinkle",
+  "name": "Twinkle Twinkle Little Star",
+  "composer": "Traditional",
+  "license": "Public domain",
+  "source": "Typed by hand (Claude Code for Nehemiah, 2026-11-14). RH melody in C; LH simple bass (root notes).",
+  "verified": false,
+  "arrangement": "melody + simple bass",
+  "difficulty": 1,
+  "order": 2,
+  "tempoBpm": 100,
+  "beatsPerBar": 4,
+  "beatUnit": "quarter",
+  "sections": [
+    { "name": "First line (bars 1–4)", "firstBar": 1, "lastBar": 4 },
+    { "name": "Whole song (bars 1–12)", "firstBar": 1, "lastBar": 12 }
+  ],
+  "pickupRH": "",
+  "pickupLH": "",
+  "rh": [
+    "C4 C4 G4 G4",
+    "A4 A4 G4:2",
+    "F4 F4 E4 E4",
+    "D4 D4 C4:2",
+    "G4 G4 F4 F4",
+    "E4 E4 D4:2",
+    "G4 G4 F4 F4",
+    "E4 E4 D4:2",
+    "C4 C4 G4 G4",
+    "A4 A4 G4:2",
+    "F4 F4 E4 E4",
+    "D4 D4 C4:2"
+  ],
+  "lh": [
+    "C3:4",
+    "F3:2 C3:2",
+    "F3:2 C3:2",
+    "G2:2 C3:2",
+    "C3:2 F3:2",
+    "C3:2 G2:2",
+    "C3:2 F3:2",
+    "C3:2 G2:2",
+    "C3:4",
+    "F3:2 C3:2",
+    "F3:2 C3:2",
+    "G2:2 C3:2"
+  ],
+  "notes": []
+}

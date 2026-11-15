@@ -103,6 +103,37 @@ Glue between the AI layer and the orb; the AI scripts are not modified. Add it t
 
 ---
 
+## Song database — built by Nehemiah (`Assets/Scripts/Songs/`) ✅
+Songs ship inside the app (no server): one JSON file per song in `Assets/Resources/Songs/`, converted to the AI layer's
+`SongData` (Canady's `Assets/Scripts/AI/SongData.cs`: bar + beat-in-bar + length + hand + finger), so the coach can read it directly.
+`Assets/Resources/Songs/Local/` and `Assets/Music/Local/` are **gitignored** (songs that can't be in the public repo, e.g.
+River Flows in You); they're still built into your own app.
+
+| Member | Purpose |
+|---|---|
+| `SongData SongDatabase.Get(string id)` | Whole song (both hands). e.g. `coachContext.song = SongDatabase.Get("fur_elise")`. |
+| `SongData SongDatabase.Get(string id, int firstBar, int lastBar, PianoHand? hand = null)` | Bars range (sheet-music bar numbers kept), optionally one hand. |
+| `SongData SongDatabase.GetSection(string id, string sectionName, PianoHand? hand = null)` | A named section from the song's `sections`, e.g. `"A section (bars 1–8)"`. |
+| `IReadOnlyList<SongEntry> SongDatabase.All` / `SongEntry Entry(id)` / `ForDifficulty(max)` | Metadata (name, composer, difficulty, order, sections, license, verified) in curriculum order. |
+| `void SongDatabase.Reload()` | Re-read the JSON files (after editing them in the Editor). |
+| `SongNotation.ToSongData / Validate / ParseBar / MidiOf` | Notation parsing, conversion, checks (range 21–108, bar lengths, same-key overlaps, sections). |
+| `MidiSongImporter.Read / ToEntry` | Minimal .mid reader (format 0/1, no dependencies, works on IL2CPP) → SongEntry; optional "simplified: melody + bass". |
+| `SongAutoPlayer` (component) | Debug: lights each song note on the `PianoOverlay` at tempo (context menu Play/Stop, or `K`). |
+
+JSON notes, one string per bar per hand (same notation the coach reads): `"E4 D4 C4:2"` (1 beat unless `:beats`),
+`"C4+E4+G4:2"` chord, `"r:0.5"` rest, `"E4@3"` finger, `pickupRH`/`pickupLH` for an anacrusis (stored in bar 1 with beat < 1).
+Imported songs use an explicit `notes` list instead. Menu: **Tools ▸ Songs ▸ Validate All / Print All / Import MIDI Files (as written | simplified)**.
+
+Songs now: hot_cross_buns, twinkle_twinkle, ode_to_joy, chopsticks, fur_elise (bars 1–22: 1–8 typed, 9–22 from public-domain MIDI;
+sections "A section (bars 1–8)", "B section + theme return (bars 9–22)", "Bars 1–22"), the_entertainer (simplified opening, bars 1–4),
+clair_de_lune (whole piece, 72 bars, simplified melody + bass from public-domain MIDI). All `"verified": false` until checked against
+sheet music. Source MIDI files + licenses: `Assets/Music/SOURCES.md` (Mutopia Project, public domain). Not added: River Flows in You (local only).
+Note: in Für Elise bar 8 is the 1st ending and bar 9 the 2nd ending, so playing "Bars 1–22" straight through plays both endings.
+
+**Not merged with Jordan's model:** jordan-branch's `Song`/`SongNote` (`Assets/Scripts/Lesson/SongData.cs`, absolute beat + duration,
+one hand) clashes by name with Canady's `SongNote`. The DB uses Canady's `SongData`; Jordan's `PerformanceEvaluator` would need a
+converter (absolute beat = (bar−1)·beatsPerBar + beat − 1) once the two models are reconciled.
+
 ## MIDI input — owner: TBD 📝
 | Member | Purpose |
 |---|---|
@@ -136,6 +167,10 @@ Events must be raised on Unity's main thread.
 ---
 
 ## Requested (add asks for other owners here)
+- **SongFormatter — Nehemiah (song DB):** the coach's song text drops rests and pickups (Für Elise bar 1 shows the pickup E5 D#5 as
+  its first notes; "A4 r C4" reads as "A4 C4"). Consider printing rests (`r:0.5`) and the pickup separately. Not blocking.
+- **Song model — Nehemiah → Jordan + Canady:** two `SongNote` classes (Lesson vs AI) can't coexist; agree on one (the song DB uses
+  Canady's `SongData`) before merging jordan-branch.
 - **AICoach / VoiceOutput — Nehemiah (CoachOrbBridge):** (1) events for speaking started/finished and thinking started/finished,
   so the orb doesn't have to poll `IsSpeaking`/`IsThinking`; (2) a way to tell when TTS audio actually starts playing
   (`IsSpeaking` is already true while the Groq request downloads, so the orb pulses before any sound); (3) optional: a 0..1

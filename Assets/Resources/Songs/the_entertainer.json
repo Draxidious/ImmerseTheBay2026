@@ -1,0 +1,32 @@
+{
+  "id": "the_entertainer",
+  "name": "The Entertainer",
+  "composer": "Scott Joplin (1902)",
+  "license": "Public domain",
+  "source": "Typed by hand (Claude Code for Nehemiah, 2026-11-14) from memory: simplified opening of the A strain (RH melody, LH root/fifth bass). Note starts should be right; the tied C in bars 1–2 is shortened. NEEDS CHECKING against the sheet music.",
+  "verified": false,
+  "arrangement": "simplified: melody + bass",
+  "difficulty": 4,
+  "order": 6,
+  "tempoBpm": 72,
+  "beatsPerBar": 2,
+  "beatUnit": "quarter",
+  "sections": [
+    { "name": "A strain opening (bars 1–4)", "firstBar": 1, "lastBar": 4 }
+  ],
+  "pickupRH": "D4:0.25 D#4:0.25",
+  "pickupLH": "",
+  "rh": [
+    "E4:0.25 C5:0.5 E4:0.25 C5:0.5 E4:0.25 C5:0.25",
+    "r:1.25 C5:0.25 D5:0.25 D#5:0.25",
+    "E5:0.25 C5:0.25 D5:0.25 E5:0.5 B4:0.25 D5:0.5",
+    "C5:1.5 D4:0.25 D#4:0.25"
+  ],
+  "lh": [
+    "C3:1 G2:1",
+    "C3:1 G2:1",
+    "C3:1 G2:1",
+    "C3:2"
+  ],
+  "notes": []
+}
