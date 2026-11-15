@@ -89,7 +89,7 @@ MonoBehaviour:
     - line: '|   allowedAutorotateToLandscapeLeft: 1'
     - line: '|   useOSAutorotation: 1'
     - line: '|   use32BitDisplayBuffer: 1'
-    - line: '|   preserveFramebufferAlpha: 0'
+    - line: '|   preserveFramebufferAlpha: 1'
     - line: '|   adjustIOSFPSUsingThermalState: 1'
     - line: '|   thermalStateSeriousIOSFPS: 30'
     - line: '|   thermalStateCriticalIOSFPS: 15'
