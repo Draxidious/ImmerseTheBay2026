@@ -51,6 +51,11 @@ public class MarkerCalibration : MonoBehaviour
     [Tooltip("Fall back to the pinch steps if no marker is found within this many seconds of the tracker starting.")]
     public float giveUpSeconds = 45f;
 
+    [Header("Keyboard")]
+    [Tooltip("Hide the keyboard overlay while the markers are being scanned (it covered the marker dot and the prompt); it comes " +
+             "back when both markers lock, on a pinch fallback, or when calibration ends any other way.")]
+    public bool hideKeyboardWhileScanning = true;
+
     [Header("Offsets panel")]
     public float sliderRangeMm = 60f;
 
@@ -102,6 +107,17 @@ public class MarkerCalibration : MonoBehaviour
             calibrator.markersAvailable = false;
         }
         if (imageManager) imageManager.trackablesChanged.RemoveListener(OnTrackablesChanged);
+        SetKeyboardVisible(true);
+    }
+
+    /// <summary>Show/hide the keyboard overlay (AppFlow turns it on when calibration starts; we hide it during the scan).</summary>
+    void SetKeyboardVisible(bool visible)
+    {
+        var overlay = calibrator ? calibrator.overlay : null;
+        if (!overlay || overlay.gameObject.activeSelf == visible) return;
+        if (!visible && !hideKeyboardWhileScanning) return;
+        overlay.gameObject.SetActive(visible);
+        Debug.Log($"[MarkerCalibration] Keyboard {(visible ? "shown" : "hidden while scanning")}.");
     }
 
     void Start()
@@ -127,6 +143,7 @@ public class MarkerCalibration : MonoBehaviour
         _trackerStartedAt = -1f;
         if (_leftDot) _leftDot.SetActive(false);
         calibrator.markersAvailable = true;
+        SetKeyboardVisible(false);
         Debug.Log($"[MarkerCalibration] Scan started. Look at {leftMarker} (left), then {rightMarker} (right).");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -164,6 +181,7 @@ public class MarkerCalibration : MonoBehaviour
         _scanning = false;
         StopTracker();
         calibrator.markersAvailable = false;
+        SetKeyboardVisible(true); // the pinch steps pulse the end keys on the keyboard
         if (calibrator.IsCalibrating) calibrator.ShowInfo($"Can't use the markers ({why}).\nUse the pinch steps instead.", 5f);
     }
 
@@ -181,6 +199,7 @@ public class MarkerCalibration : MonoBehaviour
             {
                 _scanning = false;
                 StopTracker();
+                SetKeyboardVisible(true);
             }
             else if (_trackerStartedAt > 0f)
             {
@@ -257,11 +276,13 @@ public class MarkerCalibration : MonoBehaviour
         _hasMarkerPose = true;
 
         Corners(out var low, out var high);
+        SetKeyboardVisible(true); // both scans done: the keyboard appears where the markers put it
         string reason = calibrator.CalibrateFromMarkers(low, high, useKnownWidth);
         if (reason != null)
         {
             _hasMarkerPose = false;
             _left = null;
+            SetKeyboardVisible(false);
             calibrator.ShowInfo($"Marker calibration failed ({reason}).\nLook at the LEFT marker again.", 6f);
             _scanning = true;
             StartTracker();

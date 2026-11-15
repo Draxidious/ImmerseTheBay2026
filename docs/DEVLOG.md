@@ -4,6 +4,13 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~01:50 — Claude Code (for Ari): keyboard hidden until both markers lock
+- `MarkerCalibration.hideKeyboardWhileScanning` (default on): the keyboard overlay is hidden during the marker scan (it covered
+  the marker dot and prompt) and appears when both markers lock; also shown on a pinch fallback or when calibration ends another
+  way, hidden again on an orange-dot rescan. AppFlow unchanged (it still turns the overlay on; MarkerCalibration hides it).
+- Editor (Main_2): hidden while scanning and after the left lock, shown on the right lock → ChooseMode, hidden on recalibrate,
+  shown on fallback; 0 exceptions. Installed on the puck; on-glasses check pending.
+
 ## 2026-11-15 ~01:55 — Claude Code (for Ari): fixed the XRI IndexOutOfRangeException flood
 - Cause: `PianoCalibrator.LateUpdate` (hand occlusion) set each template hand mesh to ONE material (the occluder). The rig's XRI
   hand affordances (`Hand Poke / Near-Far Interactor Affordances`, `MaterialPropertyBlockHelper`) tint material **index 1**, so

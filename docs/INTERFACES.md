@@ -135,7 +135,7 @@ left then the right marker (≥30 samples over ≥1.2 s within 10 mm; marker spa
 `CalibrateFromMarkers`. Offsets (inward, down, toward player, m) from each marker centre to the key's back outer corner:
 left `(-0.005, 0.016, 0.107)`, right `(0.015, 0.016, 0.090)` (saved on the Aura 2026-11-15). In the main scene `Main_2.unity` and `Dev_Ari`. The blue left-hand dot opens a
 world-space UGUI panel (Left depth, Right depth, Height, Sideways; ±60 mm, `<` `>` = 1 mm; Save / Defaults / Close), driven by
-the rig's XRI interactors through an `XRUIInputModule`. Saved to `marker-offsets.json` in persistent data. Falls back to pinches
+the rig's XRI interactors through an `XRUIInputModule`. Saved to `marker-offsets.json` in persistent data. The keyboard overlay is hidden during the scan and shown when both markers lock (`hideKeyboardWhileScanning`). Falls back to pinches
 on permission denial, tracker not running after 5 s, or no marker in `giveUpSeconds` (45 s). Log tag `[MarkerCalibration]`.
 Setup: **Tools → Piano → Add Marker Calibration To Open Scene** (+ **Enable Marker Tracking (OpenXR Android)**, which turns on
 Google's `XRSessionFeature` + `XRMarkerTrackingFeature`). Editor keys: `M` = simulate a marker lock, `O` = offsets panel.
