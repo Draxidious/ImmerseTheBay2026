@@ -35,8 +35,9 @@ During `Lesson` it drives `PianoOverlay.SetKey` from the evaluator: `Restarted` 
 `NoteJudged` → `Correct` flash, `WrongNotePlayed` → `Wrong` flash on the pressed key.
 
 `SongFinished` sends `RunStats` to `AICoach.Coach` in a `CoachContext` (`RunFinished`, `freeplay`).
-The context contains the evaluator's actual right-hand Für Elise excerpt (including the pickup), bars 1–8,
-target tempo, attempt count and the last five accuracy scores. `coach` is found automatically when unassigned.
+The context's song comes from the song database: `LessonSongSource.ForCoach(evaluator.songId, evaluator.songSection)`,
+i.e. the right-hand section the evaluator judged (including the pickup) (fallback: built from the evaluator's own notes),
+plus target tempo, attempt count and the last five accuracy scores. `coach` is found automatically when unassigned.
 Only `CoachActionType.None` is allowed: Main has no demo/fingering action player. `CoachOrbBridge` presents the
 reply and voice state as usual; missing keys use the coach's existing fallback. The note loop never waits for this request.
 
@@ -45,6 +46,8 @@ between the overlay's lowest/highest drawn key centers plus `sheetOffset` (defau
 toward the fallboard). The offset is in meters and follows keyboard yaw, not calibration scale or roll. The panel stays
 upright and faces the player side of the keyboard. It is positioned before the first activation and repositioned after
 later calibrations without restarting the evaluator. `sheetDisplay` is found on `evaluator` when unassigned.
+In `Awake`, AppFlow calls `LessonSongSource.ApplySheets(sheetDisplay, evaluator.songId, evaluator.songSection)`, so the panel
+shows the generated sheet strips of the evaluator's song (fallback: the images set in the scene). Code only, no scene change.
 
 The three lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
 
@@ -150,6 +153,73 @@ Glue between the AI layer and the orb; the AI scripts are not modified. Add it t
 
 ---
 
+## Song database — built by Nehemiah (`Assets/Scripts/Songs/`) ✅
+Songs ship inside the app (no server): one JSON file per song in `Assets/Resources/SongDB/`, converted to the AI layer's
+`SongData` (Canady's `Assets/Scripts/AI/SongData.cs`: bar + beat-in-bar + length + hand + finger), so the coach can read it directly.
+`Assets/Resources/SongDB/Local/` and `Assets/Music/Local/` are **gitignored** (songs that can't be in the public repo, e.g.
+River Flows in You); they're still built into your own app.
+
+| Member | Purpose |
+|---|---|
+| `SongData SongDatabase.Get(string id)` | Whole song (both hands). e.g. `coachContext.song = SongDatabase.Get("fur_elise")`. |
+| `SongData SongDatabase.Get(string id, int firstBar, int lastBar, PianoHand? hand = null)` | Bars range (sheet-music bar numbers kept), optionally one hand. |
+| `SongData SongDatabase.GetSection(string id, string sectionName, PianoHand? hand = null)` | A named section from the song's `sections`, e.g. `"A section (bars 1–8)"`. |
+| `IReadOnlyList<SongEntry> SongDatabase.All` / `SongEntry Entry(id)` / `ForDifficulty(max)` | Metadata (name, composer, difficulty, order, sections, license, verified) in curriculum order. |
+| `void SongDatabase.Reload()` | Re-read the JSON files (after editing them in the Editor). |
+| `SongNotation.ToSongData / Validate / ParseBar / MidiOf` | Notation parsing, conversion, checks (range 21–108, bar lengths, same-key overlaps, sections). |
+| `MidiSongImporter.Read / ToEntry` | Minimal .mid reader (format 0/1, no dependencies, works on IL2CPP) → SongEntry; optional "simplified: melody + bass". |
+| `SongAutoPlayer` (component) | Debug: lights each song note on the `PianoOverlay` at tempo (context menu Play/Stop, or `K`). |
+
+JSON notes, one string per bar per hand (same notation the coach reads): `"E4 D4 C4:2"` (1 beat unless `:beats`),
+`"C4+E4+G4:2"` chord, `"r:0.5"` rest, `"E4@3"` finger, `pickupRH`/`pickupLH` for an anacrusis (stored in bar 1 with beat < 1).
+Imported songs use an explicit `notes` list instead. Menu: **Tools ▸ Songs ▸ Validate All / Print All / Import MIDI Files (as written | simplified)**.
+
+Songs now: hot_cross_buns, twinkle_twinkle, ode_to_joy, chopsticks, fur_elise (bars 1–22: 1–8 typed, 9–22 from public-domain MIDI;
+sections "A section (bars 1–8)", "B section + theme return (bars 9–22)", "Bars 1–22"), the_entertainer (simplified opening, bars 1–4),
+clair_de_lune (whole piece, 72 bars, simplified melody + bass from public-domain MIDI). All `"verified": false` until checked against
+sheet music. Source MIDI files + licenses: `Assets/Music/SOURCES.md` (Mutopia Project, public domain). Not added: River Flows in You (local only).
+Note: in Für Elise bar 8 is the 1st ending and bar 9 the 2nd ending, so playing "Bars 1–22" straight through plays both endings.
+
+**Other song models in the project (separate, not merged):** Main's lesson uses `LessonSong`/`SongLibrary.FurElise`
+(`Assets/Scripts/Lesson/SongData.cs`, absolute beat + duration, right hand). Canady's curriculum loads its own songs from
+`Assets/Resources/Songs/` (`CurriculumSongs`, `"note": "E5"` format). This DB lives in `Resources/SongDB/` so the two never
+read each other's files, and `SongDatabase.IsSongEntry` skips files in other formats. To drive Main's evaluator from the DB, convert:
+absolute beat = (bar−1)·beatsPerBar + beat − 1.
+
+### Sheet music images (`SheetLibrary`, `Assets/Scripts/Songs/SheetLibrary.cs`) ✅
+Generated from the song database (so they show exactly the DB notes, incl. simplified arrangements) by
+**Tools ▸ Songs ▸ Generate Sheet Music**: `MusicXmlExporter` → MusicXML → Verovio (engraving) → resvg (PNG), see
+`Tools/SheetMusic/README.md` for the one-time Python setup (private venv, no admin). Output per song in
+`Assets/Resources/Sheets/<songId>/`: `page-01.png …` (A4 pages, at most 5 lines of music per page — `LINES_PER_PAGE` in `Tools/SheetMusic/render_sheets.py`; 2048 px wide, black on white; title,
+composer, tempo, arrangement note, every bar numbered, fingering), `system-01.png …` (one strip per line of music, cut from
+the pages; all strips of a song share one size; anything outside the line's band is whited out) and `layout.json`.
+Local songs → `Sheets/Local/` (gitignored).
+Imported as sprites, ASTC 4x4 on Android (~6 MB per page in memory).
+
+| Member | Purpose |
+|---|---|
+| `SheetMusic SheetLibrary.Get(string songId)` | `pages` (Texture2D[], index 0 = page 1), `systems` (Texture2D[], one per line, index 0 = `layout.systems[0]`) + `layout`, or null if not generated. |
+| `SheetLayout.pages` | Page files + pixel sizes. |
+| `SheetLayout.systems` (`SheetSystemInfo`) | One per line: `file`, `width`/`height`, `firstBar`/`lastBar`, `barEdges` (left edge of each bar, then the right edge of the last, as 0–1 fractions of the strip width), `top`/`bottom` (highlight box, 0–1 from the top). Same shape as `SongNoteDisplay`'s `SheetSystem`; a pickup shares bar 1's slot. |
+| `SheetLayout.BarRects(int bar)` | Bar rectangles (page, x, y, w, h in pixels, origin top-left). Bar 1 has two if the song has a pickup (`pickup = true`). |
+| `SheetLayout.NotesAt(int bar, float beat)` | Notehead rectangles struck at that bar/beat (both hands; `hand`, `midi`). |
+| `SheetLayout.NotesOf(int noteIndex)` | All noteheads of one DB note (index into `SongDatabase.Get(id).notes`), incl. tied continuations (`tied = true`). |
+
+Note: the images are black on white as requested. On the Aura (additive display) a white page glows; for in-headset use
+invert the colors in the shader/material or regenerate with light-on-transparent. Main's sheet panel (`SongNoteDisplay`) shows
+these strips (via `LessonSongSource.ApplySheets`, called by AppFlow); Jordan's per-line images (`Assets/Music/fur_elise/`) stay
+in the scene as the fallback.
+
+#### Connecting the DB to Main: `LessonSongSource` (`Assets/Scripts/Songs/LessonSongSource.cs`) ✅
+Every method returns null/false when the data isn't there, so callers keep their old behaviour.
+
+| Member | Purpose |
+|---|---|
+| `(int first, int last)? SectionBars(string songId, string section)` | Bars of a named section (empty name = whole song); null if unknown. |
+| `SongData ForCoach(string songId, string section, PianoHand hand = Right)` | The section, one hand, from the DB (with `timeSignature`): what the coach is told about. |
+| `LessonSong ForLesson(string songId, string section, float bpm, PianoHand hand = Right)` | The same section as the evaluator's monophonic `LessonSong` (top note of a chord, beats from the section's first note, pickup in bar 1). |
+| `bool ApplySheets(SongNoteDisplay display, string songId, string section)` | Sets `display.sheet` to the strips containing the section's bars (`barEdges`, `top`, `bottom` from `layout.json`) and `display.sheetAspect` to the strip aspect. |
+
 ## MIDI input — `MidiPianoReader` (`Assets/Scripts/MidiPianoReader.cs`, from main) 🚧
 Windows Editor/standalone via winmm.dll; Android/Aura puck via `Assets/Plugins/Android/MidiBridge.java` (android.media.midi).
 | Member | Purpose |
@@ -184,8 +254,10 @@ measure). Agreed design, not implemented yet. It needs per-measure ratings and a
 ```
 
 ### PerformanceEvaluator (`Assets/Scripts/Lesson/PerformanceEvaluator.cs`) ✅ — Jordan
-Wait-mode judge for the Für Elise excerpt (`SongLibrary.FurElise`). Its song types are `LessonSong` / `LessonNote`
-(renamed so they don't collide with the AI layer's `SongData` / `SongNote`).
+Wait-mode judge for one right-hand section from the song database: `songId` (default `"fur_elise"`) and `songSection`
+(default `"A section (bars 1–8)"`), loaded with `LessonSongSource.ForLesson` (fallback, or with `songId` empty:
+`SongLibrary.FurElise`). Its song types are `LessonSong` / `LessonNote` (renamed so they don't collide with the AI layer's
+`SongData` / `SongNote`).
 
 | Member | Purpose |
 |---|---|
@@ -252,6 +324,10 @@ Java bridge methods: `setTuning`, `setVad`, `setAudio`, `start`, `stop`, `pause`
 ---
 
 ## Requested (add asks for other owners here)
+- **SongFormatter — Nehemiah (song DB):** the coach's song text drops rests and pickups (Für Elise bar 1 shows the pickup E5 D#5 as
+  its first notes; "A4 r C4" reads as "A4 C4"). Consider printing rests (`r:0.5`) and the pickup separately. Not blocking.
+- **Song model — Nehemiah → Jordan + Canady:** two `SongNote` classes (Lesson vs AI) can't coexist; agree on one (the song DB uses
+  Canady's `SongData`) before merging jordan-branch.
 - **AICoach / VoiceOutput — Nehemiah (CoachOrbBridge):** (1) events for speaking started/finished and thinking started/finished,
   so the orb doesn't have to poll `IsSpeaking`/`IsThinking`; (2) a way to tell when TTS audio actually starts playing
   (`IsSpeaking` is already true while the Groq request downloads, so the orb pulses before any sound); (3) optional: a 0..1

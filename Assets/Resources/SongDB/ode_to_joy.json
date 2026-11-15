@@ -1,0 +1,43 @@
+{
+  "id": "ode_to_joy",
+  "name": "Ode to Joy",
+  "composer": "Ludwig van Beethoven",
+  "license": "Public domain",
+  "source": "Typed by hand (Claude Code for Nehemiah, 2026-11-14); same notes as AIDebugPanel.OdeToJoy() (Canady). RH in C position with fingering.",
+  "verified": false,
+  "arrangement": "melody + simple bass",
+  "difficulty": 2,
+  "order": 3,
+  "tempoBpm": 100,
+  "beatsPerBar": 4,
+  "beatUnit": "quarter",
+  "keyFifths": 0,
+  "keyMode": "major",
+  "sections": [
+    { "name": "First phrase (bars 1–4)", "firstBar": 1, "lastBar": 4 },
+    { "name": "Bars 1–8", "firstBar": 1, "lastBar": 8 }
+  ],
+  "pickupRH": "",
+  "pickupLH": "",
+  "rh": [
+    "E4@3 E4@3 F4@4 G4@5",
+    "G4@5 F4@4 E4@3 D4@2",
+    "C4@1 C4@1 D4@2 E4@3",
+    "E4@3:1.5 D4@2:0.5 D4@2:2",
+    "E4@3 E4@3 F4@4 G4@5",
+    "G4@5 F4@4 E4@3 D4@2",
+    "C4@1 C4@1 D4@2 E4@3",
+    "D4@2:1.5 C4@1:0.5 C4@1:2"
+  ],
+  "lh": [
+    "C3:4",
+    "G2:4",
+    "C3:4",
+    "G2:4",
+    "C3:4",
+    "G2:4",
+    "C3:4",
+    "G2:4"
+  ],
+  "notes": []
+}

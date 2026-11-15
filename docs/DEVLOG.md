@@ -38,6 +38,71 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   `Dev_Canady_WakeWord.unity` only; build scene list untouched). Not in Main.
 - **Untested on the puck.** Next: confirm the jar + .so load on the Aura, then step B (VAD, question capture, Whisper, QuestionRouter).
 
+## 2026-11-14 ~22:30 — Claude Code (for Nehemiah): sheet music at 5 lines per page
+- `render_sheets.py`: renders once to get Verovio's line breaks, then re-renders with those breaks encoded plus a page break
+  every `LINES_PER_PAGE` (5) lines, so each line keeps its bars. Clair de Lune: 21 lines → pages of 5, 5, 5, 5, 1 (was 4 pages);
+  all other songs have ≤ 3 lines and stay on one page. All 7 songs regenerated: all bars and notes placed, no mismatches.
+## 2026-11-14 ~22:15 — Claude Code (for Nehemiah): Main uses the song DB for the AI and the generated sheet strips for the panel
+- **New:** `Assets/Scripts/Songs/LessonSongSource.cs` (`SectionBars`, `ForCoach`, `ForLesson`, `ApplySheets`). The sheet generator
+  now also cuts one strip per line of music (`system-NN.png`, same size per song, neighbouring lines whited out) and writes
+  `layout.systems` (`firstBar`, `barEdges`, `top`, `bottom`) in `SongNoteDisplay`'s `SheetSystem` shape; `SheetLibrary.Get` loads them
+  (`SheetMusic.systems`).
+- **Jordan's files, small code-only edits with fallbacks, no scene changes:**
+  `Lesson/PerformanceEvaluator.cs`: new `songId` (`"fur_elise"`) / `songSection` (`"A section (bars 1–8)"`); song loaded from the DB,
+  falling back to `SongLibrary.FurElise` (empty `songId` = old behaviour). `App/AppFlow.cs`: `Awake` points `SongNoteDisplay` at the
+  generated strips (fallback: the scene's images); `OnSongFinished` gives the coach the DB section (fallback: built from the evaluator's notes).
+- **In progress:** renderer fixes for the strips (page header showing at the top of the first line, a missing fingering number in
+  Hot Cross Buns bar 1) and verification in Unity (compile, evaluator song vs. `SongLibrary.FurElise`, the panel in `Main`). Not tested on the Aura.
+
+## 2026-11-14 ~21:30 — Claude Code (for Nehemiah): sheet-music PNGs for every song in the DB
+- **Pipeline:** `Assets/Scripts/Songs/Editor/MusicXmlExporter.cs` (DB → MusicXML: pickup as implicit measure, ties across bar lines
+  and into printable lengths, chords, extra voices for overlapping notes, rests, key-aware accidentals, beams per beat group,
+  fingering, per-bar clef changes, title/composer/tempo/arrangement credits, note ids = DB note index) →
+  `Tools/SheetMusic/render_sheets.py` (Verovio 6.4.1 → SVG, text-size fix, resvg-py 0.5.0 → PNG + bar/notehead rects) →
+  `SheetMusicMenu` (Tools ▸ Songs ▸ Generate Sheet Music) maps everything back to the DB and writes `layout.json`.
+  Runtime loader `SheetLibrary`. Added `keyFifths`/`keyMode` to SongEntry + all song JSONs (Clair de Lune −5 = D-flat major, flats).
+- **Python:** private venv `Tools/SheetMusic/.venv` (gitignored) with only verovio + resvg-py (`uv`, no admin, nothing system-wide).
+  PyMuPDF was tried first and removed (renders Verovio SVG blank).
+- **Output:** 7 songs, 10 pages (Clair de Lune 4). Every song: all bars present, every DB note placed, no pitch mismatches
+  (checked automatically each run). Overlay check on Für Elise: all bar/notehead rects land exactly on the engraving.
+  Looked at every song's page: correct key/time signatures, beams, accidentals, rests, ties, fingering (Hot Cross Buns), clef change
+  in Für Elise bars 14–15.
+- **Fixed along the way:** metronome glyph rendered as boxes (music font missing in resvg) → tempo as header text; Verovio's
+  0px text broke titles/bar numbers/fingering in resvg → patched; OneDrive locked the temp folder → per-run folders; a texture
+  AssetPostprocessor made Unity reimport every texture (one-time) → replaced by per-file import settings; uncompressed pages were
+  ~24 MB each → ASTC 4x4 on Android (~6 MB).
+- **Known limits:** Clair de Lune's automatic simplification puts high LH notes on ledger lines in bars ~15–24 (needs a hand edit);
+  Verovio prints the first system's bar number "1" above the Für Elise pickup. Images are black on white (asked for) — invert for the Aura.
+
+## 2026-11-14 ~20:55 — Claude Code (for Nehemiah): Für Elise bars 9–22 + Clair de Lune from public-domain MIDI
+- **Sources:** Mutopia Project, both "Public Domain / CC: No rights reserved": Für Elise WoO 59 (piece 931, Breitkopf & Härtel 1888) and
+  Clair de Lune (piece 1778, E. Fromont 1905). Downloaded only the .mid files into an empty scratch folder; checked: `MThd` header,
+  Standard MIDI format 1, 3 tracks, 7.6 KB / 12.5 KB, read only by our own parser (nothing executed). Kept in `Assets/Music/` with
+  SHA-256 + license in `Assets/Music/SOURCES.md`.
+- **Für Elise:** the MIDI doesn't unfold the repeat (1st ending is 2 eighths, then the 2nd ending), so the bar grid after bar 8 was
+  re-aligned (bar 9 = tick 4608). Bars 9–22 (94 notes) added to `fur_elise.json` as explicit notes; bars 1–8 stay typed.
+  Check: bars 17–22 (imported) = typed bars 2–7, 41/41 notes. Sections: 1–8, 9–22, 1–22.
+- **Clair de Lune:** imported with Tools ▸ Songs ▸ Import MIDI Files (simplified): 977 notes, 72 bars, 9/8, 120 eighth-bpm. Sections:
+  1–8, 1–14, 1–72. Names print with sharps (D-flat major shows as C#/G#) — SongFormatter limitation.
+- All 7 songs validate: 0 errors, 0 warnings. Still `verified: false` (simplification and hand = staff are automatic).
+
+## 2026-11-14 ~20:40 — Claude Code (for Nehemiah): song database (sheet music → MIDI notes) for the AI coach
+- **Added** `Assets/Scripts/Songs/`: `SongEntry` (JSON model), `SongNotation` (parse/convert to Canady's `SongData`/validate),
+  `SongDatabase` (Resources/Songs loader: `Get`, `GetSection`, `All`, `ForDifficulty`), `MidiSongImporter` (own .mid reader, no
+  DryWetMIDI), `SongAutoPlayer` (lights songs on PianoOverlay), `Editor/SongMenu` (Tools ▸ Songs ▸ Validate All / Print All /
+  Import MIDI Files). jordan-branch read as reference only, **not merged**.
+- **Songs** (`Assets/Resources/Songs/*.json`, typed by hand, all `verified: false`): hot_cross_buns (with fingering), twinkle_twinkle,
+  ode_to_joy (fingering), chopsticks (bars 7–8 especially need checking), fur_elise A section bars 1–8 both hands,
+  the_entertainer simplified opening bars 1–4 (needs checking). Not done: Clair de Lune and Für Elise 9–22 (import a PD MIDI),
+  River Flows in You (copyrighted → `Assets/Resources/Songs/Local/` / `Assets/Music/Local/`, gitignored; nothing added).
+- **Verified (Editor via UnityMCP):** all 6 songs pass Validate (0 errors, 0 warnings); Für Elise RH = Jordan's table note-for-note
+  (35/35); Ode to Joy = AIDebugPanel.OdeToJoy() (38/38); MIDI round trip of Hot Cross Buns (written as a 2-track .mid, re-imported) =
+  22/22 notes, tempo + 4/4 correct; `GetSection(..., RH)` and bar ranges work; `CoachContext.song = SongDatabase.Get(id)` works.
+- **Found:** SongFormatter (AI) drops rests and pickups in what the coach reads; two `SongNote` classes (Lesson vs AI) — both added to
+  "Requested" in INTERFACES.
+- **Next:** someone checks the songs against sheet music and flips `verified`; import Clair de Lune / Für Elise from public-domain MIDI;
+  lesson engine/evaluator loads songs from the DB.
+
 ## 2026-11-14 night — Codex (for Ari): startup mic permission and Main device checklist (handoff commit 9)
 - `AppFlow` requests Android microphone permission before the intro and waits for the system response. An existing
   grant skips the dialog. Denial or dismissal skips recording and continues to calibration without a second request.

@@ -1,0 +1,42 @@
+{
+  "id": "chopsticks",
+  "name": "Chopsticks (The Celebrated Chop Waltz)",
+  "composer": "Euphemia Allen (1877)",
+  "license": "Public domain",
+  "source": "Typed by hand (Claude Code for Nehemiah, 2026-11-14) from memory of the common beginner version: one note per hand, played together. NEEDS CHECKING against the sheet music, especially bars 7–8.",
+  "verified": false,
+  "arrangement": "beginner version: one note per hand",
+  "difficulty": 2,
+  "order": 4,
+  "tempoBpm": 120,
+  "beatsPerBar": 3,
+  "beatUnit": "quarter",
+  "keyFifths": 0,
+  "keyMode": "major",
+  "sections": [
+    { "name": "Opening (bars 1–8)", "firstBar": 1, "lastBar": 8 }
+  ],
+  "pickupRH": "",
+  "pickupLH": "",
+  "rh": [
+    "G4 G4 G4",
+    "G4 G4 G4",
+    "G4 G4 G4",
+    "G4 G4 G4",
+    "B4 B4 B4",
+    "B4 B4 B4",
+    "C5 C5 C5",
+    "C5:2 r"
+  ],
+  "lh": [
+    "F4 F4 F4",
+    "F4 F4 F4",
+    "E4 E4 E4",
+    "E4 E4 E4",
+    "D4 D4 D4",
+    "D4 D4 D4",
+    "C4 C4 C4",
+    "C4:2 r"
+  ],
+  "notes": []
+}
