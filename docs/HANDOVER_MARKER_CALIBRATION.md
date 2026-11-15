@@ -21,8 +21,9 @@ main** (user requirement; don't invent input or visuals). Print sheet: `output/p
   1.000, ChooseMode → Lesson, real MIDI drove measure 1 through the 50/75/100 % steps. Saved offsets loaded from the puck.
 
 ## Remaining
-1. Fix the XRI `IndexOutOfRangeException` flood (`MaterialHelperBase.GetSharedMaterialForTarget` from an affordance receiver,
-   ~80k lines per run, present in Main too). Find the affordance receiver whose renderer has fewer materials than its index.
+1. ~~XRI `IndexOutOfRangeException` flood~~ Fixed: `PianoCalibrator`'s hand occluder replaced the template hands' two material
+   slots with ONE, but the rig's poke / near-far hand affordances tint slot 1. It now fills every slot with the occluder and keeps
+   the count.
 2. Rescans move the keyboard 8–16 mm (mostly height at the C8 end); retune with the blue-dot sliders if needed.
 3. Team: announce that `Main_2` is the main/build scene and that Google's marker OpenXR features are on.
 

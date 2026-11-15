@@ -531,11 +531,17 @@ public class PianoCalibrator : MonoBehaviour
                 {
                     if (!r) continue;
                     // The hand mesh must draw NOTHING visible: replace every material slot (the template hands also carry
-                    // a grey glove material in slot 2) with the invisible depth-only occluder.
+                    // a grey glove material in slot 2) with the invisible depth-only occluder. Keep the slot COUNT: the rig's
+                    // XRI hand affordances (poke / near-far) tint material index 1, and a one-slot array made them throw
+                    // IndexOutOfRangeException every frame (~80k log lines per run).
                     var mats = r.sharedMaterials;
-                    if (mats.Length != 1 || mats[0] != handOccluderMaterial)
+                    bool allOccluder = mats.Length > 0;
+                    foreach (var m in mats) if (m != handOccluderMaterial) { allOccluder = false; break; }
+                    if (!allOccluder)
                     {
-                        r.sharedMaterials = new[] { handOccluderMaterial };
+                        var occluders = new Material[Mathf.Max(1, mats.Length)];
+                        for (int i = 0; i < occluders.Length; i++) occluders[i] = handOccluderMaterial;
+                        r.sharedMaterials = occluders;
                         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                     }
                     // Renderers hidden during calibration stay off until tracking changes; follow tracking ourselves.

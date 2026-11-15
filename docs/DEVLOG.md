@@ -4,6 +4,13 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~01:55 — Claude Code (for Ari): fixed the XRI IndexOutOfRangeException flood
+- Cause: `PianoCalibrator.LateUpdate` (hand occlusion) set each template hand mesh to ONE material (the occluder). The rig's XRI
+  hand affordances (`Hand Poke / Near-Far Interactor Affordances`, `MaterialPropertyBlockHelper`) tint material **index 1**, so
+  they threw every frame (~80k log lines per run, Main and Main_2).
+- Fix: fill every slot with the occluder and keep the slot count (2). Hands stay invisible; affordances find slot 1.
+- Editor (Main_2 play): all 14 `MaterialPropertyBlockHelper`s resolve their material, 0 exceptions.
+
 ## 2026-11-15 ~01:40 — Claude Code (for Ari): Main_2 is the main scene; markers verified on the Aura
 - **`Assets/Scenes/Main_2.unity` is the main scene**: the only enabled build scene (index 0). `Main.unity` is the older freeplay
   demo, listed but disabled. CLAUDE.md, INTERFACES, AURA_MAIN_TEST and the handover now say so explicitly.

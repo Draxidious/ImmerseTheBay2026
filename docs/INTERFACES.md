@@ -104,7 +104,7 @@ Calls `PianoOverlay.CalibrateFromFourPoints`. Shows a marker at each pinch and a
 overlay pose when the grab is released.
 
 Hand occlusion: after calibration the tracked hand meshes (`handMeshRenderers`) get the depth-only material
-`PianoTeacher/HandOccluder` (`Resources/HandOccluder`, every material slot replaced, mesh grown 4 mm), so overlay pixels behind
+`PianoTeacher/HandOccluder` (`Resources/HandOccluder`, every material slot replaced but the slot count kept, mesh grown 4 mm; the rig's XRI hand affordances tint slot 1), so overlay pixels behind
 a hand are not drawn and the real hand shows through. Toggle with `handsOccludeOverlay`; while calibrating the meshes are hidden.
 
 | Member | Purpose |

@@ -14,7 +14,7 @@ Für Elise demo, four-pinch calibration) is disabled; its checks are kept at the
 | Offsets | Blue dot on the back of the LEFT hand opens the slider panel; Save writes `marker-offsets.json`. |
 | Recalibrate | Orange dot rescans the markers; lesson keeps going. |
 | Fallback | Deny scene permission or hide the markers 45 s: pinch steps come back. |
-| Known issue | Logs fill with XRI `IndexOutOfRangeException` (`MaterialHelperBase.GetSharedMaterialForTarget`) from startup; not from the markers. Unfixed. |
+| No exception flood | No XRI `IndexOutOfRangeException` (`MaterialHelperBase.GetSharedMaterialForTarget`) in the log. Was ~80k lines per run; fixed 2026-11-15 (hand occluder keeps both material slots). |
 
 ---
 
