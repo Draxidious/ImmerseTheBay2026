@@ -4,6 +4,21 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Codex (for Ari): sheet panel follows calibration (handoff commit 8)
+- `AppFlow` finds the evaluator's `SongNoteDisplay` and positions it from the midpoint of the keyboard's lowest/highest
+  drawn key centers on every `Calibrated` event, including later recalibrations. Default `sheetOffset`: 0 m sideways,
+  0.45 m up, 0.20 m toward the fallboard. The panel follows keyboard yaw, stays upright and keeps its existing size.
+- Placement happens before first activation, so the generated canvas inherits it. Recalibration does not restart the
+  lesson, speak the lesson-start line again, or create another canvas. No scene asset changes or other-owner script edits.
+- **Verified via Unity MCP:** no compile errors. Clean Main Play-mode run reached Lesson through normal startup and
+  scripted calibration; measured offset exactly (0, 0.45, 0.20). Recalibration translated the piano, rotated it 25 degrees,
+  and narrowed its span to 1.14 m: panel position error 0 m, yaw 25 degrees, scale unchanged, note index stayed 1, one canvas.
+  Screenshot visually checked at `Temp/AppFlowVerification/appflow-sheet-calibration.png` (local, not committed).
+- The clean run had no application exceptions; the same six missing-XR/Direct-Preview/secret environment errors remain.
+  An earlier test-harness attempt cleared VoiceInput during its coroutine and was discarded; the clean rerun left startup intact.
+- **Still not done (commit 9, outside this handoff's stopping point):** startup microphone permission, broader Main docs cleanup,
+  and a full Aura/piano test. Cloud coaching/audio also needs local credentials. No push performed.
+
 ## 2026-11-14 night — Codex (for Ari): finished wait-mode runs reach the coach (handoff commit 7)
 - `AppFlow` subscribes/unsubscribes `SongFinished`, converts the evaluator's actual 35-note right-hand excerpt into
   `SongData`, and sends `RunFinished` / `freeplay` context with `RunStats`, bars 1–8 and recent attempt history.

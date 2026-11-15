@@ -36,6 +36,12 @@ target tempo, attempt count and the last five accuracy scores. `coach` is found 
 Only `CoachActionType.None` is allowed: Main has no demo/fingering action player. `CoachOrbBridge` presents the
 reply and voice state as usual; missing keys use the coach's existing fallback. The note loop never waits for this request.
 
+On every `Calibrated` event, AppFlow places `sheetDisplay` (`SongNoteDisplay` on the evaluator object) at the midpoint
+between the overlay's lowest/highest drawn key centers plus `sheetOffset` (default 0 m sideways, 0.45 m up, 0.20 m
+toward the fallboard). The offset is in meters and follows keyboard yaw, not calibration scale or roll. The panel stays
+upright and faces the player side of the keyboard. It is positioned before the first activation and repositioned after
+later calibrations without restarting the evaluator. `sheetDisplay` is found on `evaluator` when unassigned.
+
 The three lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
 
 ---

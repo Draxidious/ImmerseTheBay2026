@@ -28,6 +28,11 @@ public class AppFlow : MonoBehaviour
     public PianoOverlay overlay;
     [Tooltip("The evaluator object starts inactive in the scene and is switched on after calibration.")]
     public PerformanceEvaluator evaluator;
+    public SongNoteDisplay sheetDisplay;
+
+    [Header("Sheet placement (meters from the keyboard's drawn center)")]
+    [Tooltip("X = along the keys, Y = above the keys, Z = toward the fallboard. Not scaled with calibration.")]
+    public Vector3 sheetOffset = new Vector3(0f, 0.45f, 0.20f);
 
     [Header("Lines")]
     [TextArea] public string introLine = "Hi, I'm your piano coach. Today we'll play the opening of Für Elise. Are you ready to learn?";
@@ -56,6 +61,7 @@ public class AppFlow : MonoBehaviour
         if (!calibrator) calibrator = FindAnyObjectByType<PianoCalibrator>();
         if (!overlay) overlay = FindAnyObjectByType<PianoOverlay>();
         if (!evaluator) evaluator = FindAnyObjectByType<PerformanceEvaluator>(FindObjectsInactive.Include);
+        if (!sheetDisplay && evaluator) sheetDisplay = evaluator.GetComponent<SongNoteDisplay>();
     }
 
     void OnEnable()
@@ -122,10 +128,24 @@ public class AppFlow : MonoBehaviour
     // Also raised after a later recalibration; the lesson is only started the first time.
     void OnCalibrated()
     {
+        PlaceSheetPanel();
         if (CurrentStep != Step.Calibrating) return;
         CurrentStep = Step.Lesson;
         if (evaluator) evaluator.gameObject.SetActive(true);
         StartCoroutine(Say(lessonLine));
+    }
+
+    void PlaceSheetPanel()
+    {
+        if (!overlay || !sheetDisplay) return;
+        Vector3 center = (overlay.GetKeyWorldCenter(overlay.lowestNote) +
+                          overlay.GetKeyWorldCenter(overlay.highestNote)) * 0.5f;
+        // Canvas text faces local -Z, toward the player. Keep the panel upright and aligned
+        // with the keyboard's yaw; don't inherit calibration scale or side-to-side tilt.
+        Vector3 forward = Vector3.ProjectOnPlane(overlay.transform.forward, Vector3.up);
+        if (forward.sqrMagnitude < 0.0001f) return;
+        Quaternion rotation = Quaternion.LookRotation(forward, Vector3.up);
+        sheetDisplay.transform.SetPositionAndRotation(center + rotation * sheetOffset, rotation);
     }
 
     // ------------------------------------------------------------------ Evaluator -> piano overlay
