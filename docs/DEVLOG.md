@@ -4,6 +4,13 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Claude Code (for Jordan): `Main.unity` = Dev_Ari + coach orb + AI coach
+- `Assets/Scenes/Main.unity` is a copy of `Dev_Ari` (rig, AR Session, PianoOverlay, PianoCalibrator untouched) plus the `CoachOrb`
+  prefab and an `AI Coach` object (AudioSource, `VoiceOutput`, `AICoach`, `VoiceInput`; no `AIDebugPanel`, its keys clash).
+- Build scenes: `Main` at index 0; `Dev_Ari`, `SampleScene`, `JordanScene` are in the list but disabled.
+- **Works (Editor Play mode, no headset):** orb idles, the bridge finds the coach / voice in / voice out, calibration starts as in
+  `Dev_Ari`, 0 errors. **Not yet:** MIDI, evaluator, any sequencing. Untested on the Aura.
+
 ## 2026-11-14 night — Claude Code (for Jordan): coach menu compiles again (Nehemiah's folder, with Jordan's OK)
 - `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs`: **Tools ▸ Coach ▸ Add AI Coach + Orb Bridge** no longer adds `HesitationTracker`
   or sets `AIDebugPanel.tracker`; both were deleted on Canady's branch. Nothing else in the menu changed.
