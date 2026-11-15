@@ -12,6 +12,10 @@ and an AI coach gives short spoken feedback between phrases.
   guided lesson of `docs/COACH_PLAYBOOK.md` in timed runs: each measure right hand, left hand, both hands, up the tempo
   ladder, then play-throughs and repairs. Whole piece, both hands (`Assets/Resources/Songs/fur_elise.json`, 105 bars).
   Left-hand keys are amber. Editor keys F5–F8 end a run as clean / shaky / problem / too slow; Enter skips waits.
+  **Calibration in Main_2 = corner markers** (ArUco ID 0 behind A0, ID 1 behind C8) instead of the four pinches; pinches come
+  back if markers can't run. Blue left-hand dot = offset sliders. Editor: **M** simulates a marker lock.
+  See `docs/HANDOVER_MARKER_CALIBRATION.md`.
+  **Build scene:** `Main_2.unity` is the enabled build scene (index 0); `Main.unity` is kept in the list, disabled.
 - **Core loop ("wait mode"):** highlight the next key → wait for the correct press → advance → AI comments after the completed excerpt.
 - **Pitch:** see-through glasses show your real keys and fingers sharply (passthrough headsets can't), plus a coach that talks to you,
   plus linking each written note on the sheet to its physical key.

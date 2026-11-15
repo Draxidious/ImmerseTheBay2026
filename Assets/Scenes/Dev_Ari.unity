@@ -430,8 +430,8 @@ MonoBehaviour:
   imageManager: {fileID: 125595270}
   leftMarker: ArUco4x4_50-0
   rightMarker: ArUco4x4_50-1
-  leftOffset: {x: -0.01, y: 0.012, z: 0.091}
-  rightOffset: {x: 0.02, y: 0.012, z: 0.075}
+  leftOffset: {x: -0.005, y: 0.016, z: 0.107}
+  rightOffset: {x: 0.015, y: 0.016, z: 0.09}
   useKnownWidth: 1
   lockSamples: 30
   lockSeconds: 1.2

@@ -4,6 +4,14 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~01:30 — Claude Code (for Ari): marker calibration in Main_2
+- Main_2 is the current app scene, so the markers went there; `Main.unity` is unchanged. Ran Tools/Piano/Add Marker
+  Calibration To Open Scene on `Main_2.unity` (disabled ARTrackedImageManager + library on the XR Origin, MarkerCalibration,
+  EventSystem with XRUIInputModule; +178/-1 lines, nothing else changed). Defaults = offsets saved on the Aura:
+  left (-0.005, 0.016, 0.107), right (0.015, 0.016, 0.090) (code, Main_2 and Dev_Ari).
+- **Build scene switched:** `Main_2.unity` is now the only enabled build scene (index 0); `Main.unity` stays listed, disabled.
+- **Not yet tested on the Aura in Main_2.** Handover: `docs/HANDOVER_MARKER_CALIBRATION.md`.
+
 ## 2026-11-15 ~00:30 — Claude Code (for Canady): demo each new measure, "play it again", shorter speech
 - `CurriculumEngine` (Jordan OK'd the change list): `BeginRunOrDemo` demos the first run of each new measure (incl. measure 1:
   lesson start has no fixed demo of it) for the hand about to be played; `ReplayDemo()`; coach demos share `RequestDemo`.
