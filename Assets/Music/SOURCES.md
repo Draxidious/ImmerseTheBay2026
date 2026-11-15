@@ -1,0 +1,37 @@
+# Source MIDI files (all public domain)
+
+| File | Piece | Source | License | SHA-256 |
+|---|---|---|---|---|
+| `fur_elise.mid` | Beethoven, Für Elise WoO 59 (piano) | Mutopia Project piece 931 (Breitkopf & Härtel 1888), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931 | Public Domain ("CC: No rights reserved") | 1c12c21c7bbf4cf163896732672648a69d497636059837abd153c71abe50215a |
+| `clair_de_lune.mid` | Debussy, Suite bergamasque: Clair de Lune (piano) | Mutopia Project piece 1778 (E. Fromont 1905), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1778 | Public Domain ("CC: No rights reserved") | 4eee9a1546ffde1ff74cb9824ba0e57cbc821185a15185bfea9faed97820bf8c |
+
+Downloaded 2026-11-14. Converted to `Assets/Resources/SongDB/*.json` with Tools ▸ Songs ▸ Import MIDI Files.
+Für Elise: only bars 9–22 were taken from the MIDI (bars 1–8 are typed; the MIDI doesn't unfold the repeat, so the bar grid after
+the first ending was re-aligned by hand). Songs that must stay out of the public repo go in `Local/` (gitignored).
+
+## Added 2026-11-15 (20 intermediate/advanced pieces, opening 16 bars imported)
+
+| File | Piece | Source | License | SHA-256 |
+|---|---|---|---|---|
+| `bach_prelude_in_c.mid` | J. S. Bach (BWV 846): Prelude in C major (WTC I) | Mutopia Project piece 5 (Unknown), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=5 | Public Domain ("CC: No rights reserved") | 874e07d0479542971bfceaf420d6117da8d602d89d26eea4610e7dd1ef58bf26 |
+| `bach_minuet_in_g.mid` | J. S. Bach (BWV Anh. 114): Minuet in G major | Mutopia Project piece 75 (Bach-Gesellschaft), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=75 | Public Domain ("CC: No rights reserved") | fd87a6673e18104047842a1c858d2c9d8eb9ad845d7a8fa46e3664b17642cb75 |
+| `schumann_traumerei.mid` | R. Schumann (Op. 15 No. 7): Träumerei (Kinderszenen) | Mutopia Project piece 504 (Leichte Stücke, 1900), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=504 | Public Domain ("CC: No rights reserved") | 6e0045d5783ff28dedcf05813074fe407ca3846e5e2a7246f2793ac5614e4851 |
+| `schumann_foreign_lands.mid` | R. Schumann (Op. 15 No. 1): Of Foreign Lands and Peoples (Kinderszenen) | Mutopia Project piece 354 (Leichte Stücke, 1900), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=354 | Public Domain ("CC: No rights reserved") | e58e708afe8b31c634a0e9f3354a4ed94670e929d82926f7ff49dea3ebe146c2 |
+| `burgmuller_arabesque.mid` | J. F. F. Burgmüller (Op. 100 No. 2): Arabesque | Mutopia Project piece 203 (Collection Litolff, 19th century), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=203 | Public Domain ("CC: No rights reserved") | 9b689a9b3f178e7bb2b5899d0559e223e9d8de7081d83fc087760ac2b4d378e1 |
+| `satie_gymnopedie_1.mid` | E. Satie: Gymnopédie No. 1 | Mutopia Project piece 37 (Dover Edition), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=37 | Public Domain ("CC: No rights reserved") | 09ce7337b4bf42ba12e1aa64b4c7dc7fcfa6455f1070cb12f8880a755df97384 |
+| `chopin_prelude_e_minor.mid` | F. Chopin (Op. 28 No. 4): Prelude in E minor | Mutopia Project piece 468 (Peters, 1879), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=468 | Public Domain ("CC: No rights reserved") | c1d7e05aa4e6e2baeec2e9108402a969c16d5df302b82fd66d110634697f2e3b |
+| `beethoven_sonata_op49_2_menuetto.mid` | L. v. Beethoven (Op. 49 No. 2, 2nd mvt): Sonata in G, Tempo di Menuetto | Mutopia Project piece 777 (Breitkopf & Härtel (1862–1865)), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=777 | Public Domain ("CC: No rights reserved") | bbc781ca46ebd2e22e4fc9976a5fd5647c1da43dc7d545525c4b87d0244e251f |
+| `tchaikovsky_old_french_song.mid` | P. I. Tchaikovsky (Op. 39 No. 16): Old French Song | Mutopia Project piece 2080 (Schirmer, 1904), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2080 | Public Domain ("CC: No rights reserved") | 112c3b61dab55f58bc44d9f3522ef21b3479ffa1953097783ff8c4f10e40175d |
+| `tchaikovsky_morning_prayer.mid` | P. I. Tchaikovsky (Op. 39 No. 1): Morning Prayer | Mutopia Project piece 2032 (Schirmer, 1904), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2032 | Public Domain ("CC: No rights reserved") | 7ec37d25e8ea12d0b2053a5916140f7d03b4cdf1357c01171fd8a3c1d8c6e50f |
+| `beethoven_pathetique_mvt2.mid` | L. v. Beethoven (Op. 13, 2nd mvt): Sonata "Pathétique", Adagio cantabile | Mutopia Project piece 295 (Berners 1908 (ed. Winterberger); Peters 1910), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=295 | Public Domain ("CC: No rights reserved") | 92c685ca98001473bcc21fa98110cc125ab489c1bf49be185e062d204a268492 |
+| `chopin_prelude_op28_no15.mid` | F. Chopin (Op. 28 No. 15): Prelude in D-flat "Raindrop" | Mutopia Project piece 471 (Edition Peters), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=471 | Public Domain ("CC: No rights reserved") | bb9532e59bee378a42f0c53b64bf223ba4d6e261e00c1e2efb3ed8e023833bd9 |
+| `chopin_minute_waltz_op64_no1.mid` | F. Chopin (Op. 64 No. 1): Waltz in D-flat "Minute Waltz" | Mutopia Project piece 483 (Edition Peters), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=483 | Public Domain ("CC: No rights reserved") | 62333ad9f9b22603d009734ab500330a12ac09aeca13d185ac0ba64a7fb9d206 |
+| `chopin_fantaisie_impromptu_op66.mid` | F. Chopin (Op. 66): Fantaisie-Impromptu | Mutopia Project piece 1693 (Herrmann Scholtz), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1693 | Public Domain ("CC: No rights reserved") | b29f6add7473b6e931c2e66349e860bf0e884cf68e19e90420a4870aae689f96 |
+| `chopin_etude_op10_no12_revolutionary.mid` | F. Chopin (Op. 10 No. 12): Étude in C minor "Revolutionary" | Mutopia Project piece 743 (Peters, Herrmann Scholtz, 1900), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=743 | Public Domain ("CC: No rights reserved") | 1902287905aa68175f9d13207e6cfc397894d4210617ec1a5c1ae38334c3c7d6 |
+| `mozart_rondo_alla_turca_k331.mid` | W. A. Mozart (K. 331, 3rd mvt): Rondo alla Turca | Mutopia Project piece 108 (IMSLP), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=108 | Public Domain ("CC: No rights reserved") | c14299cbdd34c8b2081da84dc06519ef8a52a0d589ee53c758d28b8e3d727d1c |
+| `joplin_maple_leaf_rag.mid` | S. Joplin (1899): Maple Leaf Rag | Mutopia Project piece 23 (Reproduction of the original edition (1899)), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=23 | Public Domain ("CC: No rights reserved") | 3dd712a85fabd267f5a2cee5cb23af4683408c2f29b8814721844498f1ee4f66 |
+| `debussy_arabesque_no1.mid` | C. Debussy (L. 66 No. 1): Arabesque No. 1 | Mutopia Project piece 1777 (Durand et Fils (1904)), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1777 | Public Domain ("CC: No rights reserved") | 6732dc10799ec0af47d19d9095562d0671864a750129e0279901def169a34757 |
+| `grieg_wedding_day_troldhaugen_op65_no6.mid` | E. Grieg (Op. 65 No. 6): Wedding Day at Troldhaugen | Mutopia Project piece 781 (Schirmer, 1903), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=781 | Public Domain ("CC: No rights reserved") | 668205876de4597aa3647f0f85bf40f056205512dcb265ca3f549f408e952225 |
+| `schubert_impromptu_op90_no2.mid` | F. Schubert (D. 899 / Op. 90 No. 2): Impromptu in E-flat | Mutopia Project piece 1551 (Breitkopf & Härtel, 1888), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1551 | Public Domain ("CC: No rights reserved") | 8e0723800e1cf9e787d496ca5540cac088895dd63566db44f0cad4de2861b786 |
+
+Pickups read from each piece's LilyPond source (`\partial`), not guessed.

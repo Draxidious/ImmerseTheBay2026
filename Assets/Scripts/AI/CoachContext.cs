@@ -20,6 +20,7 @@ public enum CoachTrigger
     SetAside,          // escape hatch: a measure/block failed skipAfterFails times and is no longer judged
     Help,              // rule 5: 3 fails in a row at the slow step, coach gives help (demo or show_fingering)
     SongComplete,
+    PhraseEnded,       // free play: a notable phrase just ended (FreePlayController)
 }
 
 [Serializable]
@@ -64,6 +65,7 @@ public class RunStats
     public List<int> rushedBars = new List<int>();  // bars played noticeably faster than asked
     public List<int> draggedBars = new List<int>(); // bars played noticeably slower than asked
     public string tempoRating;         // "on_tempo", "too_slow", "too_fast"; null = not rated
+    public List<int> judgedBars;       // the bars this run was judged on; null = the current section
     public float timing = -1f;         // 0-100 timing score, -1 = not measured (informational)
     // Notes the student never played at all. They are not in wrongNotes (no wrong key was pressed for them), so
     // without these a run where nothing was played would look spotless.
@@ -125,7 +127,7 @@ public class CoachContext
     const int MaxWrongNotes = 12;
 
     public CoachTrigger trigger = CoachTrigger.RunFinished;
-    public string mode = "curriculum"; // "curriculum" or "freeplay"
+    public string mode = "curriculum"; // "curriculum", "freeplay" (Main's wait-mode lesson) or "free_play" (FreePlayController)
     public SongData song;              // optional, but bars can only be checked against the song when it is set
     public SectionInfo currentSection = new SectionInfo();
     public RunStats thisRun = new RunStats();
@@ -140,6 +142,13 @@ public class CoachContext
     public int tempoStep;              // 1-based step on the tempo ladder, 0 = no ladder
     public int tempoStepCount;
     public CoachActionType[] allowedActions; // null = any action; anything else the model picks becomes None
+    public int currentBar;             // the bar the player is on now (questions mid-run); 0 = unknown
+    public string freePlayJson;        // mode "free_play" only: FreePlayFacts.ToJson(), sent instead of the lesson fields
+    public bool praiseAllowed;         // AICoach sets it: only a full run (CoachPolicy.PraiseAllowed) may be praised
+    public List<string> recentLines;   // AICoach sets it: its last lines, which the model must not reuse
+
+    public const string FreePlayMode = "free_play";
+    public bool IsFreePlay => mode == FreePlayMode;
 
     public static string TriggerName(CoachTrigger t)
     {
@@ -158,6 +167,7 @@ public class CoachContext
             case CoachTrigger.SetAside: return "set_aside";
             case CoachTrigger.Help: return "help";
             case CoachTrigger.SongComplete: return "song_complete";
+            case CoachTrigger.PhraseEnded: return "phrase_ended";
             default: return "run_finished";
         }
     }
@@ -171,12 +181,15 @@ public class CoachContext
         var sb = new StringBuilder(512);
         sb.Append("{\"trigger\":").Append(AIHttp.Quote(TriggerName(trigger)));
         sb.Append(",\"mode\":").Append(AIHttp.Quote(string.IsNullOrEmpty(mode) ? "curriculum" : mode));
+        if (IsFreePlay) return FreePlayJson(sb);
 
         var s = currentSection ?? new SectionInfo();
         sb.Append(",\"current_section\":{\"bars\":[").Append(s.firstBar).Append(',').Append(s.lastBar)
           .Append("],\"tempo_pct\":").Append(s.tempoPct).Append('}');
+        if (currentBar > 0) sb.Append(",\"current_bar\":").Append(currentBar);
 
-        if (trigger != CoachTrigger.LessonStart)
+        // A question asked before the first finished run has no run to describe (not a 0% run).
+        if (trigger != CoachTrigger.LessonStart && (thisRun != null || trigger != CoachTrigger.UserAsked))
         {
             var r = thisRun ?? new RunStats();
             sb.Append(",\"this_run\":{\"accuracy\":").Append(Number(r.accuracy));
@@ -217,6 +230,7 @@ public class CoachContext
         sb.Append("]}");
 
         sb.Append(",\"last_feedback\":").Append(AIHttp.Quote(lastFeedback ?? ""));
+        AppendStyle(sb);
 
         if (trigger == CoachTrigger.Stuck && stuck != null)
             sb.Append(",\"stuck\":{\"bar\":").Append(stuck.bar).Append(",\"note\":").Append(AIHttp.Quote(SongFormatter.NoteName(stuck.note)))
@@ -243,6 +257,33 @@ public class CoachContext
         }
 
         sb.Append(CoachFacts.ToJson(this));
+        sb.Append('}');
+        return sb.ToString();
+    }
+
+    void AppendStyle(StringBuilder sb)
+    {
+        sb.Append(",\"praise_allowed\":").Append(praiseAllowed ? "true" : "false");
+        if (recentLines == null || recentLines.Count == 0) return;
+        sb.Append(",\"do_not_reuse\":[");
+        Join(sb, recentLines, AIHttp.Quote);
+        sb.Append(']');
+    }
+
+    // Free play has no song, section or run: only what the analyzer heard, plus the question and the allowed actions.
+    string FreePlayJson(StringBuilder sb)
+    {
+        sb.Append(",\"free_play\":").Append(string.IsNullOrEmpty(freePlayJson) ? "{}" : freePlayJson);
+        sb.Append(",\"last_feedback\":").Append(AIHttp.Quote(lastFeedback ?? ""));
+        AppendStyle(sb);
+        if (trigger == CoachTrigger.UserAsked)
+            sb.Append(",\"user_question\":").Append(AIHttp.Quote(userQuestion ?? ""));
+        if (allowedActions != null)
+        {
+            sb.Append(",\"allowed_actions\":[");
+            Join(sb, allowedActions, a => AIHttp.Quote(CoachAction.Name(a)));
+            sb.Append(']');
+        }
         sb.Append('}');
         return sb.ToString();
     }

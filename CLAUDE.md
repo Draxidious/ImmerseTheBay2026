@@ -169,3 +169,5 @@ add a request to `docs/INTERFACES.md` under "Requested".
    in the same commit.**
 4. **Append a dated entry to `docs/DEVLOG.md`** saying what changed, what works, and what's broken or next.
 5. Keep commits small with clear messages. Never commit secrets.
+6. **On Nehemiah's machine:** read `C:\Users\neheo\Downloads\DEVPOST_NOTES.md` (hackathon history + Devpost draft) at the start,
+   and update it after each completed task: append, mark Done vs Planned, never invent features. It lives outside the repo.

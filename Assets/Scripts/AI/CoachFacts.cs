@@ -96,12 +96,15 @@ public static class CoachFacts
         bool timing = run.tempoRating == "on_tempo"; // speed is only praised when it was rated and right
         string clean = timing ? "right notes, no long pauses, steady timing" : "right notes, no long pauses";
 
+        // The bars that were played and judged, not the section: the curriculum sends the next run's section.
+        var judged = run.judgedBars ?? Enumerable.Range(section.firstBar, Math.Max(0, section.lastBar - section.firstBar + 1)).ToList();
         var cleanBars = new List<int>();
-        for (int bar = section.firstBar; bar <= section.lastBar; bar++)
+        foreach (int bar in judged)
             if (!wrongBars.Contains(bar) && !slowBars.Contains(bar) && !rushed.Contains(bar)) cleanBars.Add(bar);
 
-        int total = section.lastBar - section.firstBar + 1;
-        if (cleanBars.Count == total && total > 0) good.Add("every bar was clean: " + clean);
+        int total = judged.Count;
+        // Named, because current_section and the bar facts already describe the next run (a play-through of 1-3 sends bar 4).
+        if (cleanBars.Count == total && total > 0) good.Add("every bar played (" + BarsText(judged) + ") was clean: " + clean);
         else if (cleanBars.Count > 0) good.Add("clean bars (" + clean + "): " + string.Join(", ", cleanBars));
 
         if (wrongBars.Count == 0 && cleanBars.Count != total) good.Add("every note was right");
@@ -112,6 +115,14 @@ public static class CoachFacts
             good.Add("more accurate than the earlier attempts");
 
         return good;
+    }
+
+    static string BarsText(List<int> bars)
+    {
+        var sorted = bars.OrderBy(b => b).ToList();
+        bool contiguous = sorted.Last() - sorted.First() == sorted.Count - 1;
+        if (sorted.Count == 1) return "bar " + sorted[0];
+        return contiguous ? $"bars {sorted.First()} to {sorted.Last()}" : "bars " + string.Join(", ", sorted);
     }
 
     // ,"facts":{...} for the context JSON. Empty string when there is no song to work from.

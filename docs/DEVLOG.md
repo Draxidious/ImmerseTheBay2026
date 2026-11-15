@@ -4,6 +4,96 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~00:30 — Claude Code (for Canady): demo each new measure, "play it again", shorter speech
+- `CurriculumEngine` (Jordan OK'd the change list): `BeginRunOrDemo` demos the first run of each new measure (incl. measure 1:
+  lesson start has no fixed demo of it) for the hand about to be played; `ReplayDemo()`; coach demos share `RequestDemo`.
+  `LessonConfig.autoDemoNewMeasure`. Demos play at the current step's tempo, like the warm-up, coach and 3-fails demos
+  (a `demoTempo` Step/Song option was added and then removed).
+- Voice: "hey teacher, play that again" -> `ReplayDemo()`, no model call (`QuestionRouter.IsReplayCommand`).
+- TTS: Groq Orpheus pads every clip with 0.3-0.55 s of silence before and 0.4-1 s after; `GroqTts.TrimSilence` keeps 50/120 ms.
+  "Now bar 2." went from 3.3 s to 2.1 s request + playback; "Both hands now." 2.3 -> 1.3 s.
+- Lesson start and play-through lines: at most 8 words (prompt) and 50 chars (`CoachPolicy.Tidy(say, trigger)`), no "next we...".
+- **Verified (Editor, Main_2, `LessonWalkthrough.Run(3, true)`):** "Bar one, right hand, slowly." -> demo m1 RH 50% -> count-in -> ...;
+  "Now bar 2." -> demo m2 RH 50% -> count-in 1333 ms; no demo for tempo steps, hand changes or play-throughs. Replay via a spoken WAV
+  through Whisper. EditMode 91/91. **Untested:** device; the prompt tweak after "clean all the way" was copied twice (not re-run).
+
+## 2026-11-15 ~00:10 — Claude Code (for Ari): corner markers take over calibration (Dev_Ari)
+- New `MarkerCalibration` (UI folder), ported from the AuraMarkerTest prototype: two 33 mm ArUco markers on the P71's rear
+  corners replace the four pinch steps. Hands, occlusion, the orange recalibrate dot and all XRI interaction are unchanged.
+- `PianoCalibrator`: `CalibrateFromMarkers` / `ApplyMarkerAdjustment` (fit from the back outer corners of A0/C8, real keyboard
+  width), `CalibrationStarted`, `ShowInfo`, `markersAvailable` (pinches off while markers run), and a blue second dot below the
+  orange one (`OffsetsDotPressed`) that opens the offset sliders.
+- Setup tool `Tools/Piano/Add Marker Calibration To Open Scene` (applied to Dev_Ari; idempotent, for Main later) and
+  `Enable Marker Tracking (OpenXR Android)`: **project-wide**, Google `XRSessionFeature` + `XRMarkerTrackingFeature` are now on.
+- Editor-verified (play mode, simulated lock): `Calibrated` fires once, scale 1.000, A0–C8 span = 1.1985 m, Height +10 mm raises
+  the keys 10.0 mm, arrows step 1 mm, Sideways moves the keyboard, recalibrate closes the panel, fallback restores pinches.
+- **Verified on the Aura (Dev_Ari, 00:11–00:13):** extensions 1.5.0 track the markers; permission dialog OK; two scans locked
+  (spans 1.249 / 1.256 m), calibrated at scale 1.000; blue dot opened the panel; saved offsets left (-0.005, 0.012, 0.091),
+  right (0.015, 0.012, 0.090). Rescans differ by 8–16 mm (mostly height at the C8 end). **Not yet in Main.**
+  History and evidence: `docs/marker-tracking/PIANO_CORNERS_HANDOFF.md` and `PIANO_CORNERS_ITERATIONS.md`.
+
+
+## 2026-11-15 ~00:30 PT — Claude Code (for Nehemiah): song DB expanded to 37 songs (30 new)
+- **Beginner (+6, typed, RH melody, verified=false):** London Bridge, Row Row Row Your Boat, Frère Jacques, Old MacDonald,
+  Yankee Doodle, Happy Birthday. C-position fingering only on notes C4–G4; songs mostly outside it have none (flagged).
+- **Intermediate (+10) / Advanced (+10):** opening 16 bars, as written (both hands = staves), imported from Mutopia Project MIDI,
+  all Public Domain (CC0); sources + SHA-256 in Assets/Music/SOURCES.md. Pickups read from each piece's LilyPond source (\partial),
+  not guessed (auto-detection was wrong on most). No fingering (flagged for a pianist). Difficulty 3 / 5.
+- **Tools:** MidiSongImporter: key signature (meta 0x59), 1/24-beat grid (triplets exact), pickup (`pickupQuarters` or detection).
+  MusicXmlExporter: 3:2 tuplets (time-modification; no printed "3" bracket yet).
+- **Checked (Unity via MCP):** 37 songs, 0 duplicate ids/titles, 0 errors/warnings; all 37 sheets generated with every bar and note
+  placed; Main still 35 notes; free play matches 31 (6 chord-heavy openings skipped by its guard). Looked at Rondo alla Turca
+  (pickup correct) and Fantaisie-Impromptu (triplet lengths correct, no "3" marks).
+- **Not verified:** none of the 30 new songs checked against printed scores; Fantaisie-Impromptu's intro bars should be compared
+  with the score. One tie at a 16-bar cut is left open (harmless).
+## 2026-11-14 ~23:40 PT — Claude Code (for Nehemiah): 4 beginner songs + fingering
+- **New songs** (Assets/Resources/SongDB, RH melody, C five-finger position, typed from memory, `verified: false`): Mary Had a Little Lamb,
+  Au Clair de la Lune (A phrase ×2), Jingle Bells (chorus), When the Saints Go Marching In (opening). Curriculum `order` renumbered so
+  beginner songs come first (11 songs total).
+- **Fingering:** new `SongEntry.fingering` field (where the fingers come from / what needs review; empty in older files = fine).
+  Für Elise bars 1–8 both hands copied from the team's Resources/Songs/fur_elise.json (pitch-checked, 53 notes). The 4 new songs and the
+  RH of Hot Cross Buns / Ode to Joy use standard C five-finger fingering. **Needs review (no fingering):** Twinkle, Chopsticks,
+  The Entertainer, Clair de Lune, all LH parts except Für Elise 1–8, Für Elise 9–22.
+- **Show/hide:** Tools ▸ Songs ▸ Sheet Music: Show Fingering (checkable, on by default, regenerates). It changes the generated PNGs;
+  there is no in-app runtime toggle (that would need an overlay in Jordan's SongNoteDisplay).
+- **Checked (Unity via MCP):** 11 songs, 0 duplicate ids/titles, 0 errors/warnings, fingers 1–5 on the right notes; all sheets generated
+  with every bar/note placed; free play's matchable list builds with all 11; Main still gets 35 lesson/coach notes.
+
+## 2026-11-15 early — Claude Code (for Canady): quieter coach
+- New `CoachPolicy` (AI folder): passed measures, tempo steps and hand changes no longer call the model. They get a code cue
+  ("Now bar 2.", "Now the left hand.", "Both hands now.", "Now bars 1 to 3.") or silence when only the speed changes.
+- Praise only after a full run: Main's whole 35-note excerpt, a guided-lesson play-through, or the finished song. Failed runs
+  get one fix with no opener. All replies are one sentence ≤80 chars (questions two); filler openers are stripped.
+- No repeats: the last 5 lines go to the model as `do_not_reuse`; a reply opening with the same 4 words is retried once, then dropped.
+- `CoachPrompt.txt` rewritten for brevity; "praise what improved first" removed. Fallback lines shortened.
+- Free play: 40 s cooldown, comments only on a recognized song or a new key.
+- `CoachFacts.WentWell` names the judged bars (the bar facts describe the next run, so the model praised "bar four" after bars 1-3).
+- Pass cues (`PassCues`, `AIConfig.passCues` / `passCueVolume`): ding for a pass at the same bars and hand, two-note chime for a
+  new hand or bars, three notes for a measure learned / play-through (before the line). Never over speech; the count-in waits for them.
+- A reply sentence over 80 chars is cut at its last clause break that fits (the real model gave 89 and 113 char failed-run lines).
+- **Verified (Editor, Main_2, `LessonWalkthrough.Run(2, true)`):** measure 2, right hand: ding, count-in 889 ms beats (75%), ding,
+  count-in 667 ms (100%), step-up chime, "Now the left hand.", count-in 1333 ms (50%, left). Measure learned and play-through: milestone, then the line.
+  Failed runs (F7, F6, F7 -> help, F8) with the real model: one fix each, no praise. EditMode 77/77. **Untested:** volume against the piano on the puck.
+- **Verified (Editor, Main_2, `LessonWalkthrough.Run(4)`, all runs pass):** before 34 spoken lines / 1166 words, after 13 / 77,
+  praise only on the three play-throughs. EditMode tests 73/73. **Untested:** device, failed-run lines with a live model in Main.
+
+## 2026-11-14 ~22:45 — Claude Code (for Canady): "hey teacher" in Main_2's guided lesson
+- **Bug:** a question during the `CurriculumEngine` lesson lost the run it just judged (`QuestionRouter` overwrote `thisRun`
+  with the wait-mode evaluator's, which never runs in Main_2) and read the bar from that disabled evaluator.
+- **Fix (`QuestionRouter.cs` only):** while the engine is not Idle, a question reuses the engine's last coach context as is and
+  takes `current_bar` from the engine's note due now (`OnNextNote`), else the start of the next run. Main is unchanged.
+- **Works (Main_2, Editor Play mode, injected speech + Jordan's F5–F8 path via `SimulateRun`):** lesson question answered from the
+  engine's last run and bar; "free play" / "lesson mode" by voice; panel Switch mode → Free Play / Lesson taps (0.5 s debounce
+  holds); free-play question ("what key") answered from the analyzer facts. 51/51 EditMode tests.
+- **Note:** with nobody playing, the guided lesson talks after every empty run, so the router only arms in the gaps; on the piano
+  it is armed during runs. Untested on the Aura.
+- **Free play asks first during a lesson:** "hey teacher, free play" in the lesson → coach asks "Do you want to switch to free
+  play? Say yes or no." (queued until the coach is free, up to 40 s) → router listens with no wake word (20 s) → yes / "free play"
+  switches; no, anything else or silence says "Okay, let's keep going with the lesson." Leaving the lesson by the panel cancels it.
+  `QuestionRouter.IsYes` (+10 tests, 61/61). Fixed while testing: a busy coach dropped the request; listening started in the same
+  frame the question began (stale `armed`). **Works in Main and Main_2** (Editor, injected speech): yes, no (Main keeps the note
+  index), silence, busy coach, "lesson mode" still instant.
+
 ## 2026-11-15 early — Claude Code (for Jordan): metronome and demo steady at low frame rates
 - **Metronome jitter below 60 fps:** every click converted its time from the game clock (start of frame) to the audio
   clock at the moment it was scheduled, only 0.1 s ahead, so each click carried a different error and slow frames made
@@ -30,6 +120,25 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Verified in Editor Play mode, nothing played:** countdown and Play!, no speech during the run, coach said "I didn't
   hear any notes that time...", failed-run count stayed 0, second silent run → "Press any key when you're ready", a key
   press started the run again. **Not tested:** a run with only some notes missed, and all of it with a real piano.
+
+## 2026-11-14 ~22:10 — Claude Code (for Canady): Free Play mode with the AI coach
+- New `Assets/Scripts/FreePlay/`: `FreePlayAnalyzer` (pure C#: phrases, chords incl. inversions, Krumhansl-Schmuckler key + confidence,
+  steadiness, song match vs all `SongDatabase` openings with a distinctiveness guard, range, likely hands), `SongTemplates`,
+  `FreePlayFacts`, `FreePlayController` (lights pressed keys, comments on notable phrases, 25 s cooldown), `ModeChoicePanel`
+  (world-space "Lesson" / "Free Play" poke buttons above the sheet, "Switch mode" afterwards), `AppMode`/`AppModeSwitch`,
+  `FreePlayDebugPanel` (Editor), EditMode tests (`FreePlayAnalyzerTests`, `FreePlayCoachTests`).
+- `AppFlow` (Jordan approved): `ChooseMode` → `Lesson` / `FreePlay` after calibration, switchable any time after; `AIConfig.defaultMode`.
+  Lesson path unchanged apart from `ClearAll()` + `Restart()` on entry. `CoachContext`: `PhraseEnded`, `free_play` JSON.
+  `QuestionRouter`: voice "free play" / "lesson mode", free-play facts for questions. `CoachPrompt.txt`: FREE PLAY section.
+  `AICoach`: free-play replies trimmed to whole sentences ≤ 110 chars; a failed unprompted comment stays silent.
+- **Verified:** 51/51 EditMode tests in Unity. Play mode (Main, via MCP): ChooseMode panel renders (cyan rims, transparent);
+  panel → Free Play (evaluator + sheet off); C–F–G–C → "chords C F G C (I IV V I), key C major" → coach comment in 1.3 s;
+  Für Elise recognized (comment held by cooldown); question "what song was I just playing?" → "That sounded like Für Elise…
+  just say lesson mode"; voice "lesson mode" → Lesson without asking the coach; mid-song switch Lesson → Free Play leaves no lit
+  key; back to Lesson restarts at note 1 with only the Next key lit (held free-play keys cleared).
+- Found + fixed: `PlayedNote` name clash with `Curriculum/EvaluatorContract.cs` (renamed `FreePlayNote`); replies ran to 120–153 chars
+  and added "sounds clear" (prompt tightened + code trim).
+- **Not verified:** real MIDI on the P71, panel poke reach/readability on the Aura (panel ≈ 0.8 m above the keys), phrase-gap feel.
 
 ## 2026-11-14 late — Claude Code (for Jordan): coach voice in the Editor, lesson waits for it, orb clear of the sheet
 - **Root cause of "the coach doesn't say the words" and "the lesson doesn't wait":** Groq TTS was over its daily limit
@@ -69,6 +178,105 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
     intro → calibration → lesson path in `Main_2`, and anything on the glasses (amber on the real keys, panel readability).
     A full lesson is long: at least 9 passed runs per two-hand measure. For a short demo set `LessonConfig.demoMode`
     (first 4 measures, two tempo steps) or lower `songBarCount`.
+
+## 2026-11-14 late — Claude Code (for Canady): "hey teacher" wake word, step B (full pipeline)
+- Step A spike confirmed on the puck by a teammate (detection works).
+- `WakeWordBridge.java`: 20 ms frames, energy VAD with adaptive noise floor, KWS fed only while speech is present (0.5 s pre-roll),
+  question capture until 1 s silence / 8 s max / 3 s with no speech, WAV to cacheDir, pause/resume, suspendMic/resumeMic on app
+  pause, mic-open retry, `saveDebugClip`, model recopy on every reinstall. Source VOICE_RECOGNITION (VOICE_COMMUNICATION optional),
+  AEC/NS when available. Any error → `OnWakeWordError`, never a crash.
+- C#: `IVoiceTrigger` / `IQuestionRecorder`, `WakeWordTrigger`, `BackupVoiceTrigger` (Q key; right-hand palm-not-down pinch-hold 0.6 s;
+  T was taken by CoachOrb debug keys), `MicQuestionRecorder` (Editor fallback), `QuestionRouter` (arming, 2 s cooldown, 1 s mute after
+  the coach speaks, chime, Whisper → `AICoach.Ask` with `currentBar` + last RunStats; adds itself to scenes with an AppFlow).
+  `CoachContext.currentBar`; `this_run` is omitted for a question before the first run. `CoachOrbBridge`: 4 lines so the orb shows
+  Listening/Thinking for questions (approved; Nehemiah informed by Canady). AppFlow / PerformanceEvaluator / PianoCalibrator untouched.
+- `keywords.txt` now has no per-keyword score; `AIConfig.keywordsScore` 2.0 / `keywordsThreshold` 0.25 govern.
+- **Verified in Editor Play mode (Main, via Unity MCP):** router adds itself; arms only in the lesson after the coach stops + 1 s;
+  backup trigger → orb Listening → Unity mic, no speech → ends at 3.0 s (MacBook noise floor 0.0026); a `say` WAV injected as the
+  question → Whisper 278 ms "Hey teacher, what is the next note I should play?" → stripped → `coach.Ask` 1.25 s → correct answer
+  (E5 ring finger…), orb Listening → Thinking → Speaking; context has `current_bar: 1`, no `this_run`, `allowed_actions: ["none"]`;
+  trigger while the coach speaks ignored (fixed a same-frame gap: `OnTriggered` re-checks `CanListen`); 2 s cooldown ignores a
+  second trigger. Not covered in the Editor: real mic speech, pinch-hold, the Java plugin.
+- **Untested on the puck.** To verify: both audio sources (coach volume, false triggers), VAD levels with the piano playing, chime and
+  self-trigger after TTS, pinch-hold vs. the blue-ball grab, orb states, debug clip under `/sdcard/Android/data/<pkg>/files/`.
+
+## 2026-11-14 ~20:40 — Claude Code (for Canady): "hey teacher" wake word, step A spike
+- Added `Assets/Plugins/Android/WakeWordBridge.java` (`com.canady.wakeword`): AudioRecord 16 kHz (VOICE_RECOGNITION) → sherpa-onnx
+  keyword spotter on its own thread; logs `DETECTED HEY_TEACHER` (logcat tag `WakeWord`) and sends `OnWakeWord` / `OnWakeWordStatus`.
+  Model copied from `StreamingAssets/kws` to `filesDir/kws` on first run (version marker).
+- Bundled sherpa-onnx v2.0.1: pure-Java `sherpa-onnx-jvm-2.0.1.jar` (no Kotlin) + static-link `libsherpa-onnx-jni.so` (24 MB, ARM64, LFS).
+  Model: `kws-zipformer-gigaspeech-3.3M-2024-01-01` int8 encoder/decoder/joiner (5.2 MB). Licences in `THIRD_PARTY_NOTICES.md`.
+- **The `-mobile` model variant crashes on sherpa-onnx 2.0.1** (`/downsample/Reshape_1` reshape error on first decode); the full
+  variant's int8 files work. Desktop check (Python sherpa-onnx 2.0.1, same files and settings, macOS `say` voices): 3/3 normal
+  "hey teacher" detected, 1 very fast robotic voice missed, 0 false hits on 8 other sentences except "Hey, teach her" (homophone).
+- Spike: `WakeWordSpike.cs` + **Tools ▸ Wake Word ▸ Build Spike APK** (builds `Builds/WakeWordSpike.apk` from
+  `Dev_Canady_WakeWord.unity` only; build scene list untouched). Not in Main.
+- **Untested on the puck.** Next: confirm the jar + .so load on the Aura, then step B (VAD, question capture, Whisper, QuestionRouter).
+
+## 2026-11-14 ~22:30 — Claude Code (for Nehemiah): sheet music at 5 lines per page
+- `render_sheets.py`: renders once to get Verovio's line breaks, then re-renders with those breaks encoded plus a page break
+  every `LINES_PER_PAGE` (5) lines, so each line keeps its bars. Clair de Lune: 21 lines → pages of 5, 5, 5, 5, 1 (was 4 pages);
+  all other songs have ≤ 3 lines and stay on one page. All 7 songs regenerated: all bars and notes placed, no mismatches.
+## 2026-11-14 ~22:15 — Claude Code (for Nehemiah): Main uses the song DB for the AI and the generated sheet strips for the panel
+- **New:** `Assets/Scripts/Songs/LessonSongSource.cs` (`SectionBars`, `ForCoach`, `ForLesson`, `ApplySheets`). The sheet generator
+  now also cuts one strip per line of music (`system-NN.png`, same size per song, neighbouring lines whited out) and writes
+  `layout.systems` (`firstBar`, `barEdges`, `top`, `bottom`) in `SongNoteDisplay`'s `SheetSystem` shape; `SheetLibrary.Get` loads them
+  (`SheetMusic.systems`).
+- **Jordan's files, small code-only edits with fallbacks, no scene changes:**
+  `Lesson/PerformanceEvaluator.cs`: new `songId` (`"fur_elise"`) / `songSection` (`"A section (bars 1–8)"`); song loaded from the DB,
+  falling back to `SongLibrary.FurElise` (empty `songId` = old behaviour). `App/AppFlow.cs`: `Awake` points `SongNoteDisplay` at the
+  generated strips (fallback: the scene's images); `OnSongFinished` gives the coach the DB section (fallback: built from the evaluator's notes).
+- **In progress:** renderer fixes for the strips (page header showing at the top of the first line, a missing fingering number in
+  Hot Cross Buns bar 1) and verification in Unity (compile, evaluator song vs. `SongLibrary.FurElise`, the panel in `Main`). Not tested on the Aura.
+
+## 2026-11-14 ~21:30 — Claude Code (for Nehemiah): sheet-music PNGs for every song in the DB
+- **Pipeline:** `Assets/Scripts/Songs/Editor/MusicXmlExporter.cs` (DB → MusicXML: pickup as implicit measure, ties across bar lines
+  and into printable lengths, chords, extra voices for overlapping notes, rests, key-aware accidentals, beams per beat group,
+  fingering, per-bar clef changes, title/composer/tempo/arrangement credits, note ids = DB note index) →
+  `Tools/SheetMusic/render_sheets.py` (Verovio 6.4.1 → SVG, text-size fix, resvg-py 0.5.0 → PNG + bar/notehead rects) →
+  `SheetMusicMenu` (Tools ▸ Songs ▸ Generate Sheet Music) maps everything back to the DB and writes `layout.json`.
+  Runtime loader `SheetLibrary`. Added `keyFifths`/`keyMode` to SongEntry + all song JSONs (Clair de Lune −5 = D-flat major, flats).
+- **Python:** private venv `Tools/SheetMusic/.venv` (gitignored) with only verovio + resvg-py (`uv`, no admin, nothing system-wide).
+  PyMuPDF was tried first and removed (renders Verovio SVG blank).
+- **Output:** 7 songs, 10 pages (Clair de Lune 4). Every song: all bars present, every DB note placed, no pitch mismatches
+  (checked automatically each run). Overlay check on Für Elise: all bar/notehead rects land exactly on the engraving.
+  Looked at every song's page: correct key/time signatures, beams, accidentals, rests, ties, fingering (Hot Cross Buns), clef change
+  in Für Elise bars 14–15.
+- **Fixed along the way:** metronome glyph rendered as boxes (music font missing in resvg) → tempo as header text; Verovio's
+  0px text broke titles/bar numbers/fingering in resvg → patched; OneDrive locked the temp folder → per-run folders; a texture
+  AssetPostprocessor made Unity reimport every texture (one-time) → replaced by per-file import settings; uncompressed pages were
+  ~24 MB each → ASTC 4x4 on Android (~6 MB).
+- **Known limits:** Clair de Lune's automatic simplification puts high LH notes on ledger lines in bars ~15–24 (needs a hand edit);
+  Verovio prints the first system's bar number "1" above the Für Elise pickup. Images are black on white (asked for) — invert for the Aura.
+
+## 2026-11-14 ~20:55 — Claude Code (for Nehemiah): Für Elise bars 9–22 + Clair de Lune from public-domain MIDI
+- **Sources:** Mutopia Project, both "Public Domain / CC: No rights reserved": Für Elise WoO 59 (piece 931, Breitkopf & Härtel 1888) and
+  Clair de Lune (piece 1778, E. Fromont 1905). Downloaded only the .mid files into an empty scratch folder; checked: `MThd` header,
+  Standard MIDI format 1, 3 tracks, 7.6 KB / 12.5 KB, read only by our own parser (nothing executed). Kept in `Assets/Music/` with
+  SHA-256 + license in `Assets/Music/SOURCES.md`.
+- **Für Elise:** the MIDI doesn't unfold the repeat (1st ending is 2 eighths, then the 2nd ending), so the bar grid after bar 8 was
+  re-aligned (bar 9 = tick 4608). Bars 9–22 (94 notes) added to `fur_elise.json` as explicit notes; bars 1–8 stay typed.
+  Check: bars 17–22 (imported) = typed bars 2–7, 41/41 notes. Sections: 1–8, 9–22, 1–22.
+- **Clair de Lune:** imported with Tools ▸ Songs ▸ Import MIDI Files (simplified): 977 notes, 72 bars, 9/8, 120 eighth-bpm. Sections:
+  1–8, 1–14, 1–72. Names print with sharps (D-flat major shows as C#/G#) — SongFormatter limitation.
+- All 7 songs validate: 0 errors, 0 warnings. Still `verified: false` (simplification and hand = staff are automatic).
+
+## 2026-11-14 ~20:40 — Claude Code (for Nehemiah): song database (sheet music → MIDI notes) for the AI coach
+- **Added** `Assets/Scripts/Songs/`: `SongEntry` (JSON model), `SongNotation` (parse/convert to Canady's `SongData`/validate),
+  `SongDatabase` (Resources/Songs loader: `Get`, `GetSection`, `All`, `ForDifficulty`), `MidiSongImporter` (own .mid reader, no
+  DryWetMIDI), `SongAutoPlayer` (lights songs on PianoOverlay), `Editor/SongMenu` (Tools ▸ Songs ▸ Validate All / Print All /
+  Import MIDI Files). jordan-branch read as reference only, **not merged**.
+- **Songs** (`Assets/Resources/Songs/*.json`, typed by hand, all `verified: false`): hot_cross_buns (with fingering), twinkle_twinkle,
+  ode_to_joy (fingering), chopsticks (bars 7–8 especially need checking), fur_elise A section bars 1–8 both hands,
+  the_entertainer simplified opening bars 1–4 (needs checking). Not done: Clair de Lune and Für Elise 9–22 (import a PD MIDI),
+  River Flows in You (copyrighted → `Assets/Resources/Songs/Local/` / `Assets/Music/Local/`, gitignored; nothing added).
+- **Verified (Editor via UnityMCP):** all 6 songs pass Validate (0 errors, 0 warnings); Für Elise RH = Jordan's table note-for-note
+  (35/35); Ode to Joy = AIDebugPanel.OdeToJoy() (38/38); MIDI round trip of Hot Cross Buns (written as a 2-track .mid, re-imported) =
+  22/22 notes, tempo + 4/4 correct; `GetSection(..., RH)` and bar ranges work; `CoachContext.song = SongDatabase.Get(id)` works.
+- **Found:** SongFormatter (AI) drops rests and pickups in what the coach reads; two `SongNote` classes (Lesson vs AI) — both added to
+  "Requested" in INTERFACES.
+- **Next:** someone checks the songs against sheet music and flips `verified`; import Clair de Lune / Für Elise from public-domain MIDI;
+  lesson engine/evaluator loads songs from the DB.
 
 ## 2026-11-14 night — Codex (for Ari): startup mic permission and Main device checklist (handoff commit 9)
 - `AppFlow` requests Android microphone permission before the intro and waits for the system response. An existing

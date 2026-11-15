@@ -36,6 +36,11 @@ public class LessonConfig : ScriptableObject
     [Tooltip("How far a press may be from where its note is expected, once the student's own tempo is followed, and still count as that note.")]
     public int matchWindowMs = 600;
 
+    [Header("Demo")]
+    [Tooltip("Before the first run of each new measure, play it once at the step's tempo (the hand about to be played, " +
+             "lights + sound). Not for tempo steps, hand changes, play-throughs, repairs or retries.")]
+    public bool autoDemoNewMeasure = true;
+
     [Header("Tempo ladder")]
     [Tooltip("TEMPO_STEPS, in percent of the song's tempo, slowest first. The last step is song tempo.")]
     public List<int> tempoSteps = new List<int> { 50, 75, 100 };

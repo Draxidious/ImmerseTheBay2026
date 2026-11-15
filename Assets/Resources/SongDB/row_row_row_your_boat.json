@@ -1,0 +1,38 @@
+{
+    "id": "row_row_row_your_boat",
+    "name": "Row, Row, Row Your Boat",
+    "composer": "Traditional (English round)",
+    "license": "Public domain",
+    "source": "Typed by hand (Claude Code for Nehemiah, 2026-11-15) from the well-known public-domain melody. Not yet checked against printed sheet music.",
+    "verified": false,
+    "fingering": "RH: standard C five-finger position (C=1 … G=5) on notes C4–G4. Notes outside that position (C5 in bar 5) have no finger: needs review.",
+    "arrangement": "melody only",
+    "difficulty": 1,
+    "order": 11,
+    "tempoBpm": 150,
+    "beatsPerBar": 6,
+    "beatUnit": "eighth",
+    "keyFifths": 0,
+    "keyMode": "major",
+    "sections": [
+        {
+            "name": "Whole tune (bars 1–8)",
+            "firstBar": 1,
+            "lastBar": 8
+        }
+    ],
+    "pickupRH": "",
+    "pickupLH": "",
+    "rh": [
+        "C4@1:3 C4@1:3",
+        "C4@1:2 D4@2:1 E4@3:3",
+        "E4@3:2 D4@2:1 E4@3:2 F4@4:1",
+        "G4@5:6",
+        "C5 C5 C5 G4@5 G4@5 G4@5",
+        "E4@3 E4@3 E4@3 C4@1 C4@1 C4@1",
+        "G4@5:2 F4@4:1 E4@3:2 D4@2:1",
+        "C4@1:6"
+    ],
+    "lh": [],
+    "notes": []
+}

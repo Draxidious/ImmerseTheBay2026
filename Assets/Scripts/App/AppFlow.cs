@@ -14,8 +14,10 @@ using UnityEngine.InputSystem;
 ///   1. The coach speaks an introduction and asks if the player is ready.
 ///   2. The microphone opens for a few seconds. Any answer (or none) moves on.
 ///   3. Calibration starts (PianoCalibrator.Recalibrate).
-///   4. Once calibrated, the evaluator and its sheet panel are switched on.
-///   5. During the lesson the key to press next is lit on the overlay; right and wrong presses flash.
+///   4. Once calibrated, the player picks Lesson or Free Play (ModeChoicePanel or "hey teacher, free play" / "lesson mode";
+///      AIConfig.defaultMode can skip the choice). Either mode can be switched to at any time after that.
+///   5. Lesson: the evaluator and its sheet panel are switched on, the key to press next is lit, right and wrong presses flash.
+///      Free Play: the evaluator and sheet are off; FreePlayController lights pressed keys and the coach comments now and then.
 /// The lines here are fixed text: no model call, so the start of the app never waits on the network.
 /// Two kinds of lesson, depending on what is in the scene:
 ///   - a CurriculumEngine (Main_2): the guided lesson of COACH_PLAYBOOK.md, in timed runs. The engine talks to the coach
@@ -27,7 +29,7 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class AppFlow : MonoBehaviour
 {
-    public enum Step { Intro, Listening, Calibrating, Lesson, MicrophonePermission }
+    public enum Step { Intro, Listening, Calibrating, Lesson, MicrophonePermission, ChooseMode, FreePlay }
 
     [Header("Found automatically when empty")]
     public VoiceOutput voiceOutput;
@@ -52,6 +54,8 @@ public class AppFlow : MonoBehaviour
     [TextArea] public string introLine = "Hi, I'm your piano coach. Today we'll play the opening of Für Elise. Are you ready to learn?";
     [TextArea] public string calibrateLine = "Great. First show me where your piano is. Follow the steps in front of you.";
     [TextArea] public string lessonLine = "Got it. Play the first note whenever you're ready.";
+    [TextArea] public string chooseModeLine = "Would you like a lesson, or free play? Tap one, or say hey teacher, free play.";
+    [TextArea] public string freePlayLine = "Free play. Play anything you like, and I'll listen.";
 
     [Header("Timing (seconds)")]
     [Tooltip("Wait before the introduction, so tracking and the orb have settled.")]
@@ -83,8 +87,15 @@ public class AppFlow : MonoBehaviour
         if (engine)
         {
             // The engine judges the lesson; the wait-mode evaluator would listen to the same keys.
+            // The panel keeps the sheet images set in the scene: they are numbered like the engine's bars.
             if (evaluator) evaluator.enabled = false;
             if (!engine.coach) engine.coach = coach;
+        }
+        else if (sheetDisplay && evaluator)
+        {
+            // Show the generated sheet music of the evaluator's song (Assets/Resources/Sheets, one strip per line).
+            // Keeps the images set in the scene if there are none.
+            LessonSongSource.ApplySheets(sheetDisplay, evaluator.songId, evaluator.songSection);
         }
     }
 
@@ -95,6 +106,7 @@ public class AppFlow : MonoBehaviour
     {
         if (calibrator) calibrator.Calibrated += OnCalibrated;
         if (voiceInput) voiceInput.OnCommand += OnAnswer;
+        AppModeSwitch.Requested += OnModeRequested;
         if (engine)
         {
             engine.OnRunStarted += OnRunStarted;
@@ -116,6 +128,7 @@ public class AppFlow : MonoBehaviour
     {
         if (calibrator) calibrator.Calibrated -= OnCalibrated;
         if (voiceInput) voiceInput.OnCommand -= OnAnswer;
+        AppModeSwitch.Requested -= OnModeRequested;
         if (engine)
         {
             engine.OnRunStarted -= OnRunStarted;
@@ -206,15 +219,90 @@ public class AppFlow : MonoBehaviour
     {
         PlaceSheetPanel();
         if (CurrentStep != Step.Calibrating) return;
-        CurrentStep = Step.Lesson;
-        if (LessonPanel) LessonPanel.SetActive(true); // before the lesson starts, so the panel hears its first events
-        if (engine) engine.StartLesson();             // the coach introduces the piece itself
-        else StartCoroutine(Say(lessonLine));
+        AppModeSwitch.AfterCalibration = true;
+        switch (AIConfig.Get().defaultMode)
+        {
+            case StartMode.Lesson: EnterLesson(); break;
+            case StartMode.FreePlay: EnterFreePlay(); break;
+            default:
+                CurrentStep = Step.ChooseMode;
+                ResolveModeObjects();
+                if (_modePanel) _modePanel.ShowChoice();
+                StartCoroutine(Say(chooseModeLine));
+                break;
+        }
     }
+
+    // ------------------------------------------------------------------ Lesson / Free Play
+
+    FreePlayController _freePlay;
+    ModeChoicePanel _modePanel;
+
+    // Both are added at runtime after the scene loads, so they are looked up when first needed.
+    void ResolveModeObjects()
+    {
+        if (!_freePlay) _freePlay = FindAnyObjectByType<FreePlayController>(FindObjectsInactive.Include);
+        if (!_modePanel) _modePanel = FindAnyObjectByType<ModeChoicePanel>(FindObjectsInactive.Include);
+    }
+
+    void OnModeRequested(AppMode mode, string source)
+    {
+        if (!AppModeSwitch.AfterCalibration || (calibrator && calibrator.IsCalibrating))
+        {
+            Debug.Log($"[AppFlow] {mode} ({source}) ignored: not calibrated yet.");
+            return;
+        }
+        if (mode == AppMode.Lesson && CurrentStep != Step.Lesson) EnterLesson();
+        else if (mode == AppMode.FreePlay && CurrentStep != Step.FreePlay) EnterFreePlay();
+    }
+
+    void EnterLesson()
+    {
+        ResolveModeObjects();
+        if (_freePlay) _freePlay.End();
+        if (overlay) overlay.ClearAll(); // no key from free play or an old run stays lit
+        CurrentStep = Step.Lesson;
+        AppModeSwitch.Current = AppMode.Lesson;
+        if (LessonPanel) LessonPanel.SetActive(true); // before the lesson starts, so the panel hears its first events
+        if (_modePanel) _modePanel.ShowSwitchButton();
+        if (engine) engine.StartLesson();             // the coach introduces the piece itself
+        else
+        {
+            if (evaluator) evaluator.Restart(); // from the first note; Restarted lights it
+            StartCoroutine(Say(lessonLine));
+        }
+    }
+
+    void EnterFreePlay()
+    {
+        ResolveModeObjects();
+        // Off first, so the lesson stops judging notes and lighting keys (in Main the evaluator shares the sheet's object).
+        if (engine) engine.StopLesson();
+        _litUntil.Clear(); // a lesson key due to turn off must not turn off a key held in free play
+        if (LessonPanel) LessonPanel.SetActive(false);
+        if (overlay) overlay.ClearAll();
+        CurrentStep = Step.FreePlay;
+        AppModeSwitch.Current = AppMode.FreePlay;
+        if (_freePlay) _freePlay.Begin();
+        else Debug.LogWarning("[AppFlow] No FreePlayController in the scene.");
+        if (_modePanel) _modePanel.ShowSwitchButton();
+        StartCoroutine(Say(freePlayLine));
+    }
+
+    bool _sheetPlaced;
+
+#if UNITY_EDITOR
+    // Live tuning: edit "Sheet Offset" in the Inspector during Play mode and the panel follows.
+    void OnValidate()
+    {
+        if (Application.isPlaying && _sheetPlaced) PlaceSheetPanel();
+    }
+#endif
 
     void PlaceSheetPanel()
     {
         if (!overlay || !sheetDisplay) return;
+        _sheetPlaced = true;
         Vector3 center = (overlay.GetKeyWorldCenter(overlay.lowestNote) +
                           overlay.GetKeyWorldCenter(overlay.highestNote)) * 0.5f;
         // Canvas text faces local -Z, toward the player. Keep the panel upright and aligned
@@ -324,26 +412,31 @@ public class AppFlow : MonoBehaviour
     {
         if (!coach || !evaluator || evaluator.Song == null) return;
 
-        // Describe exactly the right-hand excerpt the evaluator judged, including its pickup.
-        // Use a separate cache id from the curriculum's song, which also has fingering data.
-        var source = evaluator.Song;
-        var song = new SongData
+        // Describe exactly the right-hand excerpt the evaluator judged, including its pickup: from the song database
+        // (Assets/Resources/SongDB) when the evaluator's song is there, otherwise built from the evaluator's own notes.
+        var song = LessonSongSource.ForCoach(evaluator.songId, evaluator.songSection);
+        if (song == null)
         {
-            id = "wait_mode_fur_elise", name = source.name,
-            tempoBpm = Mathf.RoundToInt(source.bpm), beatsPerBar = source.beatsPerBar,
-            timeSignature = "3/8"
-        };
-        var barStarts = new Dictionary<int, float>();
-        foreach (var note in source.notes)
-        {
-            if (!barStarts.ContainsKey(note.bar)) barStarts[note.bar] = note.beat;
-            song.notes.Add(new SongNote
+            // Use a separate cache id from the curriculum's song, which also has fingering data.
+            var source = evaluator.Song;
+            song = new SongData
             {
-                midi = note.midi, bar = note.bar, beat = note.beat - barStarts[note.bar] + 1f,
-                beats = note.duration, hand = PianoHand.Right
-            });
+                id = "wait_mode_fur_elise", name = source.name,
+                tempoBpm = Mathf.RoundToInt(source.bpm), beatsPerBar = source.beatsPerBar,
+                timeSignature = "3/8"
+            };
+            var barStarts = new Dictionary<int, float>();
+            foreach (var note in source.notes)
+            {
+                if (!barStarts.ContainsKey(note.bar)) barStarts[note.bar] = note.beat;
+                song.notes.Add(new SongNote
+                {
+                    midi = note.midi, bar = note.bar, beat = note.beat - barStarts[note.bar] + 1f,
+                    beats = note.duration, hand = PianoHand.Right
+                });
+            }
+            SongFormatter.Invalidate(song.id);
         }
-        SongFormatter.Invalidate(song.id);
         _history.attemptsThisSection++;
         _history.accuracyTrend.Add(stats.accuracy);
         if (_history.accuracyTrend.Count > 5) _history.accuracyTrend.RemoveAt(0);

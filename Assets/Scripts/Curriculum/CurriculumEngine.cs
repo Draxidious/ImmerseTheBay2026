@@ -95,7 +95,7 @@ public class CurriculumEngine : MonoBehaviour
     public event Action<SongData> OnSongIntro;
     public event Action<RunInfo> OnRunStarted;                 // all notes of the run with their due times, for falling notes
     public event Action<ExpectedNote> OnNextNote;              // this note is due now (light the key); null when the run is over
-    public event Action<ExpectedNote, int, bool> OnNotePlayed; // the note the key matched (or the nearest one), key, correct
+    public event Action<ExpectedNote, int, bool> OnNotePlayed; // the note the key matched (or the one that was next), key, correct
     public event Action<int, int> OnTempoChanged;              // tempo %, 1-based step
     public event Action<ExpectedNote> OnDemoNoteDown;          // a demo is sounding this note (light the key, show the finger)
     public event Action<ExpectedNote> OnDemoNoteUp;
@@ -184,7 +184,10 @@ public class CurriculumEngine : MonoBehaviour
     BarRange runBars;
     HandMode runHand;
     bool running;
-    double runStart, runEnd;   // runEnd is relative to runStart
+    double runStart, runEnd;   // runEnd is relative to runStart: from then on the run ends once the student is done
+    double hardEnd;            // relative to runStart: the run ends here whatever the student is doing
+    double runQuiet;           // after runEnd, this long with no key pressed means the student has stopped
+    double lastPressAt;        // relative to runStart, any key
     int runStep;               // the tempo step the run is played at
     int dueIndex;
     readonly List<double> clicks = new List<double>(); // metronome clicks, in Time.unscaledTimeAsDouble
@@ -202,6 +205,7 @@ public class CurriculumEngine : MonoBehaviour
     Action coachDemoResume;
     BarRange lastDemo;
     float lastDemoEnded = float.NegativeInfinity;
+    bool demoNewMeasure; // the next run is the first of a new measure: demo it first
 
     // Coach requests go out one at a time, in order. If the student plays faster than the coach talks, only the
     // newest MaxPendingCoach wait (so a warm-up result is still spoken before the song intro).
@@ -669,7 +673,7 @@ public class CurriculumEngine : MonoBehaviour
     void StartMeasure(int n)
     {
         SetupMeasure(n);
-        BeginRun(Song, CurrentRange);
+        BeginRunOrDemo(Song, CurrentRange);
     }
 
     // The Setup methods get the next run ready without starting it, so Tell can describe it. Step 1:
@@ -684,6 +688,7 @@ public class CurriculumEngine : MonoBehaviour
         SetStages(StagesFor(Song, CurrentRange));
         SetStep(0);
         SetState(CurriculumState.SongLearn);
+        demoNewMeasure = Cfg.autoDemoNewMeasure;
         OnMeasureStarted?.Invoke(n);
     }
 
@@ -975,7 +980,17 @@ public class CurriculumEngine : MonoBehaviour
     void NextRun()
     {
         var song = CurrentSong;
-        AfterCoach(() => BeginRun(song, CurrentRange));
+        AfterCoach(() => BeginRunOrDemo(song, CurrentRange));
+    }
+
+    // The first run of a new measure is played for them first, unless those bars were just demoed (e.g. the coach asked).
+    void BeginRunOrDemo(SongData song, BarRange bars)
+    {
+        bool demo = demoNewMeasure && !RecentlyDemoed(bars);
+        demoNewMeasure = false;
+        if (!demo) { BeginRun(song, bars); return; }
+        Debug.Log($"[Lesson] Demo: {Measures(bars)} {HandWords(Hand)} at {TempoPct}%.");
+        PlayDemo(song, bars, TempoPct, () => BeginRun(song, bars));
     }
 
     // Rule 5 at the slow step: the coach was asked for help. If it neither played a demo nor showed the fingering
@@ -1010,6 +1025,11 @@ public class CurriculumEngine : MonoBehaviour
         dueIndex = 0;
         runStep = TempoStep;
         runEnd = expected.Count > 0 ? expected[expected.Count - 1].time + cfg.matchWindowMs / 1000.0 + 0.2 : 0;
+        // A student behind the clock (the evaluator follows their tempo) is still playing at runEnd: wait for them to
+        // reach the last note or stop, up to half the run's length again.
+        runQuiet = cfg.HesitationLimitMs(TempoPct) / 1000.0;
+        hardEnd = runEnd + (expected.Count > 0 ? (expected[expected.Count - 1].time - expected[0].time) * 0.5 : 0) + runQuiet;
+        lastPressAt = double.NegativeInfinity;
         lastCorrectTime = expected.Count > 0 ? expected[0].time : 0;
         lastCorrectIndex = -1;
         stallHinted = false;
@@ -1061,7 +1081,8 @@ public class CurriculumEngine : MonoBehaviour
             OnNextNote?.Invoke(note);
         }
         CheckStuck(t);
-        if (t >= runEnd) EndRun();
+        bool done = lastCorrectIndex >= expected.Count - 1 || t - lastPressAt >= runQuiet;
+        if (t >= hardEnd || (t >= runEnd && done)) EndRun();
     }
 
     // No correct key for longer than the pause limit while a note is waiting: say how to find it, without the model.
@@ -1071,13 +1092,11 @@ public class CurriculumEngine : MonoBehaviour
         if (!hintsDuringRuns) return;
         if (!sendToCoach || coach == null || stallHinted || expected.Count == 0) return;
         if (Time.unscaledTime - lastHintAt < Cfg.stuckHintMinIntervalSeconds) return;
-        int next = -1;
-        for (int i = lastCorrectIndex + 1; i < expected.Count && expected[i].time <= t; i++)
-            if (!claimed[i]) { next = i; break; }
+        int next = NextOpenNote();
         if (next < 0) return;
         var note = expected[next];
-        // Waiting since the later of the last correct key and the moment this note was due.
-        if (t - Math.Max(lastCorrectTime, note.time) <= Cfg.HesitationLimitMs(RunPct) / 1000.0) return;
+        // Waiting since the note was expected, following the student rather than the clock.
+        if (t - ExpectedAt(next) <= Cfg.HesitationLimitMs(RunPct) / 1000.0) return;
 
         string line = CoachFacts.StuckHint(runSong, note.bar, note.midi);
         if (!coach.SayNow(line)) return; // busy talking: try again next frame
@@ -1096,16 +1115,19 @@ public class CurriculumEngine : MonoBehaviour
         if (!running || IsDemoPlaying) return;
         double t = time - runStart;
         played.Add(new PlayedNote { midi = midi, velocity = velocity, time = t });
+        lastPressAt = t;
         if (expected.Count == 0) return;
 
-        // Live feedback only; the evaluator does the real judging at the end of the run.
+        // Live feedback only; the evaluator does the real judging at the end of the run. Like the evaluator it follows
+        // the student in order, not the clock: a press may come any amount late but at most the match window early, so a
+        // student who has fallen behind still gets their right keys counted.
         double window = Cfg.matchWindowMs / 1000.0;
-        int match = -1, nearest = 0;
-        for (int i = 0; i < expected.Count; i++)
+        int next = NextOpenNote(), match = -1;
+        for (int i = Math.Max(0, next); next >= 0 && i < expected.Count; i++)
         {
-            double d = Math.Abs(expected[i].time - t);
-            if (d < Math.Abs(expected[nearest].time - t)) nearest = i;
-            if (!claimed[i] && expected[i].midi == midi && d <= window && (match < 0 || d < Math.Abs(expected[match].time - t))) match = i;
+            if (!IsOpen(i)) continue;
+            if (ExpectedAt(i) - t > window) break;
+            if (expected[i].midi == midi) { match = i; break; }
         }
         if (match >= 0)
         {
@@ -1114,8 +1136,24 @@ public class CurriculumEngine : MonoBehaviour
             lastCorrectIndex = Math.Max(lastCorrectIndex, match);
             stallHinted = false;
         }
-        OnNotePlayed?.Invoke(expected[match >= 0 ? match : nearest], midi, match >= 0);
+        OnNotePlayed?.Invoke(expected[match >= 0 ? match : next >= 0 ? next : expected.Count - 1], midi, match >= 0);
     }
+
+    // Not played yet and not passed over: at or after the last correct note (its chord included).
+    bool IsOpen(int i) => !claimed[i] && (lastCorrectIndex < 0 || expected[i].time >= expected[lastCorrectIndex].time - 1e-4);
+
+    // The first open note, -1 when there is none.
+    int NextOpenNote()
+    {
+        for (int i = Math.Max(0, lastCorrectIndex - 8); i < expected.Count; i++)
+            if (IsOpen(i)) return i;
+        return -1;
+    }
+
+    // When note i is expected, following the student: the written gap after their last correct press, or the clock
+    // before the first one.
+    double ExpectedAt(int i) => lastCorrectIndex < 0 ? expected[i].time
+        : lastCorrectTime + Math.Max(0, expected[i].time - expected[lastCorrectIndex].time);
 
     void EndRun()
     {
@@ -1226,6 +1264,28 @@ public class CurriculumEngine : MonoBehaviour
 
     // ------------------------------------------------------------------ Demos and waiting
 
+    // "Play it again": the demo of the current bars, for the hand being practised, at the step's tempo. A run in progress
+    // stops and starts again afterwards. False when there is nothing to replay right now.
+    public bool ReplayDemo()
+    {
+        if (State == CurriculumState.Idle || State == CurriculumState.SongComplete || State == CurriculumState.SongIntro) return false;
+        bool ok = RequestDemo(CurrentSong, CurrentRange, TempoPct);
+        if (ok) Debug.Log($"[Lesson] Replay demo: {Measures(CurrentRange)} {HandWords(Hand)} at {TempoPct}%.");
+        return ok;
+    }
+
+    // A demo asked for by the coach or the student, once the coach has finished speaking.
+    bool RequestDemo(SongData song, BarRange bars, int tempoPct)
+    {
+        if (IsDemoPlaying || State == CurriculumState.WarmupDemo || coachDemoRoutine != null) return false;
+        bool resume = running;
+        running = false;
+        OnNextNote?.Invoke(null);
+        coachDemoResume = () => { if (resume) BeginRun(runSong, runBars); };
+        coachDemoRoutine = StartCoroutine(CoachDemo(song, bars, tempoPct));
+        return true;
+    }
+
     void PlayDemo(SongData song, BarRange bars, int tempoPct, Action then)
     {
         // The hand(s) being practised; if they have nothing in these bars (the coach asked for other bars), everything.
@@ -1329,15 +1389,8 @@ public class CurriculumEngine : MonoBehaviour
             case CoachActionType.Demo:
                 var song = CurrentSong;
                 var bars = new BarRange(Mathf.Clamp(a.firstBar, 1, song.BarCount), Mathf.Clamp(a.lastBar, 1, song.BarCount));
-                if (IsDemoPlaying || State == CurriculumState.WarmupDemo) return;
                 if (RecentlyDemoed(bars)) return;
-                if (coachDemoRoutine != null) return;
-                Debug.Log($"[Lesson] Coach asked for a demo of {Measures(bars)}.");
-                bool resume = running;
-                running = false;
-                OnNextNote?.Invoke(null);
-                coachDemoResume = () => { if (resume) BeginRun(runSong, runBars); };
-                coachDemoRoutine = StartCoroutine(CoachDemo(song, bars, TempoPct));
+                if (RequestDemo(song, bars, TempoPct)) Debug.Log($"[Lesson] Coach asked for a demo of {Measures(bars)}.");
                 break;
 
             case CoachActionType.ShowFingering:
@@ -1490,6 +1543,7 @@ public class CurriculumEngine : MonoBehaviour
                 tempoRating = v != null ? TempoName(v.tempo) : null,
                 rushedBars = v != null ? new List<int>(v.rushed) : new List<int>(),
                 draggedBars = v != null ? new List<int>(v.dragged) : new List<int>(),
+                judgedBars = v != null ? v.ratings.Keys.OrderBy(b => b).ToList() : null,
                 // Notes never played are not wrong notes; without these a silent run would look spotless to the coach.
                 notesExpected = expected.Count(e => judged.Any(b => b.barNumber == e.bar)),
                 notesMissed = judged.Sum(b => b.missed),
