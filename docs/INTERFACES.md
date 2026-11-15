@@ -194,6 +194,10 @@ clair_de_lune (whole piece, 72 bars, simplified melody + bass from public-domain
 sheet music. Source MIDI files + licenses: `Assets/Music/SOURCES.md` (Mutopia Project, public domain). Not added: River Flows in You (local only).
 Note: in Für Elise bar 8 is the 1st ending and bar 9 the 2nd ending, so playing "Bars 1–22" straight through plays both endings.
 
+**Song count (2026-11-15): 37** — 12 beginner (difficulty 1), Ode to Joy + Chopsticks (2), Für Elise + 10 intermediate (3),
+The Entertainer (4), Clair de Lune + 10 advanced (5). Intermediate/advanced = opening 16 bars from Mutopia public-domain MIDI;
+see Assets/Music/SOURCES.md. `SongEntry.fingering` says which songs have fingering; most new ones are flagged for review.
+
 **Other song models in the project (separate, not merged):** Main's lesson uses `LessonSong`/`SongLibrary.FurElise`
 (`Assets/Scripts/Lesson/SongData.cs`, absolute beat + duration, right hand). Canady's curriculum loads its own songs from
 `Assets/Resources/Songs/` (`CurriculumSongs`, `"note": "E5"` format). This DB lives in `Resources/SongDB/` so the two never

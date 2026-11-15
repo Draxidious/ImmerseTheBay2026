@@ -5,6 +5,20 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 ---
 
 
+
+## 2026-11-15 ~00:30 PT — Claude Code (for Nehemiah): song DB expanded to 37 songs (30 new)
+- **Beginner (+6, typed, RH melody, verified=false):** London Bridge, Row Row Row Your Boat, Frère Jacques, Old MacDonald,
+  Yankee Doodle, Happy Birthday. C-position fingering only on notes C4–G4; songs mostly outside it have none (flagged).
+- **Intermediate (+10) / Advanced (+10):** opening 16 bars, as written (both hands = staves), imported from Mutopia Project MIDI,
+  all Public Domain (CC0); sources + SHA-256 in Assets/Music/SOURCES.md. Pickups read from each piece's LilyPond source (\partial),
+  not guessed (auto-detection was wrong on most). No fingering (flagged for a pianist). Difficulty 3 / 5.
+- **Tools:** MidiSongImporter: key signature (meta 0x59), 1/24-beat grid (triplets exact), pickup (`pickupQuarters` or detection).
+  MusicXmlExporter: 3:2 tuplets (time-modification; no printed "3" bracket yet).
+- **Checked (Unity via MCP):** 37 songs, 0 duplicate ids/titles, 0 errors/warnings; all 37 sheets generated with every bar and note
+  placed; Main still 35 notes; free play matches 31 (6 chord-heavy openings skipped by its guard). Looked at Rondo alla Turca
+  (pickup correct) and Fantaisie-Impromptu (triplet lengths correct, no "3" marks).
+- **Not verified:** none of the 30 new songs checked against printed scores; Fantaisie-Impromptu's intro bars should be compared
+  with the score. One tie at a 16-bar cut is left open (harmless).
 ## 2026-11-14 ~23:40 PT — Claude Code (for Nehemiah): 4 beginner songs + fingering
 - **New songs** (Assets/Resources/SongDB, RH melody, C five-finger position, typed from memory, `verified: false`): Mary Had a Little Lamb,
   Au Clair de la Lune (A phrase ×2), Jingle Bells (chorus), When the Saints Go Marching In (opening). Curriculum `order` renumbered so

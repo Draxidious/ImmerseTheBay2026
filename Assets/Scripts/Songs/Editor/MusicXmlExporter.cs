@@ -52,7 +52,7 @@ public static class MusicXmlExporter
 
     class Ev   // one printed note/chord/rest of one length
     {
-        public int start, dur; public string type; public int dots;
+        public int start, dur; public string type; public int dots; public bool tuplet;
         public List<Seg> notes = new List<Seg>(); // empty = rest
         public bool tieStart, tieStop;   // for split pieces of the same chord
         public bool firstPiece;          // fingering only on the first printed piece
@@ -196,7 +196,7 @@ public static class MusicXmlExporter
                             bool whole = ev.dur == mLen && m != 0;
                             sb.Append("      <note>").Append(whole ? "<rest measure=\"yes\"/>" : "<rest/>")
                               .Append($"<duration>{ev.dur}</duration><voice>{voiceNo}</voice>");
-                            if (!whole) { sb.Append($"<type>{ev.type}</type>"); for (int d = 0; d < ev.dots; d++) sb.Append("<dot/>"); }
+                            if (!whole) { sb.Append($"<type>{ev.type}</type>"); for (int d = 0; d < ev.dots; d++) sb.Append("<dot/>"); if (ev.tuplet) sb.Append(TupletMod); }
                             sb.Append($"<staff>{staff}</staff></note>\n");
                             continue;
                         }
@@ -218,6 +218,7 @@ public static class MusicXmlExporter
                             for (int d = 0; d < ev.dots; d++) sb.Append("<dot/>");
                             string acc = DisplayedAccidental(step[0], octave, alter, e.keyFifths, state, tieStop);
                             if (acc != null) sb.Append($"<accidental>{acc}</accidental>");
+                            if (ev.tuplet) sb.Append(TupletMod);
                             sb.Append($"<staff>{staff}</staff>");
                             if (k == 0)
                                 for (int lvl = 0; lvl < 4; lvl++)
@@ -270,7 +271,7 @@ public static class MusicXmlExporter
         void Gap(int until)
         {
             if (until <= t) return;
-            if (fillRests) foreach (var (s, d, type, dots) in Split(t, until - t)) events.Add(new Ev { start = s, dur = d, type = type, dots = dots });
+            if (fillRests) foreach (var (s, d, type, dots, tup) in Split(t, until - t)) events.Add(new Ev { start = s, dur = d, type = type, dots = dots, tuplet = tup });
             else events.Add(new Ev { start = t, dur = until - t, type = null }); // <forward>: invisible spacer in extra voices
             t = until;
         }
@@ -280,10 +281,10 @@ public static class MusicXmlExporter
             var pieces = Split(c[0].start, c[0].dur);
             for (int p = 0; p < pieces.Count; p++)
             {
-                var (s, d, type, dots) = pieces[p];
+                var (s, d, type, dots, tup) = pieces[p];
                 events.Add(new Ev
                 {
-                    start = s, dur = d, type = type, dots = dots, notes = c, firstPiece = p == 0,
+                    start = s, dur = d, type = type, dots = dots, tuplet = tup, notes = c, firstPiece = p == 0,
                     tieStop = p > 0, tieStart = p < pieces.Count - 1,
                 });
             }
@@ -295,20 +296,31 @@ public static class MusicXmlExporter
 
     static bool IsLastPiece(Ev ev, Seg s, List<Ev> events) => !events.Any(o => o != ev && o.notes == ev.notes && o.start > ev.start);
 
-    // Length in divisions → printable pieces (longest first).
-    static List<(int start, int dur, string type, int dots)> Split(int start, int dur)
+    // Length in divisions → printable pieces (longest first). A length that is exactly 2/3 of a printable value is written
+    // as that value under a 3:2 tuplet (triplet eighths, sextuplet 16ths, ...).
+    static List<(int start, int dur, string type, int dots, bool tuplet)> Split(int start, int dur)
     {
-        var res = new List<(int, int, string, int)>();
+        var res = new List<(int, int, string, int, bool)>();
+        int Divs((double q, string type, int dots) l) => (int)Math.Round(l.q * Div);
         int left = dur;
         while (left > 0)
         {
-            var pick = Lengths.FirstOrDefault(l => (int)Math.Round(l.q * Div) <= left);
-            int d = pick.type == null ? left : (int)Math.Round(pick.q * Div);
-            res.Add((start, d, pick.type ?? "64th", pick.type == null ? 0 : pick.dots));
+            var exact = Lengths.FirstOrDefault(l => Divs(l) == left);
+            if (exact.type != null) { res.Add((start, left, exact.type, exact.dots, false)); break; }
+            if ((left * 3) % 2 == 0)
+            {
+                var tup = Lengths.FirstOrDefault(l => l.dots == 0 && Divs(l) == left * 3 / 2);
+                if (tup.type != null) { res.Add((start, left, tup.type, 0, true)); break; }
+            }
+            var pick = Lengths.FirstOrDefault(l => Divs(l) <= left);
+            int d = pick.type == null ? left : Divs(pick);
+            res.Add((start, d, pick.type ?? "64th", pick.type == null ? 0 : pick.dots, false));
             start += d; left -= d;
         }
         return res;
     }
+
+    const string TupletMod = "<time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>";
 
     // Beam eighth notes and shorter within each beat group (a dotted quarter in x/8 time with 3, 6, 9 or 12 beats, else a quarter).
     static void Beam(List<Ev> events, int mStart, int den, int beats)

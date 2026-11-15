@@ -1,0 +1,38 @@
+{
+    "id": "yankee_doodle",
+    "name": "Yankee Doodle",
+    "composer": "Traditional (American)",
+    "license": "Public domain",
+    "source": "Typed by hand (Claude Code for Nehemiah, 2026-11-15) from the well-known public-domain melody. Not yet checked against printed sheet music.",
+    "verified": false,
+    "fingering": "None — needs review (melody sits mostly outside the C five-finger position: G3–F4, frequent B3/G3).",
+    "arrangement": "melody only",
+    "difficulty": 1,
+    "order": 12,
+    "tempoBpm": 110,
+    "beatsPerBar": 4,
+    "beatUnit": "quarter",
+    "keyFifths": 0,
+    "keyMode": "major",
+    "sections": [
+        {
+            "name": "Verse (bars 1–8)",
+            "firstBar": 1,
+            "lastBar": 8
+        }
+    ],
+    "pickupRH": "",
+    "pickupLH": "",
+    "rh": [
+        "C4 C4 D4 E4",
+        "C4 E4 D4 G3",
+        "C4 C4 D4 E4",
+        "C4:2 B3:2",
+        "C4 C4 D4 E4",
+        "F4 E4 D4 C4",
+        "B3 G3 A3 B3",
+        "C4:2 C4:2"
+    ],
+    "lh": [],
+    "notes": []
+}

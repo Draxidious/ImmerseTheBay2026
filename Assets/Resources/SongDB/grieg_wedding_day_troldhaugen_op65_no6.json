@@ -1,0 +1,2830 @@
+{
+    "id": "grieg_wedding_day_troldhaugen_op65_no6",
+    "name": "Wedding Day at Troldhaugen",
+    "composer": "E. Grieg (Op. 65 No. 6)",
+    "license": "Public domain",
+    "source": "Imported (opening 16 bars, as written, hands = staves) from the Mutopia Project MIDI, piece 781 (Schirmer, 1903), Public Domain / CC0 'No rights reserved', https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=781. Pickup from the LilyPond source. See Assets/Music/SOURCES.md.",
+    "verified": false,
+    "fingering": "None — needs review (not in the source; should come from a pianist or a published fingered edition).",
+    "arrangement": "as written (opening 16 bars)",
+    "difficulty": 5,
+    "order": 36,
+    "tempoBpm": 120,
+    "beatsPerBar": 4,
+    "beatUnit": "quarter",
+    "keyFifths": 2,
+    "keyMode": "major",
+    "sections": [
+        {
+            "name": "Opening (bars 1–16)",
+            "firstBar": 1,
+            "lastBar": 16
+        }
+    ],
+    "pickupRH": "",
+    "pickupLH": "",
+    "rh": [],
+    "lh": [],
+    "notes": [
+        {
+            "midi": 38,
+            "bar": 1,
+            "beat": 1.0,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 1,
+            "beat": 1.0,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 1,
+            "beat": 2.0,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 1,
+            "beat": 2.0,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 1,
+            "beat": 2.5,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 1,
+            "beat": 2.5,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 1,
+            "beat": 3.0,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 1,
+            "beat": 3.0,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 1,
+            "beat": 4.0,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 1,
+            "beat": 4.0,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 1,
+            "beat": 4.5,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 1,
+            "beat": 4.5,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 2,
+            "beat": 1.0000001192092896,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 2,
+            "beat": 1.0000001192092896,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 2,
+            "beat": 2.000000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 2,
+            "beat": 2.000000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 2,
+            "beat": 2.500000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 2,
+            "beat": 2.500000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 2,
+            "beat": 3.000000238418579,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 2,
+            "beat": 3.000000238418579,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 2,
+            "beat": 4.0,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 2,
+            "beat": 4.0,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 2,
+            "beat": 4.5,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 2,
+            "beat": 4.5,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 2,
+            "beat": 4.5,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 2,
+            "beat": 4.6666669845581055,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 2,
+            "beat": 4.833333492279053,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 3,
+            "beat": 1.000000238418579,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 3,
+            "beat": 1.000000238418579,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 3,
+            "beat": 1.000000238418579,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 3,
+            "beat": 1.500000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 3,
+            "beat": 2.000000238418579,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 3,
+            "beat": 2.000000238418579,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 3,
+            "beat": 2.000000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 3,
+            "beat": 2.000000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 3,
+            "beat": 2.500000238418579,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 3,
+            "beat": 2.500000238418579,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 3,
+            "beat": 2.500000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 3,
+            "beat": 2.500000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 3,
+            "beat": 3.000000238418579,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 3,
+            "beat": 3.000000238418579,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 3,
+            "beat": 3.000000238418579,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 76,
+            "bar": 3,
+            "beat": 3.000000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 3,
+            "beat": 3.500000238418579,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 3,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 3,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 3,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 3,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 3,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 3,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 3,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 4,
+            "beat": 1.0000003576278687,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 4,
+            "beat": 1.0000003576278687,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 4,
+            "beat": 1.0000003576278687,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 4,
+            "beat": 1.0000003576278687,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 4,
+            "beat": 1.0000003576278687,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 4,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 4,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 4,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 4,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 4,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 4,
+            "beat": 2.750000476837158,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 4,
+            "beat": 2.750000476837158,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 4,
+            "beat": 2.750000476837158,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 4,
+            "beat": 2.750000476837158,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 4,
+            "beat": 2.750000476837158,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 4,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 4,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 4,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 4,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 4,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 4,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 4,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 4,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 4,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 68,
+            "bar": 4,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 35,
+            "bar": 5,
+            "beat": 1.0000004768371582,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 42,
+            "bar": 5,
+            "beat": 1.0000004768371582,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 5,
+            "beat": 1.0000004768371582,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 5,
+            "beat": 1.0000004768371582,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 5,
+            "beat": 1.0000004768371582,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 5,
+            "beat": 1.5000004768371582,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 47,
+            "bar": 5,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 54,
+            "bar": 5,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 5,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 5,
+            "beat": 2.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 47,
+            "bar": 5,
+            "beat": 2.500000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 54,
+            "bar": 5,
+            "beat": 2.500000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 5,
+            "beat": 2.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 5,
+            "beat": 2.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 68,
+            "bar": 5,
+            "beat": 2.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 40,
+            "bar": 5,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 47,
+            "bar": 5,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 5,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 5,
+            "beat": 3.000000476837158,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 5,
+            "beat": 3.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 5,
+            "beat": 3.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 52,
+            "bar": 5,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 59,
+            "bar": 5,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 5,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 5,
+            "beat": 4.000000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 52,
+            "bar": 5,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 59,
+            "bar": 5,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 5,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 5,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 68,
+            "bar": 5,
+            "beat": 4.500000476837158,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 33,
+            "bar": 6,
+            "beat": 1.0000005960464478,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 40,
+            "bar": 6,
+            "beat": 1.0000005960464478,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 6,
+            "beat": 1.0000005960464478,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 6,
+            "beat": 1.0000005960464478,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 6,
+            "beat": 1.0000005960464478,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 6,
+            "beat": 2.0000007152557373,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 6,
+            "beat": 2.0000007152557373,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 61,
+            "bar": 6,
+            "beat": 2.0000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 6,
+            "beat": 2.0000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 6,
+            "beat": 2.7500007152557373,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 6,
+            "beat": 2.7500007152557373,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 61,
+            "bar": 6,
+            "beat": 2.7500007152557373,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 6,
+            "beat": 2.7500007152557373,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 6,
+            "beat": 3.0000007152557373,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 6,
+            "beat": 3.0000007152557373,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 61,
+            "bar": 6,
+            "beat": 3.0000007152557373,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 6,
+            "beat": 3.0000007152557373,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 73,
+            "bar": 6,
+            "beat": 4.500000476837158,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 6,
+            "beat": 4.666667461395264,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 73,
+            "bar": 6,
+            "beat": 4.833333969116211,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 43,
+            "bar": 7,
+            "beat": 1.0000007152557373,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 7,
+            "beat": 1.0000007152557373,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 7,
+            "beat": 1.0000007152557373,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 7,
+            "beat": 1.5000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 55,
+            "bar": 7,
+            "beat": 2.0000007152557373,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 7,
+            "beat": 2.0000007152557373,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 7,
+            "beat": 2.0000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 79,
+            "bar": 7,
+            "beat": 2.0000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 55,
+            "bar": 7,
+            "beat": 2.5000007152557373,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 7,
+            "beat": 2.5000007152557373,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 7,
+            "beat": 2.5000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 83,
+            "bar": 7,
+            "beat": 2.5000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 55,
+            "bar": 7,
+            "beat": 3.0000007152557373,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 7,
+            "beat": 3.0000007152557373,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 7,
+            "beat": 3.0000007152557373,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 7,
+            "beat": 3.0000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 79,
+            "bar": 7,
+            "beat": 3.5000007152557373,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 7,
+            "beat": 4.000000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 7,
+            "beat": 4.000000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 7,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 7,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 7,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 40,
+            "bar": 8,
+            "beat": 1.0000008344650269,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 47,
+            "bar": 8,
+            "beat": 1.0000008344650269,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 8,
+            "beat": 1.0000008344650269,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 8,
+            "beat": 1.0000008344650269,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 8,
+            "beat": 1.0000008344650269,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 8,
+            "beat": 1.0000008344650269,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 52,
+            "bar": 8,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 59,
+            "bar": 8,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 8,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 8,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 8,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 8,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 52,
+            "bar": 8,
+            "beat": 2.7500009536743164,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 59,
+            "bar": 8,
+            "beat": 2.7500009536743164,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 8,
+            "beat": 2.7500009536743164,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 8,
+            "beat": 2.7500009536743164,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 8,
+            "beat": 2.7500009536743164,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 8,
+            "beat": 2.7500009536743164,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 52,
+            "bar": 8,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 59,
+            "bar": 8,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 8,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 8,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 8,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 8,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 8,
+            "beat": 4.000000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 8,
+            "beat": 4.000000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 8,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 8,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 73,
+            "bar": 8,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 9,
+            "beat": 1.0000009536743164,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 52,
+            "bar": 9,
+            "beat": 1.0000009536743164,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 9,
+            "beat": 1.0000009536743164,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 9,
+            "beat": 1.0000009536743164,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 9,
+            "beat": 1.0000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 76,
+            "bar": 9,
+            "beat": 1.5000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 9,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 9,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 9,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 9,
+            "beat": 2.0000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 9,
+            "beat": 2.5000009536743164,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 9,
+            "beat": 2.5000009536743164,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 9,
+            "beat": 2.5000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 9,
+            "beat": 2.5000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 73,
+            "bar": 9,
+            "beat": 2.5000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 9,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 9,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 9,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 9,
+            "beat": 3.0000009536743164,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 9,
+            "beat": 3.0000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 76,
+            "bar": 9,
+            "beat": 3.5000009536743164,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 9,
+            "beat": 4.000000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 9,
+            "beat": 4.000000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 9,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 9,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 73,
+            "bar": 9,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 38,
+            "bar": 10,
+            "beat": 1.000001072883606,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 45,
+            "bar": 10,
+            "beat": 1.000001072883606,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 67,
+            "bar": 10,
+            "beat": 1.000001072883606,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 10,
+            "beat": 1.000001072883606,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 10,
+            "beat": 1.000001072883606,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 10,
+            "beat": 2.0000011920928955,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 10,
+            "beat": 2.0000011920928955,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 10,
+            "beat": 2.0000011920928955,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 10,
+            "beat": 2.0000011920928955,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 10,
+            "beat": 2.7500011920928955,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 10,
+            "beat": 2.7500011920928955,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 10,
+            "beat": 2.7500011920928955,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 10,
+            "beat": 2.7500011920928955,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 10,
+            "beat": 3.0000011920928955,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 10,
+            "beat": 3.0000011920928955,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 10,
+            "beat": 3.0000011920928955,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 10,
+            "beat": 3.0000011920928955,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 10,
+            "beat": 4.000000953674316,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 10,
+            "beat": 4.000000953674316,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 10,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 10,
+            "beat": 4.500000953674316,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 11,
+            "beat": 1.0000011920928955,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 11,
+            "beat": 1.0000011920928955,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 11,
+            "beat": 2.0000011920928955,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 11,
+            "beat": 2.0000011920928955,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 11,
+            "beat": 2.5000011920928955,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 11,
+            "beat": 2.5000011920928955,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 11,
+            "beat": 3.0000011920928955,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 11,
+            "beat": 3.0000011920928955,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 11,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 11,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 11,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 11,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 12,
+            "beat": 1.000001311302185,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 12,
+            "beat": 1.000001311302185,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 12,
+            "beat": 2.0000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 12,
+            "beat": 2.0000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 12,
+            "beat": 2.5000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 12,
+            "beat": 2.5000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 12,
+            "beat": 3.0000014305114746,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 12,
+            "beat": 3.0000014305114746,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 12,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 12,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 12,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 12,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 12,
+            "beat": 4.500001430511475,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 83,
+            "bar": 12,
+            "beat": 4.666667938232422,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 12,
+            "beat": 4.833334922790527,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 13,
+            "beat": 1.0000014305114746,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 13,
+            "beat": 1.0000014305114746,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 13,
+            "beat": 1.0000014305114746,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 13,
+            "beat": 1.5000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 13,
+            "beat": 2.0000014305114746,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 13,
+            "beat": 2.0000014305114746,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 13,
+            "beat": 2.0000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 86,
+            "bar": 13,
+            "beat": 2.0000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 13,
+            "beat": 2.5000014305114746,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 13,
+            "beat": 2.5000014305114746,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 13,
+            "beat": 2.5000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 90,
+            "bar": 13,
+            "beat": 2.5000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 13,
+            "beat": 3.0000014305114746,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 13,
+            "beat": 3.0000014305114746,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 13,
+            "beat": 3.0000014305114746,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 88,
+            "bar": 13,
+            "beat": 3.0000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 86,
+            "bar": 13,
+            "beat": 3.5000014305114746,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 13,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 13,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 13,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 13,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 13,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 13,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 13,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 50,
+            "bar": 14,
+            "beat": 1.0000015497207642,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 14,
+            "beat": 1.0000015497207642,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 14,
+            "beat": 1.0000015497207642,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 14,
+            "beat": 1.0000015497207642,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 83,
+            "bar": 14,
+            "beat": 1.0000015497207642,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 14,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 14,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 14,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 14,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 83,
+            "bar": 14,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 14,
+            "beat": 2.7500016689300537,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 14,
+            "beat": 2.7500016689300537,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 14,
+            "beat": 2.7500016689300537,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 14,
+            "beat": 2.7500016689300537,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 83,
+            "bar": 14,
+            "beat": 2.7500016689300537,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 62,
+            "bar": 14,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 14,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 14,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 14,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 83,
+            "bar": 14,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 14,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 14,
+            "beat": 4.000001430511475,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 14,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 14,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 80,
+            "bar": 14,
+            "beat": 4.500001430511475,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 47,
+            "bar": 15,
+            "beat": 1.0000016689300537,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 54,
+            "bar": 15,
+            "beat": 1.0000016689300537,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 15,
+            "beat": 1.0000016689300537,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 15,
+            "beat": 1.0000016689300537,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 15,
+            "beat": 1.0000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 83,
+            "bar": 15,
+            "beat": 1.5000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 59,
+            "bar": 15,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 15,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 15,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 15,
+            "beat": 2.0000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 59,
+            "bar": 15,
+            "beat": 2.5000016689300537,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 66,
+            "bar": 15,
+            "beat": 2.5000016689300537,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 15,
+            "beat": 2.5000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 15,
+            "beat": 2.5000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 80,
+            "bar": 15,
+            "beat": 2.5000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 52,
+            "bar": 15,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 59,
+            "bar": 15,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 15,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 15,
+            "beat": 3.0000016689300537,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 15,
+            "beat": 3.0000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 83,
+            "bar": 15,
+            "beat": 3.5000016689300537,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 15,
+            "beat": 4.000001907348633,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 15,
+            "beat": 4.000001907348633,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 15,
+            "beat": 4.000001907348633,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 15,
+            "beat": 4.000001907348633,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 15,
+            "beat": 4.500001907348633,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 71,
+            "bar": 15,
+            "beat": 4.500001907348633,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 15,
+            "beat": 4.500001907348633,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 78,
+            "bar": 15,
+            "beat": 4.500001907348633,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 80,
+            "bar": 15,
+            "beat": 4.500001907348633,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 57,
+            "bar": 16,
+            "beat": 1.0000017881393433,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 64,
+            "bar": 16,
+            "beat": 1.0000017881393433,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 74,
+            "bar": 16,
+            "beat": 1.0000017881393433,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 76,
+            "bar": 16,
+            "beat": 1.0000017881393433,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 16,
+            "beat": 1.0000017881393433,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 16,
+            "beat": 2.000001907348633,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 76,
+            "bar": 16,
+            "beat": 2.000001907348633,
+            "beats": 0.5,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 73,
+            "bar": 16,
+            "beat": 2.000001907348633,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 16,
+            "beat": 2.000001907348633,
+            "beats": 0.5,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 16,
+            "beat": 2.750001907348633,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 76,
+            "bar": 16,
+            "beat": 2.750001907348633,
+            "beats": 0.25,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 73,
+            "bar": 16,
+            "beat": 2.750001907348633,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 16,
+            "beat": 2.750001907348633,
+            "beats": 0.25,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 69,
+            "bar": 16,
+            "beat": 3.000001907348633,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 76,
+            "bar": 16,
+            "beat": 3.000001907348633,
+            "beats": 1.0,
+            "hand": "L",
+            "finger": 0
+        },
+        {
+            "midi": 73,
+            "bar": 16,
+            "beat": 3.000001907348633,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 81,
+            "bar": 16,
+            "beat": 3.000001907348633,
+            "beats": 1.0,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 85,
+            "bar": 16,
+            "beat": 4.500001907348633,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 86,
+            "bar": 16,
+            "beat": 4.66666841506958,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        },
+        {
+            "midi": 85,
+            "bar": 16,
+            "beat": 4.8333353996276855,
+            "beats": 0.1666666716337204,
+            "hand": "R",
+            "finger": 0
+        }
+    ]
+}

@@ -21,6 +21,7 @@ public static class MidiSongImporter
         public int format, ticksPerQuarter;
         public double tempoQuarterBpm = 120;  // first tempo event
         public int timeSigNumerator = 4, timeSigDenominator = 4; // first time signature
+        public int keyFifths; public bool keyMinor; public bool keySet; // first key signature (meta 0x59)
         public List<MidiNote> notes = new List<MidiNote>();
         public List<string> trackNames = new List<string>();
     }
@@ -29,8 +30,42 @@ public static class MidiSongImporter
     {
         public bool simplify;          // keep only the top note (RH melody) and bottom note (LH bass) at each moment
         public int splitNote = 60;     // one-track files: notes >= this go to the right hand
-        public float grid = 0.25f;     // quantize to this many beats (0.25 = sixteenth in 4/4)
+        public float grid = 1f / 24f;  // quantize to this many beats (1/24 keeps 16ths, 32nds and triplets/sextuplets exact)
         public int maxBars;            // 0 = all
+        public bool detectPickup = true; // find a pickup (anacrusis): MIDI files start at the pickup, not at bar 1
+        public double pickupQuarters = -1; // known pickup length in quarter notes (e.g. from the score's \partial); >= 0 skips detection
+    }
+
+    /// <summary>
+    /// Ticks before the first full bar (0 = no pickup). Engraved MIDI (e.g. LilyPond/Mutopia) starts at the pickup, so the
+    /// real bar lines can be offset from tick 0. Picks the offset (in 16ths) that puts the most weight on downbeats:
+    /// long notes and the lowest track (the bass usually lands on the beat). Ties prefer no pickup.
+    /// </summary>
+    public static long DetectPickupTicks(MidiFile f, double ticksPerBar)
+    {
+        if (f.notes.Count == 0 || ticksPerBar <= 0) return 0;
+        int bassTrack = f.notes.GroupBy(n => n.track).OrderBy(g => g.Average(n => n.midi)).First().Key;
+        double step = f.ticksPerQuarter / 4.0, tolerance = f.ticksPerQuarter / 32.0;
+        long firstStart = f.notes.Min(n => n.startTick);
+        double Score(double offset)
+        {
+            double s = 0;
+            foreach (var n in f.notes)
+            {
+                double phase = ((n.startTick - offset) % ticksPerBar + ticksPerBar) % ticksPerBar;
+                if (phase <= tolerance || ticksPerBar - phase <= tolerance)
+                    s += (n.endTick - n.startTick) * (n.track == bassTrack ? 2.0 : 1.0);
+            }
+            return s;
+        }
+        double baseScore = Score(0), best = 0, bestScore = baseScore;
+        for (double offset = step; offset < ticksPerBar - 1e-6; offset += step)
+        {
+            if (offset > firstStart + ticksPerBar) break;
+            double sc = Score(offset);
+            if (sc > bestScore) { bestScore = sc; best = offset; }
+        }
+        return bestScore > baseScore * 1.25 ? (long)Math.Round(best) : 0; // clearly better, or no pickup
     }
 
     // ---------- Reading ----------
@@ -83,6 +118,10 @@ public static class MidiSongImporter
                         f.timeSigDenominator = 1 << data[pos + 1];
                         sigSet = true;
                     }
+                    else if (type == 0x59 && mlen >= 2 && !f.keySet)
+                    {
+                        f.keyFifths = (sbyte)data[pos]; f.keyMinor = data[pos + 1] == 1; f.keySet = true;
+                    }
                     else if (type == 0x03) trackName = System.Text.Encoding.ASCII.GetString(data, pos, mlen);
                     pos += mlen;
                     if (type == 0x2F) break;
@@ -131,6 +170,8 @@ public static class MidiSongImporter
             beatUnit = den == 4 ? "quarter" : den == 8 ? "eighth" : den == 2 ? "half" : $"1/{den}",
             tempoBpm = (int)Math.Round(f.tempoQuarterBpm * den / 4.0),
             arrangement = o.simplify ? "simplified: melody + bass" : "as written",
+            keyFifths = f.keyFifths,
+            keyMode = f.keyMinor ? "minor" : "major",
             verified = false,
         };
 
@@ -141,13 +182,17 @@ public static class MidiSongImporter
         bool IsRight(MidiNote n) => rhTrack >= 0 ? n.track == rhTrack : n.midi >= o.splitNote;
 
         double Quantize(double beats) => o.grid > 0 ? Math.Round(beats / o.grid) * o.grid : beats;
+        long pickupTicks = o.pickupQuarters >= 0 ? (long)Math.Round(o.pickupQuarters * f.ticksPerQuarter)
+                         : o.detectPickup ? DetectPickupTicks(f, ticksPerBar) : 0;
+        double pickupBeats = Quantize(pickupTicks / ticksPerBeat);
 
         var raw = new List<SongNoteDef>();
         foreach (var n in f.notes)
         {
-            double startBeats = Quantize(n.startTick / ticksPerBeat);
+            // Beats from bar 1's downbeat; the pickup is negative and stored in bar 1 with beat < 1 (song DB convention).
+            double startBeats = Quantize(n.startTick / ticksPerBeat) - pickupBeats;
             double lenBeats = Math.Max(o.grid > 0 ? o.grid : 0.125, Quantize((n.endTick - n.startTick) / ticksPerBeat));
-            int bar = (int)Math.Floor(startBeats / num) + 1;
+            int bar = startBeats < 0 ? 1 : (int)Math.Floor(startBeats / num + 1e-9) + 1;
             if (o.maxBars > 0 && bar > o.maxBars) continue;
             raw.Add(new SongNoteDef
             {
