@@ -11,6 +11,55 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Not implemented yet.** `PerformanceEvaluator` (`Assets/Scripts/Lesson/`) still plays the whole Für Elise excerpt at one tempo.
   Next: per-measure ratings, a tempo rating per run, section looping and tempo steps in the evaluator.
 
+## 2026-11-14 ~19:20 — Claude Code (for Nehemiah): orb glows brighter when speaking; words appear in time with the voice
+- **Glow:** new `Glow` child in the CoachOrb prefab: additive halo quad (`Assets/Scripts/Coach/Materials/CoachOrbGlow.mat`,
+  URP Unlit transparent/additive, runtime radial texture) behind the sphere, strength per state (idle 0.12 → speaking 0.45–1.0
+  with the voice). Speaking core is pushed toward white with the voice. Also: the sphere floats (6 mm bob).
+- **Words in time with speech (CoachOrbBridge):** Groq joins the line into one clip, so words follow `source.time / clip.length`
+  (lead/tail silence trimmed, extra weight for pauses at punctuation). Native TTS: estimated 14 chars/s. Orb stays Thinking
+  with "..." while Groq audio downloads. Uses read-only reflection on VoiceOutput's private `groq` to know if Groq gave up.
+- **Verified (Editor):** reveal mapping over a 6 s line: 0.6 s "Nice and steady." … 3.3 s "...thumb on C, index on D," … 6 s full;
+  simulated clip → "words follow the audio"; glow 0.63–0.67 speaking vs 0.12 idle; 0 errors.
+- **⚠ Groq TTS quota:** hit the free tier's **3,600 tokens/day** limit for `canopylabs/orpheus-v1-english` (HTTP 429, org-wide,
+  shared by everyone using that key) — roughly a few dozen spoken replies a day. Coach falls back to native TTS (silent in the
+  Editor, works on Android). For the demo: upgrade the Groq org (Dev Tier) or rely on native TTS on the Aura.
+- Unity keeps re-serializing three XRI sample prefabs in `Assets/Samples/` (new `m_Priority` fields); reverted, not committed.
+
+## 2026-11-14 ~19:00 — Claude Code (for Nehemiah): CoachOrb drag-and-drop prefab, BasicScene_Coach
+- **Prefab:** `Assets/Scripts/Coach/Prefabs/CoachOrb.prefab` = CoachOrb + Text + CoachOrbBridge, no scene references.
+  Bridge now looks for the orb on its own object first and searches the scene at most once a second when something is missing.
+  `debugKeys` toggle on CoachOrb (T/Y/H/V) and CoachOrbBridge (G). Menu: **Tools ▸ Coach ▸ Rebuild CoachOrb Prefab**;
+  "Add Coach Orb" / "Add AI Coach + Orb Bridge" now place the prefab (the AI coach object no longer gets its own bridge).
+- **Scenes:** `Dev_Nehemiah` and new `BasicScene_Coach` (copy of Jordan's BasicScene + Jordan's passthrough camera: solid
+  (0,0,0,0) background, no ARSession) use the prefab + an AI Coach object.
+- **Verified (Editor Play mode via UnityMCP):** prefab dropped into BasicScene_Coach auto-found orb/coach/voice in/out →
+  Thinking → Claude reply → Groq TTS → Speaking. Prefab alone in an empty scene: placed itself 0.68 m / eye level, ShowText
+  shown and faded, 0 errors.
+- **Not done:** BasicScene_Coach still has the sample rig's locomotion/gravity on and the grid Plane; no ARSession (Ari saw
+  OPAQUE/90% dimming without it). Jordan's newest commit (`165021c` Performance Evaluation) isn't merged: its
+  `Assets/Scripts/Lesson/SongData.cs` defines `SongNote`, which clashes with Canady's `Assets/Scripts/AI/SongData.cs`.
+
+## 2026-11-14 ~18:15 — Claude Code (for Nehemiah): CoachOrb hooked up to the AI coach
+- Merged `origin/Canady` (`9c4984f`: CoachContext/CoachFacts/CoachAction, SongData, CoachPrompt.txt) into `nehemiah` first. No conflicts, no keys.
+- **Added** `Assets/Scripts/Coach/CoachOrbBridge.cs` (AI scripts untouched): Listening > Thinking > Speaking > Idle from the AI flags,
+  `"..."` while thinking, `OnResponse` → `ShowText(say)` held while speaking + 2 s, voice level from `VoiceOutput.source` RMS
+  (synthetic pulse for native TTS). Editor key `G` = fake "run finished". Menu **Tools ▸ Coach ▸ Add AI Coach + Orb Bridge**.
+- **Dev_Nehemiah:** new `AI Coach` object (AudioSource, VoiceOutput, AICoach, VoiceInput, HesitationTracker, AIDebugPanel, CoachOrbBridge).
+- **Verified in Editor Play mode (via UnityMCP):** with no `secrets.json` on this machine the coach falls back in ~66 ms →
+  orb shows the fallback line, speech never starts → text kept 2.5 s. Simulated slow reply: Idle → Thinking + `"..."` → reply text →
+  Speaking. 0 script errors.
+- **Real keys (secrets.json added locally, gitignored):** G-style "Improving" run → Thinking + `"..."` → Claude (Haiku) reply in ~1.9 s
+  (`show_fingering bar 3`) → reply shown → Speaking → Idle; text kept 9.4 s (reading time). **Groq TTS fails: HTTP 400
+  `model_terms_required`**: the Groq org admin must accept the `canopylabs/orpheus-v1-english` terms in the Groq console. Until then
+  the coach falls back to native TTS (silent in the Editor, works on Android).
+  **Update:** the key owner accepted the Groq terms; retested: `TTS Groq ... OK in 829 ms`, 15.6 s clip played through
+  `VoiceOutput.source`, orb Speaking → text faded ~2 s after speech ended.
+- **Text limit raised:** `CoachOrb.maxCharacters` 120 → 300 and `textWidth` 0.30 → 0.36 m (~40 chars/line, ~8 lines max):
+  coach replies were 160–245 chars; a 245-char reply now shows in full.
+- **Not verified:** RMS voice level from real audio (the Editor was in the background, so audio/frames were paused; the synthetic
+  pulse path did run). Needs Unity focused + a Groq key, or the Aura. Native TTS pulse and readability: Aura only.
+- Requests for the AI owner added under "Requested" in INTERFACES (speaking/thinking events, TTS-started signal, native TTS level).
+
 ## 2026-11-14 ~18:00 — Claude Code (for Ari): docs caught up with the merged branch
 - CLAUDE.md: owners (MIDI = Jordan, AICoach = Canady, LessonEngine still TBD), current dev scenes, AI key setup (secrets.json
   in StreamingAssets ships inside the APK), recording/alpha and hand-material-slot rules, new "Device tooling" section
@@ -28,6 +77,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - INTERFACES.md now lists the real MidiPianoReader and AICoach APIs from main.
 - Not yet opened/compiled in Unity on this branch; MIDI is not wired to PianoOverlay yet.
 
+## 2026-11-14 ~17:45 — Claude Code (for Nehemiah): CoachOrb (floating coach orb + text)
+- **Added** `Assets/Scripts/Coach/CoachOrb.cs` (implements the INTERFACES `CoachOrb` contract + `ShowText`/`HideText`) and
+  `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs` (Tools ▸ Coach ▸ Add Coach Orb / Add Aura XR Rig to Scene), material
+  `Assets/Scripts/Coach/Materials/CoachOrbUnlit.mat` (URP Unlit). Put in `Scripts/Coach/`, not `Scripts/UI/` (Ari's folder).
+- **Dev_Nehemiah scene:** replaced the plain camera with the project's hands XR rig + AR Session + ARCameraManager (passthrough, locomotion off,
+  same as Dev_Ari) and added the CoachOrb.
+- **Verified in Editor Play mode (via UnityMCP):** compiles with 0 errors/warnings; orb places itself at eye level, 0.68 m away, 36° right;
+  text wraps beside the orb, faces the player, long text truncated at 116 chars; Speaking color/pulse works.
+- **Untested on the Aura:** readability of 0.18 text at ~0.7 m, whether 36° right is comfortable/in view, colors on the additive display,
+  piano-anchored placement (Dev_Nehemiah has no PianoOverlay; it anchors automatically in a scene that has one).
+- **Next:** AI coach calls `SetState(Thinking)` while waiting, `SetState(Speaking)` + `SetVoiceLevel` during TTS, and `ShowText(response.say)`.
+
 ## 2026-11-14 ~17:30 — Claude Code (for Ari): hand occluder back to the first (depth-only) version
 - The soft black-mask occluder (~16:40 entry below) was wrong: it drew the hand instead of only hiding the overlay. Reverted to the
   first version: `PianoTeacher/HandOccluder` is depth-only again (ColorMask 0, ZWrite On, queue 1990), mesh grown +4 mm
@@ -39,6 +100,27 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   an on-device test and are not used; those features are off again.
 - Tooling: `adb exec-out screencap` doesn't work (two displays); `adb shell screencap -d 4626964206039778834 -p <file>` captures
   the glasses' mixed-reality view (camera + app). Wireless adb works over a private hotspot.
+
+## 2026-11-14 ~17:15 — Claude Code (for Nehemiah): merged `main` into `nehemiah`
+- Merged `origin/main` (up to `e81d0de`: TTS, AI coach incl. Claude/Groq providers, `MidiPianoReader`, JordanScene) into `nehemiah` (`79f877d`).
+- **Conflicts:** kept `nehemiah`'s `manifest.json` / `packages-lock.json` (MCP pinned `#v10.0.0`, no AI Assistant) over main's
+  MCP-on-`#main` entry; took main's `Assets/Scripts.meta` GUID (ARI's differs, so ARI→main will conflict on it: keep main's);
+  build settings = `Dev_Ari` (index 0, startup scene) + `JordanScene`, both enabled.
+- Added `Assets/Scenes/Dev_Nehemiah.unity` (empty: Main Camera + Directional Light).
+- **Works:** Unity recompiled with all merged scripts; Console 0 errors / 0 warnings (checked via UnityMCP). Not tested in Play mode or on device.
+- **Note for `main`:** main still lists `com.unity.ai.assistant` and MCP on `#main`; when ARI/nehemiah lands on main, take the pinned/removed version.
+
+## 2026-11-14 — Claude Code (for Nehemiah): merged ARI into `nehemiah`, Unity MCP verified on Nehemiah's machine
+- **Merged `origin/ARI` into `nehemiah`** (commit `91b1cb2`). Discarded local uncommitted edits first: MCP on `#main` (ARI pins `#v10.0.0`)
+  and an `OpenXRPackageSettings.asset` change that had turned Android XR Support / Hand Interaction / Foveation **off** (editor churn).
+  125 modify/delete conflicts on `Packages/com.unity.ai.assistant/*.meta` resolved by deleting (package removed on ARI). Removed the
+  leftover empty `Packages/com.unity.ai.assistant/` folders so Unity doesn't see an embedded package. `main` (Canady's TTS/AI coach) is not merged yet.
+- **Prereqs:** Claude Code 2.1.325, uv 0.13.8, Python 3.13.0.
+- **Works:** `claude mcp list` → `UnityMCP: http://127.0.0.1:8080/mcp (HTTP) ✔ Connected` (server `mcp-for-unity-server` 3.4.11, 47 tools).
+  Read-only check: active scene is an unsaved untitled scene with 2 roots (Main Camera, Directional Light). Console: 0 errors, 0 warnings
+  after the reimport. Scene not modified.
+- **Gotcha:** UnityMCP tools only show up in a Claude Code session started *after* the server is running; restart Claude Code if they're missing.
+- **Next:** open `Dev_Ari` / `MIDI OVERLAY` to confirm they load cleanly here; merge `main` once ARI lands there.
 
 ## 2026-11-14 ~16:30 — Claude Code (for Ari): hands occlude the overlay
 - New shader `Assets/Scripts/UI/Shaders/HandOccluder.shader` (`PianoTeacher/HandOccluder`): depth-only (ColorMask 0, ZWrite On,

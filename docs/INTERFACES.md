@@ -11,7 +11,7 @@ Status legend: ✅ implemented · 🚧 in progress · 📝 agreed, not built yet
 
 ```csharp
 public enum KeyState { Off, Upcoming, Next, Correct, Wrong }   // ✅ defined in PianoOverlay.cs
-public enum OrbState { Idle, Listening, Thinking, Speaking }   // 📝 CoachOrb.cs
+public enum OrbState { Idle, Listening, Thinking, Speaking }   // ✅ defined in Assets/Scripts/Coach/CoachOrb.cs
 ```
 
 MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
@@ -77,11 +77,44 @@ Editor debug: `C` = fake both pinches in front of the camera, `R` = recalibrate.
 | `void HighlightMeasure(int measureIndex)` | Highlight the current measure; turns the page if needed. |
 | `Vector3 GetNoteWorldPosition(int measureIndex, int noteIndex)` | (stretch) For drawing a line from a note to its key. |
 
-### CoachOrb (`Assets/Scripts/UI/CoachOrb.cs`) 📝
+### CoachOrb (`Assets/Scripts/Coach/CoachOrb.cs`) ✅ — built by Nehemiah (kept out of `Assets/Scripts/UI/`, Ari's folder)
+
+**Drag and drop:** `Assets/Scripts/Coach/Prefabs/CoachOrb.prefab` (orb + text + `CoachOrbBridge`). Drop it anywhere in a scene,
+no wiring needed: it places itself at runtime, anchors to a `PianoOverlay` if there is one, and follows the AI coach if the
+scene has an `AICoach` (+ `VoiceOutput`/`VoiceInput`). Without an AI coach it just idles (no errors); call `ShowText(...)` yourself.
+Debug keys (Editor only) can be switched off with the `debugKeys` box on both components. Only one orb per scene.
+
+Glowing 7 cm orb + text beside it. World-locked at the player's eye level on their right side of the piano:
+anchored to `PianoOverlay` when one is present and not calibrating (follows recalibration / grab nudges),
+otherwise placed once ~0.55 m ahead / 0.4 m right of the head after tracking settles. Re-places on tracking-origin changes.
+No dependency on the AI scripts.
+
 | Member | Purpose |
 |---|---|
-| `void SetState(OrbState state)` | Idle / Listening / Thinking / Speaking visuals. |
-| `void SetVoiceLevel(float level01)` | 0 to 1 loudness of the AI voice; drives the pulse while Speaking. Call every frame during speech. |
+| `void SetState(OrbState state)` | Idle (slow breathing blue) / Listening (green-cyan) / Thinking (violet↔blue shimmer) / Speaking (cyan, pulses with voice). |
+| `void SetVoiceLevel(float level01)` | 0 to 1 loudness of the AI voice; drives the pulse while Speaking. Call every frame during speech (decays to 0 if not called for 0.25 s). |
+| `void ShowText(string text, float seconds = -1)` | Show a message beside the orb, replacing any current one. `seconds <= 0` = auto (0.3 s/word, min 3 s). Over 120 chars is cut at a word with "...". Fades in/out. Typical use: `orb.ShowText(coachResponse.say)`. |
+| `void HideText()` | Fade the message out now. |
+| `void SetRevealedCharacters(int count)` / `string DisplayedText` | Show only the first `count` characters of the current text (layout doesn't reflow; `-1` = all). Used for words-in-time-with-speech. |
+| `void Replace()` | Re-measure eye height and re-place on the next tracked frame. |
+| `OrbState State`, `bool IsTextVisible` | Current state. |
+
+Editor debug: `T` = sample text, `Y` = cycle state, `H` = hide text, `V` = toggle fake voice level.
+Menu: **Tools ▸ Coach ▸ Add Coach Orb** (adds it to the open scene), **Tools ▸ Coach ▸ Add Aura XR Rig to Scene**,
+**Tools ▸ Coach ▸ Add AI Coach + Orb Bridge**.
+
+#### Driven by the AI: CoachOrbBridge (`Assets/Scripts/Coach/CoachOrbBridge.cs`) ✅
+Glue between the AI layer and the orb; the AI scripts are not modified. Add it to any object; it finds `CoachOrb`,
+`AICoach`, `VoiceOutput` and `VoiceInput` itself (only the orb is required).
+- **State** (polled each frame, by priority): `VoiceInput.IsListening` → Listening, `AICoach.IsThinking` → Thinking
+  (shows `"..."`), `VoiceOutput.IsSpeaking` → Speaking, else Idle.
+- **Text:** `AICoach.OnResponse` → the reply appears **word by word in time with the voice** (fallback replies too; empty = nothing).
+  Groq: progress = playback position of VoiceOutput's single TTS clip, weighted for pauses after `, ; :` and `. ! ?`.
+  Native TTS: estimated pace (`charsPerSecond`, 14). Until Groq audio starts, the orb stays Thinking with `"..."`.
+  When speech ends the whole line shows, then `lingerSeconds` (2 s) or the reading time. `revealWithSpeech` off = whole line at once.
+- **Voice level:** RMS of `VoiceOutput.source` (Groq TTS) × `voiceGain`; synthetic pulse when nothing measurable plays
+  on that source (Android native TTS, or the TTS request still downloading).
+- Editor debug: `G` = send `AIDebugPanel.Improving()` (a fake "run finished") to the coach. `logChanges` logs state/text changes.
 
 ---
 
@@ -152,6 +185,10 @@ Editor test: `AIDebugPanel` in the `AITest` scene.
 ---
 
 ## Requested (add asks for other owners here)
+- **AICoach / VoiceOutput — Nehemiah (CoachOrbBridge):** (1) events for speaking started/finished and thinking started/finished,
+  so the orb doesn't have to poll `IsSpeaking`/`IsThinking`; (2) a way to tell when TTS audio actually starts playing
+  (`IsSpeaking` is already true while the Groq request downloads, so the orb pulses before any sound); (3) optional: a 0..1
+  voice level for native Android TTS (it doesn't play through `VoiceOutput.source`, so the orb fakes the pulse). Nice-to-haves, not blocking.
 - _example: "SheetPanel needs measure-to-page mapping from LessonEngine — Ari"_
 - LessonEngine needs an owner: wait mode (MIDI → `PianoOverlay.SetKey`), scoring, `PerformanceMetrics` for the coach.
 - MIDI → overlay wiring (light the pressed key): on hold until Ari says go.

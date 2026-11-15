@@ -132,6 +132,8 @@ add a request to `docs/INTERFACES.md` under "Requested".
   5. If it isn't registered: `claude mcp add --transport http UnityMCP http://localhost:8080/mcp`.
 - **Port:** 8080 by default. If it's taken, change it to 8090 in the MCP window and re-register with that URL.
 - **The server is not started automatically.** After every Unity launch, click Start Server again or agents get `ECONNREFUSED`.
+- **Tools missing in Claude Code?** They only load in a session started *after* the server is running. `claude mcp list` can show
+  Connected while the current session has no UnityMCP tools; restart Claude Code from the project root.
 - **Conflict: Unity AI Assistant (`com.unity.ai.assistant`).** On Unity 6.3+ it clashes with MCP for Unity over `System.Collections.Immutable`.
   We **removed** it (manifest entry and the embedded `Packages/com.unity.ai.assistant` folder). If you need it back, also add
   `System.Collections.Immutable` v9.0.0 as a DLL in `Assets/Plugins/`. Its `relay_win.exe` can keep running after Unity closes and
