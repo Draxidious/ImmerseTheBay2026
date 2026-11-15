@@ -4,6 +4,14 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~04:15 PT — Claude Code (for Canady): thinking ring around the coach orb
+- New `Assets/Scripts/AI/ThinkingSpinner.cs`: a light-blue 100° arc spins clockwise around the coach orb while the AI is
+  thinking (`CoachOrb.State == Thinking`). It fades in only after 0.3 s, so quick replies don't flicker, and fades out
+  when speech starts. No sound; hidden with everything else in non-visual mode. It adds itself to every CoachOrb and only
+  reads the orb's state (Nehemiah's `CoachOrb.cs` unchanged). Editor: **F12** keeps it spinning to check the look.
+- **Verified in Main_2 Play mode:** "[Thinking] Ring on (thinking 0.3 s)" then "Ring off" around a 1.35 s coach request;
+  screenshot shows the arc beside the orb. **Untested:** brightness and line width in the Aura's lenses.
+
 ## 2026-11-15 ~04:20 PT — Claude Code (for Canady): faster non-visual readout, landmark stuck hint
 - The readout before a run is built from cached word clips (`SpokenWords`, 19 clips loaded in the background, ~10 s, during
   the intro) instead of one TTS sentence: "E, finger five, D sharp, E, D sharp, E, B, D, C." The finger is said only on
