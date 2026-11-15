@@ -35,6 +35,21 @@ Poke outcomes and sampled press pulses persist on the puck. To retrieve them aft
 `adb pull /sdcard/Android/data/com.DefaultCompany.VRTemplate/files/interaction-test.log`.
 If the log has rotated, retrieve `interaction-test.log.previous` from the same directory.
 
+### Full run-through for the onboarding build
+
+Run the steps in order on the Aura with the P71 connected. Record where the spoken cue, visual cue, or action differed from the expected result.
+
+1. **Launch.** Listen for the welcome that introduces Lesson and Free Play. If voice is configured, listen for the option to say “audio only.” For this pass, let the welcome continue into visual setup. On a first-use run, check the system permission prompts. On a repeat launch with scene access granted, the first marker cue should appear directly.
+2. **Scan the markers.** Follow **1 of 2** at the far-left key until the amber dot appears. The instruction should change to **2 of 2** at the far-right key. Keep looking there until the key guides appear. Check that the spoken cue follows the displayed step and the completed scan leads into the mode choice.
+3. **Choose Lesson.** Follow the spoken instruction to poke **Menu** on the back of the left hand with the right index, then poke **Start Lesson**. Briefly lower the hand and bring it back up. Try a quick poke through the center and a fresh poke on an action. Check that sliding behind the ring does not select anything.
+4. **Play an attempt.** Look for **Watch the demo** while the piano example plays and **Your turn** as it hands off. Follow the existing count-in and **Play!** cue. Play several correct notes on the P71 and one wrong note. Check that the sheet advances and that the coach and result cues are understandable before the next attempt.
+5. **Turn Fingering on and off.** A fresh profile starts with Fingering off. An upgrade retains the existing setting. In Lesson, enable it and listen for the one-time explanation, including how to turn it off. Check the small thumb-to-pinky numbers, the key badge, and the green flash when the indicated finger plays its key. Poke **Fingering** again and check that the numbers, badges, and glow clear together.
+6. **Try Free Play.** Switch from the wrist menu. When voice is configured, listen for the sheet-music example. Say “Hey teacher,” wait for the chime, then say “Show Jingle Bells.” Switch back to Lesson and check that the Free Play sheet has closed. Outside Lesson, Fingering should be visibly disabled.
+7. **Test the confirmations.** Poke **Restart Lesson** and check for **Confirm restart**. Close the ring and check that the lesson has stayed in place. Reopen, select and confirm to verify a real restart. Repeat with **Recalibrate Piano** and **Confirm recalibration**. After the scan starts, reopen the menu and use **Cancel Recalibrate** to verify that the previous overlay returns. Complete a second scan and check the alignment at both ends.
+8. **Restore visuals.** With working voice input, choose **Visuals Off** and listen for the recovery instructions. Say “Hey teacher,” wait for the chime, then say “visuals on.” The visuals should return using the existing calibration. In a separate cold-launch pass, choose audio-only from the welcome and then restore visuals before the first scan. The app should enter calibration.
+9. **Run pinch fallback separately.** On a first-use pass with scene permission denied, or by leaving the current marker unscanned until timeout, check that **Step 1 of 4** appears immediately. Follow back then front edges on the far-left key, then back and front on the far-right key. If a pinch is rejected, check that the same step remains clear.
+10. **Compare logs.** Keep the run start time and pull `interaction-test.log` and the Unity logcat output. Look for `Poked: Confirm Recalibrate`, `Recalibrate chosen`, and `Press glow` after the corresponding actions. Log entries can confirm registered events. Inspect optical clarity and audible timing in the glasses.
+
 ---
 
 # Old `Main.unity` checks (disabled scene)
