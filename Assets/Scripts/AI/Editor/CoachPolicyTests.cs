@@ -61,6 +61,7 @@ public class CoachPolicyTests
             bool model = ctx.trigger == CoachTrigger.LessonStart || ctx.trigger == CoachTrigger.PlayThroughPassed;
             Assert.AreEqual(model, turn == CoachPolicy.Turn.Model, CoachContext.TriggerName(ctx.trigger) + " " + cue);
             if (cue != null) Assert.LessOrEqual(cue.Split(' ').Length, 5, cue);
+            if (ctx.trigger == CoachTrigger.PlayThroughPassed) Assert.AreEqual($"Now bar {ctx.currentSection.firstBar}.", cue);
         }
         TestContext.WriteLine(string.Join("\n", transcript));
     }

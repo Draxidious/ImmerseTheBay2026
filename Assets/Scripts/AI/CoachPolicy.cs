@@ -37,8 +37,10 @@ public static class CoachPolicy
             case CoachTrigger.Stuck:
             case CoachTrigger.LessonStart:
             case CoachTrigger.Help:
-            case CoachTrigger.PlayThroughPassed:
             case CoachTrigger.SongComplete:
+                return Turn.Model;
+            case CoachTrigger.PlayThroughPassed:
+                cue = Cue(previous, PlanOf(ctx)); // the praise is the model's; "Now bar 3." follows it
                 return Turn.Model;
         }
         var c = ctx.curriculum;

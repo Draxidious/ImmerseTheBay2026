@@ -90,8 +90,10 @@ public class AICoach : MonoBehaviour
         if (result == null)
         {
             // An unprompted free-play comment that failed says nothing; "let's try that again" makes no sense there.
+            // A passed play-through still announces the next bar; "let's try that again" would be wrong there.
             string line = question ? cfg.questionFallbackLine
-                        : ctx.trigger == CoachTrigger.PhraseEnded ? "" : cfg.fallbackLine;
+                        : ctx.trigger == CoachTrigger.PhraseEnded ? ""
+                        : ctx.trigger == CoachTrigger.PlayThroughPassed ? cue ?? "" : cfg.fallbackLine;
             result = new CoachResult { say = line, trigger = ctx.trigger, isFallback = true };
             Debug.LogWarning("[AI] Coach using canned fallback line.");
         }
@@ -105,6 +107,9 @@ public class AICoach : MonoBehaviour
             _recent.Enqueue(result.say);
             while (_recent.Count > RecentLines) _recent.Dequeue();
         }
+        // The model's line names what was played; the cue says what comes next ("... solid. Now bar 3.").
+        if (ctx.trigger == CoachTrigger.PlayThroughPassed && !string.IsNullOrEmpty(cue) && result.say != cue)
+            result.say = string.IsNullOrWhiteSpace(result.say) ? cue : result.say.TrimEnd() + " " + cue;
         await PlayPassCue(sound); // a milestone chime right before the line
         if (this == null) return result;
         return Deliver(result, true);
