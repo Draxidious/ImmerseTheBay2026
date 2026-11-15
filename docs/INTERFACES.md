@@ -70,6 +70,14 @@ The lines are fixed text on the component (no model call). Editor debug: `Enter`
 
 ## UI — owner: Ari
 
+`Main_2` has a `FingeringGuide` on App Flow. It consumes the curriculum's existing run, due-note, and demo events.
+It uses the authored `ExpectedNote.hand` and `finger` to pair lilac key badges (e.g. L1) with numbers on tracked fingertips.
+The **Fingering On/Off** button beside **Switch mode** shows or hides the numbers, key badges, and fingertip glow.
+The setting defaults to on and is saved on the device.
+A coach fingering request for the current passage can trigger `ReplayDemo()` when the requested bar has authored
+fingering in the run. The guide uses the authored score during that replay. In Editor Play mode, **F10** toggles
+simulated fingertip positions during the lesson.
+
 ### PianoOverlay (`Assets/Scripts/UI/PianoOverlay.cs`) ✅
 88-key overlay generated in code. Local frame: +X along the keyboard (left to right), +Z toward the fallboard, +Y up.
 

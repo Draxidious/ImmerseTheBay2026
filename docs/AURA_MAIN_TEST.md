@@ -17,6 +17,17 @@ Für Elise demo, four-pinch calibration) is disabled; its checks are kept at the
 | Fallback | Deny scene permission or hide the markers 45 s: pinch steps come back. |
 | No exception flood | No XRI `IndexOutOfRangeException` (`MaterialHelperBase.GetSharedMaterialForTarget`) in the log. Was ~80k lines per run; fixed 2026-11-15 (hand occluder keeps both material slots). ✅ (01:48: 0 exceptions) |
 
+### Run the Editor smoke test before Build and Run
+
+In Unity, choose **Tools → Piano → Run Fingering Smoke Test**. It enters Play mode, opens Main_2,
+simulates marker calibration, selects Lesson, and checks the first demo, count-in, proximity glow, the overlay toggle, recalibration,
+and Free Play. Check the Console for `[Fingering smoke] PASS` or the failed step. It exits Play mode automatically. Use it after changes to lesson
+startup, calibration, or fingering cues.
+
+For the on-glasses pass, choose Lesson after calibration and check the opening E5 → D♯5 demo. Look for small lilac
+`R5` → `R4` circles on the keys and cyan `5` → `4` directly on the right fingertips. Check the proximity glow and
+press **Fingering On/Off** beside **Switch mode** to hide and bring back the cues during a lesson.
+
 ---
 
 # Old `Main.unity` checks (disabled scene)

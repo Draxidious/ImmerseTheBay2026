@@ -4,6 +4,22 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 — Codex (for Ari): smaller fingering cues and on/off control
+- Fingertip digits sit on the tracked finger surface. Key cues are compact lilac circles that sit flat on the keys.
+- **Fingering On/Off** beside **Switch mode** hides or restores the full overlay and saves that choice on the device.
+- The Main_2 smoke test passed for badge size and placement, glow, both toggle states, recalibration, and Free Play.
+  Check actual fingertip alignment and contrast on the Aura after installing the updated APK.
+
+## 2026-11-15 — Codex (for Ari): fingering cues in Main_2
+- Guided Lesson shows authored fingerings as L/R badges on the key and numbers on tracked fingertips. The target tip
+  brightens in the key's hand color, with a translucent glow that fades in as it approaches that key.
+- First notes preview during the count-in. Live runs and demos use the same score data. A missing finger number omits
+  the cue for that note. Editor **F10** simulates hands during a lesson for checking the cue without a headset.
+- Editor Play mode checks passed for concurrent L1/R5 cues, missing data, tracking loss, proximity fade, run end, and demo cues.
+- **Tools → Piano → Run Fingering Smoke Test** passed from startup through Free Play with simulated hands, including
+  the opening R5/R4 demo, count-in, proximity glow, and recalibration. Android build installed and launched on the Aura puck.
+- Next on the Aura: check joint alignment, near-key fade, and readability with the hand occluder enabled.
+
 ## 2026-11-15 ~02:00 — Claude Code (for Ari): state of calibration in the main scene (Main_2)
 - **Works on the Aura:** corner-marker calibration (left then right, ~3–9 s each), keyboard hidden until both lock, calibrated at
   the real width (scale 1.00), saved offsets loaded, ChooseMode → Lesson with P71 MIDI; 0 exceptions per run.
