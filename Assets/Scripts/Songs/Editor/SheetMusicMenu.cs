@@ -27,7 +27,8 @@ public static class SheetMusicMenu
 
     [Serializable] class RawMeasure { public int order, page; public float x, y, w, h; }
     [Serializable] class RawNote { public string id; public int page, measureOrder, staff, pitch; public float qstamp, x, y, w, h; }
-    [Serializable] class RawSheet { public string song; public List<SheetPage> pages; public List<RawMeasure> measures; public List<RawNote> notes; }
+    [Serializable] class RawSystem { public int index, page, width, height; public string file; public float x, y, w, h; public List<int> measureOrders; }
+    [Serializable] class RawSheet { public string song; public List<SheetPage> pages; public List<RawMeasure> measures; public List<RawNote> notes; public List<RawSystem> systems; }
 
     [MenuItem("Tools/Songs/Generate Sheet Music")]
     public static void GenerateAll() => Generate(null);
@@ -143,6 +144,30 @@ public static class SheetMusicMenu
         }
         layout.notes = layout.notes.OrderBy(n => n.page).ThenBy(n => n.bar).ThenBy(n => n.beat).ThenBy(n => n.midi).ToList();
 
+        // Lines of music (strips): bar edges and highlight box as fractions of the strip, in SongNoteDisplay's shape.
+        // The pickup and bar 1 share one slot (the pickup counts as bar 1, as in the lesson code).
+        foreach (var s in raw.systems ?? new List<RawSystem>())
+        {
+            var rects = raw.measures.Where(m => s.measureOrders.Contains(m.order))
+                .Select(m => (bar: result.hasPickup ? Math.Max(1, m.order) : m.order + 1, m)).ToList();
+            if (rects.Count == 0) continue;
+            int first = rects.Min(r => r.bar), last = rects.Max(r => r.bar);
+            var edges = new List<float>();
+            for (int b = first; b <= last; b++)
+            {
+                var ofBar = rects.Where(r => r.bar == b).ToList();
+                if (ofBar.Count > 0) edges.Add((ofBar.Min(r => r.m.x) - s.x) / s.w);
+            }
+            edges.Add((rects.Max(r => r.m.x + r.m.w) - s.x) / s.w);
+            layout.systems.Add(new SheetSystemInfo
+            {
+                index = s.index, file = s.file, page = s.page, x = s.x, y = s.y, w = s.w, h = s.h, width = s.width, height = s.height,
+                firstBar = first, lastBar = last, barEdges = edges.Select(v => Mathf.Clamp01(v)).ToArray(),
+                top = Mathf.Clamp01((rects.Min(r => r.m.y) - s.y) / s.h),
+                bottom = Mathf.Clamp01((rects.Max(r => r.m.y + r.m.h) - s.y) / s.h),
+            });
+        }
+
         int fullBars = layout.bars.Count(b => !b.pickup);
         var missing = Enumerable.Range(0, result.song.notes.Count).Where(i => !heads.Contains(i)).ToList();
         check = $"{raw.pages.Count} page(s), {fullBars}/{result.barCount} bars{(result.hasPickup ? " + pickup" : "")}, " +
@@ -186,7 +211,8 @@ public static class SheetMusicMenu
     static void DeleteOldPages(string dir)
     {
         if (!Directory.Exists(dir)) return;
-        foreach (var f in Directory.GetFiles(dir, "page-*.png")) AssetDatabase.DeleteAsset(f.Replace('\\', '/'));
+        foreach (var f in Directory.GetFiles(dir, "page-*.png").Concat(Directory.GetFiles(dir, "system-*.png")))
+            AssetDatabase.DeleteAsset(f.Replace('\\', '/'));
     }
 }
 

@@ -34,6 +34,10 @@ public class PerformanceEvaluator : MonoBehaviour
     [Header("Song")]
     [Tooltip("Target tempo in beats per minute. For Für Elise one beat is an eighth note.")]
     public float targetBpm = 90f;
+    [Tooltip("Song id in the song database (Assets/Resources/SongDB). Empty or unknown = the built-in SongLibrary.FurElise.")]
+    public string songId = "fur_elise";
+    [Tooltip("Section of that song (its \"sections\" list), right hand. Empty = the whole song.")]
+    public string songSection = "A section (bars 1–8)";
 
     [Header("Timing windows (gap vs. expected gap)")]
     [Tooltip("Within this fraction of the expected gap counts as Perfect (0.15 = 15% fast or slow).")]
@@ -69,7 +73,16 @@ public class PerformanceEvaluator : MonoBehaviour
 
     private void Awake()
     {
-        Song = SongLibrary.FurElise(targetBpm);
+        Song = LoadSong();
+    }
+
+    // The song database first (Nehemiah's Assets/Scripts/Songs), the built-in Für Elise if it isn't there.
+    private LessonSong LoadSong()
+    {
+        var song = string.IsNullOrEmpty(songId) ? null : LessonSongSource.ForLesson(songId, songSection, targetBpm);
+        if (song == null && !string.IsNullOrEmpty(songId))
+            Debug.LogWarning($"[Evaluator] \"{songId}\" / \"{songSection}\" not in the song database, using SongLibrary.FurElise.");
+        return song ?? SongLibrary.FurElise(targetBpm);
     }
 
     private void OnEnable()
@@ -95,7 +108,7 @@ public class PerformanceEvaluator : MonoBehaviour
     /// <summary>Start the song again from the first note and clear the score.</summary>
     public void Restart()
     {
-        if (Song == null || !Mathf.Approximately(Song.bpm, targetBpm)) Song = SongLibrary.FurElise(targetBpm);
+        if (Song == null || !Mathf.Approximately(Song.bpm, targetBpm)) Song = LoadSong();
         CurrentIndex = 0;
         WrongPressCount = 0;
         _wrongAttemptsOnCurrent = 0;

@@ -66,6 +66,10 @@ public class AppFlow : MonoBehaviour
         if (!overlay) overlay = FindAnyObjectByType<PianoOverlay>();
         if (!evaluator) evaluator = FindAnyObjectByType<PerformanceEvaluator>(FindObjectsInactive.Include);
         if (!sheetDisplay && evaluator) sheetDisplay = evaluator.GetComponent<SongNoteDisplay>();
+
+        // Show the generated sheet music of the evaluator's song (Assets/Resources/Sheets, one strip per line).
+        // Keeps the images set in the scene if there are none.
+        if (sheetDisplay && evaluator) LessonSongSource.ApplySheets(sheetDisplay, evaluator.songId, evaluator.songSection);
     }
 
     void OnEnable()
@@ -209,26 +213,31 @@ public class AppFlow : MonoBehaviour
     {
         if (!coach || !evaluator || evaluator.Song == null) return;
 
-        // Describe exactly the right-hand excerpt the evaluator judged, including its pickup.
-        // Use a separate cache id from the curriculum's song, which also has fingering data.
-        var source = evaluator.Song;
-        var song = new SongData
+        // Describe exactly the right-hand excerpt the evaluator judged, including its pickup: from the song database
+        // (Assets/Resources/SongDB) when the evaluator's song is there, otherwise built from the evaluator's own notes.
+        var song = LessonSongSource.ForCoach(evaluator.songId, evaluator.songSection);
+        if (song == null)
         {
-            id = "wait_mode_fur_elise", name = source.name,
-            tempoBpm = Mathf.RoundToInt(source.bpm), beatsPerBar = source.beatsPerBar,
-            timeSignature = "3/8"
-        };
-        var barStarts = new Dictionary<int, float>();
-        foreach (var note in source.notes)
-        {
-            if (!barStarts.ContainsKey(note.bar)) barStarts[note.bar] = note.beat;
-            song.notes.Add(new SongNote
+            // Use a separate cache id from the curriculum's song, which also has fingering data.
+            var source = evaluator.Song;
+            song = new SongData
             {
-                midi = note.midi, bar = note.bar, beat = note.beat - barStarts[note.bar] + 1f,
-                beats = note.duration, hand = PianoHand.Right
-            });
+                id = "wait_mode_fur_elise", name = source.name,
+                tempoBpm = Mathf.RoundToInt(source.bpm), beatsPerBar = source.beatsPerBar,
+                timeSignature = "3/8"
+            };
+            var barStarts = new Dictionary<int, float>();
+            foreach (var note in source.notes)
+            {
+                if (!barStarts.ContainsKey(note.bar)) barStarts[note.bar] = note.beat;
+                song.notes.Add(new SongNote
+                {
+                    midi = note.midi, bar = note.bar, beat = note.beat - barStarts[note.bar] + 1f,
+                    beats = note.duration, hand = PianoHand.Right
+                });
+            }
+            SongFormatter.Invalidate(song.id);
         }
-        SongFormatter.Invalidate(song.id);
         _history.attemptsThisSection++;
         _history.accuracyTrend.Add(stats.accuracy);
         if (_history.accuracyTrend.Count > 5) _history.accuracyTrend.RemoveAt(0);

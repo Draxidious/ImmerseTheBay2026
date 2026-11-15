@@ -31,8 +31,10 @@ public static class SheetLibrary
         if (json == null) { Debug.LogWarning($"[SheetLibrary] No sheet music for \"{songId}\". Run Tools ▸ Songs ▸ Generate Sheet Music."); return null; }
         var layout = JsonUtility.FromJson<SheetLayout>(json.text);
         string folder = layout.local ? $"{ResourcesFolder}/Local/{songId}" : $"{ResourcesFolder}/{songId}";
-        var pages = layout.pages.Select(p => Resources.Load<Texture2D>($"{folder}/{System.IO.Path.GetFileNameWithoutExtension(p.file)}")).ToArray();
-        var sheet = new SheetMusic { songId = songId, layout = layout, pages = pages };
+        Texture2D Load(string file) => Resources.Load<Texture2D>($"{folder}/{System.IO.Path.GetFileNameWithoutExtension(file)}");
+        var pages = layout.pages.Select(p => Load(p.file)).ToArray();
+        var systems = (layout.systems ?? new List<SheetSystemInfo>()).Select(s => Load(s.file)).ToArray();
+        var sheet = new SheetMusic { songId = songId, layout = layout, pages = pages, systems = systems };
         s_cache[songId] = sheet;
         return sheet;
     }
@@ -45,6 +47,25 @@ public class SheetMusic
     public string songId;
     public SheetLayout layout;
     public Texture2D[] pages;   // index 0 = page 1
+    public Texture2D[] systems; // one strip per line of music, index 0 = layout.systems[0]
+}
+
+/// <summary>
+/// One line of music cut out of its page as its own image (system-NN.png). All strips of a song have the same size.
+/// barEdges/top/bottom are fractions of the strip (0..1, from the left / from the top), the same shape
+/// Main's SongNoteDisplay uses for its SheetSystem entries.
+/// </summary>
+[Serializable]
+public class SheetSystemInfo
+{
+    public int index;                // 1-based
+    public string file;              // system-01.png
+    public int page;                 // page it was cut from
+    public float x, y, w, h;         // where on the page (pixels)
+    public int width, height;        // strip size in pixels
+    public int firstBar, lastBar;    // song bars on this line (a pickup counts as bar 1)
+    public float[] barEdges = new float[0]; // left edge of each bar firstBar..lastBar, then the right edge of the last one
+    public float top, bottom;        // highlight box: staff top/bottom as fractions of the strip height
 }
 
 [Serializable]
@@ -57,6 +78,7 @@ public class SheetLayout
     public List<SheetPage> pages = new List<SheetPage>();
     public List<SheetBar> bars = new List<SheetBar>();
     public List<SheetNote> notes = new List<SheetNote>();
+    public List<SheetSystemInfo> systems = new List<SheetSystemInfo>();
 
     /// <summary>Rectangles of a bar (bar 1 can have two: the pickup and the first full bar).</summary>
     public IEnumerable<SheetBar> BarRects(int bar) => bars.Where(b => b.bar == bar);

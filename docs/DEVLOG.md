@@ -4,6 +4,23 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+
+## 2026-11-14 ~22:30 — Claude Code (for Nehemiah): sheet music at 5 lines per page
+- `render_sheets.py`: renders once to get Verovio's line breaks, then re-renders with those breaks encoded plus a page break
+  every `LINES_PER_PAGE` (5) lines, so each line keeps its bars. Clair de Lune: 21 lines → pages of 5, 5, 5, 5, 1 (was 4 pages);
+  all other songs have ≤ 3 lines and stay on one page. All 7 songs regenerated: all bars and notes placed, no mismatches.
+## 2026-11-14 ~22:15 — Claude Code (for Nehemiah): Main uses the song DB for the AI and the generated sheet strips for the panel
+- **New:** `Assets/Scripts/Songs/LessonSongSource.cs` (`SectionBars`, `ForCoach`, `ForLesson`, `ApplySheets`). The sheet generator
+  now also cuts one strip per line of music (`system-NN.png`, same size per song, neighbouring lines whited out) and writes
+  `layout.systems` (`firstBar`, `barEdges`, `top`, `bottom`) in `SongNoteDisplay`'s `SheetSystem` shape; `SheetLibrary.Get` loads them
+  (`SheetMusic.systems`).
+- **Jordan's files, small code-only edits with fallbacks, no scene changes:**
+  `Lesson/PerformanceEvaluator.cs`: new `songId` (`"fur_elise"`) / `songSection` (`"A section (bars 1–8)"`); song loaded from the DB,
+  falling back to `SongLibrary.FurElise` (empty `songId` = old behaviour). `App/AppFlow.cs`: `Awake` points `SongNoteDisplay` at the
+  generated strips (fallback: the scene's images); `OnSongFinished` gives the coach the DB section (fallback: built from the evaluator's notes).
+- **In progress:** renderer fixes for the strips (page header showing at the top of the first line, a missing fingering number in
+  Hot Cross Buns bar 1) and verification in Unity (compile, evaluator song vs. `SongLibrary.FurElise`, the panel in `Main`). Not tested on the Aura.
+
 ## 2026-11-14 ~21:30 — Claude Code (for Nehemiah): sheet-music PNGs for every song in the DB
 - **Pipeline:** `Assets/Scripts/Songs/Editor/MusicXmlExporter.cs` (DB → MusicXML: pickup as implicit measure, ties across bar lines
   and into printable lengths, chords, extra voices for overlapping notes, rests, key-aware accidentals, beams per beat group,
