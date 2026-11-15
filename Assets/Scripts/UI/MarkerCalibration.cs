@@ -220,8 +220,11 @@ public class MarkerCalibration : MonoBehaviour
         _scanning = false;
         StopTracker();
         calibrator.markersAvailable = false;
+        if (_leftDot) _leftDot.SetActive(false);
         SetKeyboardVisible(true); // the pinch steps pulse the end keys on the keyboard
-        if (calibrator.IsCalibrating) calibrator.ShowInfo($"Can't use the markers ({why}).\nUse the pinch steps instead.", 5f);
+        if (!calibrator.IsCalibrating) return;
+        calibrator.ShowPinchFallback();
+        _ = Speak("Let's line up the keyboard using four pinches. Start at the back edge of the far-left key.");
     }
 
     void Update()

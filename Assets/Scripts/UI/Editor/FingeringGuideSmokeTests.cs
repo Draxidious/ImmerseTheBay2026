@@ -355,6 +355,12 @@ public static class FingeringGuideSmokeTests
             lockMarker.Invoke(marker, new object[] { center });
             Require(calibrator.IsCalibrating && calibrator.promptLabel.text.Contains("1 of 2") &&
                 calibrator.promptLabel.text.Contains("two end keys"), "Rejected span did not return to the first marker.");
+            marker.GetType().GetMethod("FallBackToPinches", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(marker, new object[] { "smoke test" });
+            Require(calibrator.IsCalibrating && !calibrator.markersAvailable &&
+                calibrator.promptLabel.text.Contains("Step 1 of 4") &&
+                calibrator.promptLabel.text.Contains("back edge of the far-left key"), "Fallback omitted the first pinch.");
+            calibrator.Recalibrate();
             lockMarker.Invoke(marker, new object[] { center - right * 0.62f });
             lockMarker.Invoke(marker, new object[] { center + right * 0.62f });
         }

@@ -306,6 +306,11 @@ public class PianoCalibrator : MonoBehaviour
     /// <summary>Show a temporary message on the calibration prompt (e.g. marker progress).</summary>
     public void ShowInfo(string text, float seconds) => ShowMessage(text, seconds);
 
+    internal void ShowPinchFallback()
+    {
+        ShowMessage("Let's line up the keyboard using four pinches.\n" + PromptFor(_phase), 5f);
+    }
+
     string FitFromBackCorners(Vector3 lowOuter, Vector3 highOuter, bool useKnownWidth)
     {
         if (!overlay) return "no overlay";
@@ -524,10 +529,10 @@ public class PianoCalibrator : MonoBehaviour
         : fourPointCalibration && p != Phase.Idle
         ? _step switch
         {
-            0 => "<b>Step 1 of 4</b>\nFar-LEFT key: pinch its FAR end,\nwhere it goes under the panel (palm down).",
-            1 => "<b>Step 2 of 4</b>\nSame key: pinch its NEAR end,\nthe edge closest to you.",
-            2 => "<b>Step 3 of 4</b>\nFar-RIGHT key: pinch its FAR end,\nwhere it goes under the panel.",
-            _ => "<b>Step 4 of 4</b>\nSame key: pinch its NEAR end,\nthe edge closest to you.",
+            0 => "<b>Step 1 of 4</b>\nPinch the back edge of the far-left key,\nwhere it meets the piano panel. Palm down.",
+            1 => "<b>Step 2 of 4</b>\nPinch the front edge of the far-left key,\nthe edge closest to you.",
+            2 => "<b>Step 3 of 4</b>\nPinch the back edge of the far-right key,\nwhere it meets the piano panel.",
+            _ => "<b>Step 4 of 4</b>\nPinch the front edge of the far-right key,\nthe edge closest to you.",
         }
         : twoHandCalibration && p != Phase.Idle
         ? "<b>Calibrate</b>\nLEFT hand on the far-LEFT key,\nRIGHT hand on the far-RIGHT key.\n" +
