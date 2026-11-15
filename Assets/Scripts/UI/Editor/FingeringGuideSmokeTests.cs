@@ -22,6 +22,8 @@ public static class FingeringGuideSmokeTests
     const string StreamingState = "FingeringGuideSmokeTests.Streaming";
     const string FingeringPref = "PianoFingeringOverlay";
     const string FingeringState = "FingeringGuideSmokeTests.FingeringPref";
+    const string FingeringIntroPref = "PianoFingeringIntroHeard";
+    const string FingeringIntroState = "FingeringGuideSmokeTests.FingeringIntroPref";
     static IEnumerator _checks;
     static CustomYieldInstruction _wait;
 
@@ -50,7 +52,9 @@ public static class FingeringGuideSmokeTests
         }
         SuspendStreaming();
         SessionState.SetInt(FingeringState, PlayerPrefs.GetInt(FingeringPref, -1));
+        SessionState.SetInt(FingeringIntroState, PlayerPrefs.GetInt(FingeringIntroPref, -1));
         PlayerPrefs.DeleteKey(FingeringPref);
+        PlayerPrefs.DeleteKey(FingeringIntroPref);
         SessionState.SetBool(Running, true);
         Debug.Log("[Fingering smoke] Starting Main_2 with simulated hands.");
         EditorApplication.isPlaying = true;
@@ -187,6 +191,8 @@ public static class FingeringGuideSmokeTests
         Require(badge.text == "R5" && Vector3.Distance(badge.transform.position, flow.overlay.GetKeyWorldCenter(76)) < 0.04f,
             "R5 is on the wrong key.");
         yield return WaitFor(() => nextBadge.enabled, "R4 on D sharp 5 during the demo");
+        var lessonCue = (TMP_Text)flow.sheetDisplay.GetType().GetField("_next", flags).GetValue(flow.sheetDisplay);
+        Require(lessonCue.text.Contains("Watch the demo"), "The demo did not identify itself on the sheet.");
         yield return WaitFor(() => flow.engine.CurrentRun != null && badge.enabled, "first count-in cue");
 
         var press = guide.GetType().GetMethod("OnNotePlayed", flags);
@@ -285,6 +291,10 @@ public static class FingeringGuideSmokeTests
         else PlayerPrefs.SetInt(FingeringPref, fingering);
         PlayerPrefs.Save();
         SessionState.EraseInt(FingeringState);
+        int intro = SessionState.GetInt(FingeringIntroState, -1);
+        if (intro < 0) PlayerPrefs.DeleteKey(FingeringIntroPref);
+        else PlayerPrefs.SetInt(FingeringIntroPref, intro);
+        SessionState.EraseInt(FingeringIntroState);
     }
 
     static SerializedObject GetStreamingSettings()

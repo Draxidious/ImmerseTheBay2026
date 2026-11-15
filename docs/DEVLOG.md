@@ -871,3 +871,8 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ## 2026-11-15 — Main_2 startup prompts
 - The welcome introduces Lesson and Free Play. The audio-only offer and listening window depend on microphone access and configured transcription.
+
+## 2026-11-15 — Main_2 onboarding and device checks
+- Added step-by-step marker cues, pinch fallback, and the wrist mode handoff. The wrist now names each confirmation and explains how to restore visuals by voice.
+- Lesson identifies demos and the player handoff. Fingering starts off for new installs and explains the toggle on first use. Free Play introduces voice sheet requests when configured.
+- Editor smoke covers marker steps and retry, pinch fallback, wrist choices, fingering, and mode handoffs. Real permissions, gestures, voice and optical clarity require the Aura run.

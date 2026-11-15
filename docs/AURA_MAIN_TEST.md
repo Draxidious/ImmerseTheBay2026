@@ -7,14 +7,14 @@ Für Elise demo, four-pinch calibration) is disabled; its checks are kept at the
 ## Main_2 checks (verified on the Aura 2026-11-15 ~01:30 unless marked)
 | Check | Expected result |
 |---|---|
-| Startup | `[MarkerCalibration] Loaded offsets …` (if saved before), MIDI backend starts, intro speech. |
-| Marker calibration | Prompt asks for the corner markers; first launch asks scene-understanding permission. Look at the LEFT marker (A0 end) then the RIGHT (C8 end), ~1 s each: `Left marker locked`, `Right marker locked; span ~1.25 m`, `Calibrated (markers) … scale 1.000`. Every C lights for 5 s; sheet moves above the keyboard. ✅ |
+| Startup | The welcome introduces Lesson and Free Play. With microphone access and configured transcription, say “audio only” during the intro to skip visual setup. In a separate run, let the intro continue into calibration. |
+| Marker calibration | If needed, allow scene access. Follow step 1 behind the far-left key until the amber dot appears, then step 2 behind the far-right key until the key guides appear. Listen for both cues. On a successful scan the sheet moves above the keyboard. |
 | Choose mode | Poke **Menu**, pull back, then poke a mode. Try a fast poke through the face. Moving sideways behind the menu or moving the wrist into a stationary index should leave the mode unchanged. |
 | Keyboard during scan | `Keyboard hidden while scanning` at the calibrate line; keys appear only with `Keyboard shown` after the right marker locks. ✅ (01:48) |
 | Lesson + MIDI | `[Lesson] Starting …`, demo of measure 1, then runs pass/fail from real P71 notes (`[MIDI] Note ON …`), tempo steps 50 → 75 → 100 %. ✅ |
 | Sheet readability | In Lesson and Free Play, check the dark notes and staff lines on the white page and the current-bar highlight while wearing the glasses. Check the video capture separately. See [Aura display and sheet music](AURA_DISPLAY.md). |
 | Offsets | Select **Fine Tune** in the hand menu. Adjust the offsets, then **Save** to write `marker-offsets.json`. |
-| Recalibrate | Poke **Recalibrate Piano**, then poke **Confirm recalibration**. Poke **Close** to cancel. Check the same confirmation for **Restart Lesson**. |
+| Recalibrate | Poke **Recalibrate Piano**, then poke **Confirm recalibration**. Poke **Close** to cancel. Verify **Restart Lesson** has its own **Confirm restart** button. |
 | Fallback | Deny scene permission or hide the markers 45 s: pinch steps come back. |
 | No exception flood | No XRI `IndexOutOfRangeException` (`MaterialHelperBase.GetSharedMaterialForTarget`) in the log. Was ~80k lines per run; fixed 2026-11-15 (hand occluder keeps both material slots). ✅ (01:48: 0 exceptions) |
 
@@ -27,7 +27,7 @@ mode switches. Check the Console for `[Fingering smoke] PASS` or the failed step
 
 Choose Lesson and check the opening E5 → D♯5 demo for lilac `R5` → `R4` key badges and fingertip glow. During the timed run,
 check for a larger, pale-green pulse over the lime glow when the indicated fingertip is on the correct MIDI key.
-Poke **Fingering On/Off** to toggle the cues and small 1–5 numbers on each tracked hand.
+Fingering defaults off on a fresh install. Poke **Fingering** during Lesson and listen for the first-use instructions, including how to turn it off. Check the small 1–5 numbers on each tracked hand and poke the same button again to clear all cues.
 
 To exit audio-only mode, say **Hey teacher**, wait for the chime, then say **visuals on**. The voice command requires microphone access and working Groq transcription.
 

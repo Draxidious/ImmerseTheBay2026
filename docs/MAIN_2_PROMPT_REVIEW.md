@@ -1,6 +1,8 @@
 # Main_2 prompt review
 
-Reviewed the scene's authored speech, calibration prompts, wrist labels, lesson cues, and Free Play and audio-only transitions on 2026-11-15. The copy below is proposed for the next build.
+Reviewed the scene's authored speech, calibration prompts, wrist labels, lesson cues, and Free Play and audio-only transitions on 2026-11-15. The table records the original review. The updated device checklist lists the current controls.
+
+The proposed count-in wording, “Press any key to start the count-in,” is a possible follow-up. The current countdown, start cue, and performance feedback stay in use. The optional blue-guide alignment instruction was dropped. Fingering is off on a fresh install and uses a disabled button outside Lesson.
 
 | Moment | What the player sees or hears today | Proposed prompt or change |
 | --- | --- | --- |
