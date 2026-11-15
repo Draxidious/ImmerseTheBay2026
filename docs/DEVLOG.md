@@ -4,12 +4,19 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~02:00 — Claude Code (for Ari): state of calibration in the main scene (Main_2)
+- **Works on the Aura:** corner-marker calibration (left then right, ~3–9 s each), keyboard hidden until both lock, calibrated at
+  the real width (scale 1.00), saved offsets loaded, ChooseMode → Lesson with P71 MIDI; 0 exceptions per run.
+- **Offsets** (code, Main_2, Dev_Ari, puck): left (-0.005, 0.016, 0.107), right (0.015, 0.016, 0.090) m.
+- **Known limits:** rescans move the keyboard 8–16 mm (mostly height at the C8 end); fine-tune with the blue left-hand dot.
+- Docs: `docs/HANDOVER_MARKER_CALIBRATION.md` (current state), `docs/marker-tracking/` (prototype history).
+
 ## 2026-11-15 ~01:50 — Claude Code (for Ari): keyboard hidden until both markers lock
 - `MarkerCalibration.hideKeyboardWhileScanning` (default on): the keyboard overlay is hidden during the marker scan (it covered
   the marker dot and prompt) and appears when both markers lock; also shown on a pinch fallback or when calibration ends another
   way, hidden again on an orange-dot rescan. AppFlow unchanged (it still turns the overlay on; MarkerCalibration hides it).
 - Editor (Main_2): hidden while scanning and after the left lock, shown on the right lock → ChooseMode, hidden on recalibrate,
-  shown on fallback; 0 exceptions. Installed on the puck; on-glasses check pending.
+  shown on fallback; 0 exceptions. **Verified on the Aura (01:48)**: hidden at the calibrate line, shown after the right lock.
 
 ## 2026-11-15 ~01:55 — Claude Code (for Ari): fixed the XRI IndexOutOfRangeException flood
 - Cause: `PianoCalibrator.LateUpdate` (hand occlusion) set each template hand mesh to ONE material (the occluder). The rig's XRI
@@ -17,6 +24,7 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   they threw every frame (~80k log lines per run, Main and Main_2).
 - Fix: fill every slot with the occluder and keep the slot count (2). Hands stay invisible; affordances find slot 1.
 - Editor (Main_2 play): all 14 `MaterialPropertyBlockHelper`s resolve their material, 0 exceptions.
+- **Verified on the Aura (01:48):** 0 `IndexOutOfRange` and 0 other exceptions in 1,280 Unity lines (was ~80k per run).
 
 ## 2026-11-15 ~01:40 — Claude Code (for Ari): Main_2 is the main scene; markers verified on the Aura
 - **`Assets/Scenes/Main_2.unity` is the main scene**: the only enabled build scene (index 0). `Main.unity` is the older freeplay

@@ -1,4 +1,4 @@
-# Handover: marker calibration into Main_2 (2026-11-15 ~00:30 PT)
+# Handover: marker calibration in Main_2 (updated 2026-11-15 ~02:00 PT)
 
 For whoever (person or agent) picks this up. Deadline: **Sun 2026-11-15 9:00 AM PT**.
 
@@ -19,17 +19,23 @@ main** (user requirement; don't invent input or visuals). Print sheet: `output/p
 - **Target scene is `Main_2.unity` = THE MAIN SCENE** (only enabled build scene, index 0; `Main.unity` is listed but disabled and
   unchanged). Pushed to main as `1e8919d`. **Verified on the Aura (01:29–01:31):** markers locked in ~6 s (span 1.271 m), scale
   1.000, ChooseMode → Lesson, real MIDI drove measure 1 through the 50/75/100 % steps. Saved offsets loaded from the puck.
+- **XRI exception flood fixed** (`1491b8e`) and **keyboard hidden until both markers lock** (`f004cb6`), both pushed.
+  **Verified on the Aura (01:48):** 0 `IndexOutOfRange` / 0 other exceptions in 1,280 Unity lines (was ~80k); "Keyboard hidden
+  while scanning" → left lock 9 s → right lock 3 s later (span 1.263 m) → "Keyboard shown" → calibrated, scale 1.00 → ChooseMode.
+- Offsets in use (code, Main_2, Dev_Ari, and on the puck): left `(-0.005, 0.016, 0.107)`, right `(0.015, 0.016, 0.090)` m
+  (inward, down, toward player).
 
 ## Remaining
-1. ~~XRI `IndexOutOfRangeException` flood~~ Fixed: `PianoCalibrator`'s hand occluder replaced the template hands' two material
-   slots with ONE, but the rig's poke / near-far hand affordances tint slot 1. It now fills every slot with the occluder and keeps
-   the count.
-2. Rescans move the keyboard 8–16 mm (mostly height at the C8 end); retune with the blue-dot sliders if needed.
-3. Team: announce that `Main_2` is the main/build scene and that Google's marker OpenXR features are on.
+1. ~~XRI `IndexOutOfRangeException` flood~~ Fixed and verified on the Aura: `PianoCalibrator`'s hand occluder replaced the template
+   hands' two material slots with ONE, but the rig's poke / near-far hand affordances tint slot 1. It now fills every slot with the
+   occluder and keeps the count.
+2. ~~Keyboard covers the marker dot during calibration~~ Fixed and verified: hidden until both markers lock.
+3. Rescans move the keyboard 8–16 mm (mostly height at the C8 end); retune with the blue-dot sliders if needed.
+4. Team: announce that `Main_2` is the main/build scene and that Google's marker OpenXR features are on.
 
 ## Risks / watch
-- Google's `XRSessionFeature` has never run inside Main (worked in Dev_Ari with passthrough + hands). Test the full flow.
-- Main has 9 UGUI canvases; adding an EventSystem with `XRUIInputModule` only lets XRI rays hit canvases that have a
+- Google's `XRSessionFeature` now runs in Main_2 with passthrough, hands, MIDI and the coach (verified 01:29 and 01:48).
+- Main_2 has several UGUI canvases; adding an EventSystem with `XRUIInputModule` only lets XRI rays hit canvases that have a
   `TrackedDeviceGraphicRaycaster` (only the offsets panel does). Watch for unexpected UI hover/clicks anyway.
 - The scene-understanding permission dialog appears during the calibrate line on first launch.
 - Fallback to pinches: permission denied, tracker not running after 5 s, or no marker in 45 s.
