@@ -16,8 +16,8 @@ and an AI coach gives short spoken feedback between phrases.
   up the tempo ladder, then play-throughs and repairs. Whole piece, both hands (`Assets/Resources/Songs/fur_elise.json`,
   105 bars). Left-hand keys are amber. Editor keys F5–F8 end a run as clean / shaky / problem / too slow; Enter skips waits.
 - **Calibration = corner markers** (ArUco 4x4_50, ID 0 behind A0, ID 1 behind C8, 33 mm) instead of the four pinches; the
-  pinches come back if markers can't run. After calibration, tap **Menu** on the back of the left hand for **Fine Tune**
-  or **Recalibrate**. Editor: **M** simulates a marker lock. See `docs/HANDOVER_MARKER_CALIBRATION.md`.
+  pinches come back if markers can't run. After calibration, use the **Menu** on the back of the left hand (touch, swipe, lift)
+  for **Fine Tune** or **Recalibrate**. Editor: **M** simulates a marker lock. See `docs/HANDOVER_MARKER_CALIBRATION.md`.
 - **Old `Main.unity` (disabled):** freeplay of the 35-note right-hand Für Elise opening (8 bars), wait mode, four-pinch calibration.
 - **Core loop ("wait mode"):** highlight the next key → wait for the correct press → advance → AI comments after the completed excerpt.
 - **Pitch:** the optical view keeps the real keys and fingers directly visible while the app links written notes to
@@ -94,8 +94,10 @@ add a request to `docs/INTERFACES.md` under "Requested".
   FAR then NEAR end of A0, then of C8. Sheet placement is 0.45 m above / 0.20 m behind the drawn keyboard center; it updates
   after recalibration without restarting the lesson.
 - Lesson: the curriculum demos each measure, then the player plays it; runs pass/fail and the coach speaks between runs.
-- Tap the amber **Menu** button on the back of the left hand to choose a mode or adjust the piano. The ring follows the hand.
-  Tap the center again to close it. **Fine Tune** opens the offset controls after marker calibration.
+- Hand menu: touch the amber **Menu** button on the back of the left hand with the right index, swipe toward an action,
+  then lift. Returning to the center before lifting cancels. **Restart Lesson** and **Recalibrate** show a confirmation branch
+  while swiping. Continue through it and withdraw to confirm. Touch and lift on the center closes the ring, which follows the hand.
+  **Fine Tune** opens the offset controls after marker calibration. The wrist menu has no ray or poke targets.
 - Editor keys: **Enter** skips speech/listen waits; **M** simulates a marker lock, **C** simulates the pinch calibration,
   **F1** toggles the hand menu; **F5–F8** end a lesson run (clean / shaky / problem / too slow).
   **Tools → Piano → Run Fingering Smoke Test** checks the hand menu and lesson flow.

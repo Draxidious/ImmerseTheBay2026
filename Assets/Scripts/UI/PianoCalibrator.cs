@@ -695,6 +695,17 @@ public class PianoCalibrator : MonoBehaviour
         return true;
     }
 
+    internal bool TryGetMenuIndexTip(out Vector3 position)
+    {
+        position = default;
+        if (_hands == null || !_hands.running || !_hands.rightHand.isTracked ||
+            IsSystemGesture(MetaAimHand.right) ||
+            !_hands.rightHand.GetJoint(XRHandJointID.IndexTip).TryGetPose(out var tip))
+            return false;
+        position = ToWorld(tip.position);
+        return true;
+    }
+
     /// <summary>Orange dot on the back of the left hand; right index finger touch-and-hold → Recalibrate().</summary>
     void UpdateHandDot()
     {

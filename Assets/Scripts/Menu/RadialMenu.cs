@@ -8,9 +8,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 /// <summary>
 /// Main_2 renders a tracked left-hand button and a ring that expands around it. Other scenes use the legacy dot menu.
-/// Tap the center to open or close. Selecting an action collapses the ring to the center button.
-/// Visuals Off (Canady): switches to non-visual mode (VisualsMode); the menu never opens while non-visual, so voice
-/// ("hey teacher, visuals on") or F9 switches back.
+/// Touch the center, swipe toward an action, and lift to select.
 /// </summary>
 public class RadialMenu : MonoBehaviour
 {
@@ -49,6 +47,8 @@ public class RadialMenu : MonoBehaviour
         public readonly List<LineRenderer> lines = new List<LineRenderer>();
         public TextMeshPro label;
         public Material material;
+        public Color color;
+        public Color painted;
         public bool enabled = true;
     }
 
@@ -60,9 +60,23 @@ public class RadialMenu : MonoBehaviour
     MarkerCalibration _markerCalibration;
     Transform _handAnchor;
     Segment _handButton;
+    Segment _confirmButton;
+    Segment _pending;
     GameObject _menuIcon, _closeIcon;
     Material _buttonEdge, _iconMaterial;
     float _lastHandPoseAt;
+    const float CenterRadius = 0.019f;
+    const float TouchDepth = -0.013f;
+    const float LiftDepth = -0.035f;
+    const float SwipeDistance = 0.050f;
+    const float ConfirmDistance = 0.087f;
+    const float DirectionMatch = 0.88f;
+    bool _readyToTouch, _stroking, _leftCenter, _openedByStroke, _previewedConfirmation;
+    float _nextRefresh;
+    float _deepestTouch;
+    Vector3 _strokeStart;
+    Quaternion _strokeRotation;
+    Segment _swipeTarget;
     bool _wearable => _fingeringGuide;
 #if UNITY_EDITOR
     bool _simulateMenuHand;
@@ -88,14 +102,14 @@ public class RadialMenu : MonoBehaviour
 
     public void Open()
     {
-        if (!_root || VisualsMode.NonVisual || (_wearable && !_handAnchor.gameObject.activeSelf)) return; // non-visual: nothing to see or poke
+        if (!_root || IsOpen || VisualsMode.NonVisual || (_wearable && !_handAnchor.gameObject.activeSelf)) return;
         _openedAt = Time.time;
         _acted = false;
         SetFocus(null);
         if (_wearable)
         {
             if (_markerCalibration) _markerCalibration.CloseFineTune();
-            _root.localScale = Vector3.one * 0.72f;
+            _root.localScale = Vector3.one * 0.85f;
         }
         else PlaceInFrontOfHead();
         _root.gameObject.SetActive(true);
@@ -108,6 +122,9 @@ public class RadialMenu : MonoBehaviour
     {
         if (!_root || !_root.gameObject.activeSelf) return;
         _root.gameObject.SetActive(false);
+        ClearStroke();
+        _readyToTouch = false;
+        SetConfirmation(null);
         SetFocus(null);
         UpdateHandButton();
         Debug.Log("[RadialMenu] Closed.");
@@ -117,11 +134,42 @@ public class RadialMenu : MonoBehaviour
     public bool Choose(Choice choice)
     {
         if (choice == Choice.Close) { Close(); return true; }
-        if (_acted || !IsAvailable(choice, out _)) return false;
+        if (_acted || VisualsMode.NonVisual || !IsAvailable(choice, out _)) return false;
+        if (NeedsConfirmation(choice))
+        {
+            if (!IsOpen) return false;
+            foreach (var segment in _segments)
+            {
+                if (segment.choice != choice) continue;
+                SetConfirmation(segment);
+                Refresh();
+                return true;
+            }
+        }
+        return ExecuteChoice(choice);
+    }
+
+    bool NeedsConfirmation(Choice choice) => _wearable &&
+        (choice == Choice.RestartLesson && InLesson ||
+         choice == Choice.Recalibrate && calibrator && !calibrator.IsCalibrating);
+
+    void SetConfirmation(Segment segment)
+    {
+        _pending = segment;
+        if (_confirmButton == null) return;
+        _confirmButton.go.SetActive(segment != null);
+        if (segment == null) return;
+        _confirmButton.go.transform.localPosition = segment.go.transform.localPosition.normalized * 0.108f;
+        _confirmButton.color = Color.Lerp(segment.color, SoftIvory, 0.40f);
+        SetColor(_confirmButton, _confirmButton.color);
+    }
+
+    bool ExecuteChoice(Choice choice)
+    {
+        if (_acted || VisualsMode.NonVisual || !IsAvailable(choice, out _)) return false;
         _acted = true;
-        Debug.Log($"[RadialMenu] {choice} chosen.");
-        var seg = _segments.Find(s => s.choice == choice);
-        if (seg != null) SetColor(seg, chosenColor);
+        if (_wearable) AuraInteractionLog.Write($"[RadialMenu] {choice} chosen.");
+        else Debug.Log($"[RadialMenu] {choice} chosen.");
         switch (choice)
         {
             case Choice.RestartLesson: RestartLesson(); break;
@@ -165,7 +213,7 @@ public class RadialMenu : MonoBehaviour
                 return calibrator && Calibrated;
             case Choice.Fingering:
                 bool enabled = _fingeringGuide && _fingeringGuide.OverlayEnabled;
-                label = enabled ? "Fingering\nOn" : "Fingering\nOff";
+                label = !InLesson ? "Fingering\nLesson only" : enabled ? "Fingering\nOn" : "Fingering\nOff";
                 return _fingeringGuide && Calibrated && !calibrating && InLesson;
             case Choice.FineTune:
                 bool canFineTune = _markerCalibration && _markerCalibration.CanFineTune;
@@ -220,6 +268,7 @@ public class RadialMenu : MonoBehaviour
         {
             _markerCalibration = FindAnyObjectByType<MarkerCalibration>();
             BuildWearable();
+            AuraInteractionLog.Write("[RadialMenu] Swipe-through menu ready.");
         }
         else Build();
         _root.gameObject.SetActive(false);
@@ -254,40 +303,71 @@ public class RadialMenu : MonoBehaviour
     {
         foreach (var s in _segments) if (s.material) Destroy(s.material);
         if (_handButton != null) Destroy(_handButton.material);
+        if (_confirmButton != null) Destroy(_confirmButton.material);
         Destroy(_buttonEdge);
         Destroy(_iconMaterial);
     }
 
     void Update()
     {
-        if (_wearable) UpdateHandTracking();
+        if (VisualsMode.NonVisual)
+        {
+            Close();
+            if (_handAnchor && _handAnchor.gameObject.activeSelf) _handAnchor.gameObject.SetActive(false);
+            _readyToTouch = false;
+            return;
+        }
+        if (_wearable)
+        {
+            UpdateHandTracking();
+            if (_handAnchor.gameObject.activeSelf && calibrator.TryGetMenuIndexTip(out var tip))
+                UpdateSwipe(tip);
+            else
+            {
+                if (_stroking)
+                {
+                    AuraInteractionLog.Write("[RadialMenu] Stroke canceled: hand tracking lost.");
+                    if (_previewedConfirmation) SetConfirmation(null);
+                    ClearStroke();
+                }
+                _readyToTouch = false;
+            }
+        }
         DebugKeys();
         if (!IsOpen) return;
-        if (_wearable)
-            _root.localScale = Vector3.one * Mathf.SmoothStep(0.72f, 1f, (Time.time - _openedAt) / 0.18f);
+        if (_wearable && Time.time - _openedAt < 0.15f)
+            _root.localScale = Vector3.one * Mathf.SmoothStep(0.85f, 1f, (Time.time - _openedAt) / 0.15f);
         else if (autoCloseSeconds > 0f && Time.time > _openedAt + autoCloseSeconds &&
-            (!app || app.CurrentStep != AppFlow.Step.ChooseMode)) { Close(); return; }
-        Refresh();
+            !_wearable && (!app || app.CurrentStep != AppFlow.Step.ChooseMode)) { Close(); return; }
+        if (_wearable && _root.localScale.x < 1f && Time.time - _openedAt >= 0.15f)
+            _root.localScale = Vector3.one;
+        if (!_wearable || Time.unscaledTime >= _nextRefresh) Refresh();
     }
 
     bool Usable => IsOpen && !_acted && Time.time >= _openedAt + debounceSeconds;
 
     void Refresh()
     {
+        _nextRefresh = Time.unscaledTime + 0.12f;
         bool usable = Usable;
         foreach (var s in _segments)
         {
             s.enabled = IsAvailable(s.choice, out string label);
             if (s.label.text != label) s.label.text = label;
-            bool live = usable && s.enabled;
-            if (s.interactable.enabled != live) s.interactable.enabled = live;
+            bool live = s.enabled && (_wearable || usable);
+            if (s.interactable && s.interactable.enabled != live) s.interactable.enabled = live;
             if (!live && _focused == s) SetFocus(null);
             if (!_acted)
                 SetColor(s, _wearable
-                    ? !s.enabled ? MutedClay : _focused == s ? Apricot : Clay
+                    ? !s.enabled || (_pending != null && _pending != s) ? MutedClay :
+                        _focused == s ? Color.Lerp(s.color, Color.white, 0.35f) : s.color
                     : !s.enabled ? disabledColor : _focused == s ? focusColor : rimColor);
-            s.label.color = s.enabled ? Color.white : _wearable ? SoftIvory : disabledColor;
+            Color labelColor = s.enabled ? Color.white : _wearable ? SoftIvory : disabledColor;
+            if (s.label.color != labelColor) s.label.color = labelColor;
         }
+        if (_pending != null)
+            SetColor(_confirmButton, _focused == _pending
+                ? Color.Lerp(_confirmButton.color, Color.white, 0.35f) : _confirmButton.color);
         if (_title)
             _title.text = app && app.CurrentStep == AppFlow.Step.ChooseMode ? "Choose a mode" :
                 Calibrated || (calibrator && calibrator.IsCalibrating) ? "Menu" : "Finish setup first";
@@ -295,8 +375,101 @@ public class RadialMenu : MonoBehaviour
 
     void SetFocus(Segment s)
     {
+        if (_focused == s) return;
         _focused = s;
-        foreach (var x in _segments) x.go.transform.localScale = Vector3.one * (x == s ? 1.08f : 1f);
+        if (_wearable) Refresh();
+        else foreach (var x in _segments) x.go.transform.localScale = Vector3.one * (x == s ? 1.08f : 1f);
+    }
+
+    // The left hand defines the menu direction; the right index must also travel in world space.
+    // This prevents a translation of the wrist under a stationary index from becoming a swipe.
+    void UpdateSwipe(Vector3 tip)
+    {
+        Vector3 local = _handAnchor.InverseTransformPoint(tip);
+        Vector2 radial = new Vector2(local.x, local.y);
+        bool atCenter = radial.sqrMagnitude <= CenterRadius * CenterRadius;
+        bool lifted = local.z < LiftDepth;
+        if (!_stroking)
+        {
+            if (lifted && atCenter) _readyToTouch = true;
+            if (!atCenter) _readyToTouch = false;
+            // A sampled frame can jump from in front of the button to behind it.
+            // The center approach arms a crossing, so a sample on the face isn't required.
+            if (!_readyToTouch || local.z < TouchDepth) return;
+            _readyToTouch = false;
+            _openedByStroke = !IsOpen;
+            if (_openedByStroke) Open();
+            _stroking = true;
+            _leftCenter = false;
+            _strokeStart = tip;
+            _strokeRotation = _handAnchor.rotation;
+            _deepestTouch = local.z;
+            return;
+        }
+
+        // Once armed, use the finger's projection onto the menu. Moving through the
+        // visual face is still part of the swipe. Only withdrawing toward the viewer releases.
+        _deepestTouch = Mathf.Max(_deepestTouch, local.z);
+        if (!atCenter) _leftCenter = true;
+        if (atCenter && _previewedConfirmation)
+        {
+            SetConfirmation(null);
+            _previewedConfirmation = false;
+        }
+        Vector3 motion = Quaternion.Inverse(_strokeRotation) * (tip - _strokeStart);
+        var planarMotion = new Vector2(motion.x, motion.y);
+        Segment target = FindSwipeTarget(radial, planarMotion);
+        if (_pending == null && target != null && NeedsConfirmation(target.choice))
+        {
+            SetConfirmation(target);
+            _previewedConfirmation = true;
+            Refresh();
+        }
+        bool reachedConfirmation = _pending != null && target == _pending &&
+            radial.sqrMagnitude >= ConfirmDistance * ConfirmDistance &&
+            planarMotion.sqrMagnitude >= ConfirmDistance * ConfirmDistance;
+        _swipeTarget = _pending == null || reachedConfirmation ? target : null;
+        SetFocus(_swipeTarget);
+        if (!lifted) return;
+
+        var selection = _swipeTarget;
+        bool closeTap = atCenter && !_leftCenter && !_openedByStroke;
+        AuraInteractionLog.Write($"[RadialMenu] Released: {selection?.choice.ToString() ?? (target != null ? "confirmation shown" : atCenter ? "center" : "no target")}; " +
+            $"depth {_deepestTouch * 1000f:F0} mm, radial {radial.magnitude * 1000f:F0} mm, " +
+            $"right-index travel {new Vector2(motion.x, motion.y).magnitude * 1000f:F0} mm" +
+            (_pending != null ? "; confirming." : "."));
+        ClearStroke();
+        _readyToTouch = atCenter;
+        if (closeTap) Close();
+        else if (selection != null)
+        {
+            if (reachedConfirmation) ExecuteChoice(selection.choice);
+            else Choose(selection.choice);
+        }
+    }
+
+    Segment FindSwipeTarget(Vector2 radial, Vector2 motion)
+    {
+        if (radial.sqrMagnitude < SwipeDistance * SwipeDistance || motion.sqrMagnitude < SwipeDistance * SwipeDistance)
+            return null;
+        radial.Normalize();
+        motion.Normalize();
+        foreach (var segment in _segments)
+        {
+            if ((_pending != null && segment != _pending) || !segment.enabled) continue;
+            Vector2 direction = ((Vector2)segment.go.transform.localPosition).normalized;
+            if (Vector2.Dot(radial, direction) >= DirectionMatch &&
+                Vector2.Dot(motion, direction) >= DirectionMatch) return segment;
+        }
+        return null;
+    }
+
+    void ClearStroke()
+    {
+        _stroking = false;
+        _previewedConfirmation = false;
+        _swipeTarget = null;
+        SetFocus(null);
     }
 
     void PlaceInFrontOfHead()
@@ -335,7 +508,6 @@ public class RadialMenu : MonoBehaviour
     // ------------------------------------------------------------------ Build
 
     static readonly Color Clay = new Color(0.64f, 0.25f, 0.13f);
-    static readonly Color Apricot = new Color(0.84f, 0.36f, 0.16f);
     static readonly Color MutedClay = new Color(0.31f, 0.22f, 0.23f);
     static readonly Color SoftIvory = new Color(0.94f, 0.78f, 0.65f);
     static readonly Color Amber = new Color(0.72f, 0.39f, 0.12f);
@@ -381,13 +553,17 @@ public class RadialMenu : MonoBehaviour
         PaintMaterial(_iconMaterial, new Color(1f, 0.89f, 0.67f));
 
         const float orbit = 0.065f;
-        // Six buttons, 60° apart (Visuals added by Canady).
-        AddWearableAction(Choice.RestartLesson, 90f, orbit);
-        AddWearableAction(Choice.Recalibrate, 30f, orbit);
-        AddWearableAction(Choice.FineTune, -30f, orbit);
-        AddWearableAction(Choice.Fingering, -90f, orbit);
-        AddWearableAction(Choice.Visuals, -150f, orbit);
-        AddWearableAction(Choice.FreePlay, 150f, orbit);
+        AddWearableAction(Choice.RestartLesson, 90f, orbit, new Color(0.68f, 0.30f, 0.15f));
+        AddWearableAction(Choice.Recalibrate, 30f, orbit, new Color(0.67f, 0.23f, 0.27f));
+        AddWearableAction(Choice.FineTune, -30f, orbit, new Color(0.49f, 0.38f, 0.16f));
+        AddWearableAction(Choice.Fingering, -90f, orbit, new Color(0.47f, 0.29f, 0.64f));
+        AddWearableAction(Choice.Visuals, -150f, orbit, new Color(0.21f, 0.43f, 0.58f));
+        AddWearableAction(Choice.FreePlay, 150f, orbit, new Color(0.25f, 0.53f, 0.35f));
+        _confirmButton = NewSegment(Choice.Close, "Confirm", addToRing: false);
+        MakeButtonBody(_confirmButton, 0.024f);
+        _confirmButton.label = Label(_confirmButton.go.transform, "Label", "Are you sure?\nSwipe through", 0.074f,
+            new Vector3(0f, 0f, -0.006f), new Vector2(0.047f, 0.031f));
+        _confirmButton.go.SetActive(false);
 
         _handButton = NewSegment(Choice.Close, "Close", _handAnchor, addToRing: false);
         MakeButtonBody(_handButton, 0.019f);
@@ -404,12 +580,6 @@ public class RadialMenu : MonoBehaviour
             MakeShape(_closeIcon.transform, PrimitiveType.Cube, new Vector3(0f, 0.005f, -0.006f),
                 new Vector3(0.002f, 0.011f, 0.0015f), Quaternion.Euler(0f, 0f, tilt), _iconMaterial);
 
-        AddPoke(_handButton, Vector3.zero, new Vector3(0.035f, 0.035f, 0.016f), () =>
-        {
-            if (!_handAnchor.gameObject.activeInHierarchy) return;
-            if (!IsOpen) Open();
-            else Close();
-        });
         UpdateHandButton();
     }
 
@@ -422,14 +592,14 @@ public class RadialMenu : MonoBehaviour
         SetColor(_handButton, IsOpen ? Clay : Amber);
     }
 
-    void AddWearableAction(Choice choice, float angle, float orbit)
+    void AddWearableAction(Choice choice, float angle, float orbit, Color color)
     {
         var segment = NewSegment(choice, choice.ToString());
+        segment.color = color;
         segment.go.transform.localPosition = Polar(orbit, angle);
         MakeButtonBody(segment, 0.024f);
         segment.label = Label(segment.go.transform, "Label", "", 0.118f,
             new Vector3(0f, 0f, -0.006f), new Vector2(0.045f, 0.031f));
-        AddPoke(segment, Vector3.zero, new Vector3(0.044f, 0.044f, 0.016f));
     }
 
     void MakeButtonBody(Segment segment, float buttonRadius)
@@ -547,7 +717,7 @@ public class RadialMenu : MonoBehaviour
         return s;
     }
 
-    void AddPoke(Segment s, Vector3 center, Vector3 size, Action onTap = null)
+    void AddPoke(Segment s, Vector3 center, Vector3 size)
     {
         // Collider first: the interactable collects its colliders on Awake. Local +Z points away from the player,
         // so a poke from the player's side moves along +Z (XRPokeFilter's default axis).
@@ -562,11 +732,7 @@ public class RadialMenu : MonoBehaviour
         filter.pokeCollider = box;
         s.interactable.hoverEntered.AddListener(_ => { if (Usable && s.enabled) SetFocus(s); });
         s.interactable.hoverExited.AddListener(_ => { if (_focused == s) SetFocus(null); });
-        s.interactable.selectEntered.AddListener(_ =>
-        {
-            if (onTap != null) onTap();
-            else if (Usable && s.enabled) Choose(s.choice);
-        });
+        s.interactable.selectEntered.AddListener(_ => { if (Usable && s.enabled) Choose(s.choice); });
     }
 
     void Line(Segment s, List<Vector3> points, bool loop)
@@ -605,7 +771,12 @@ public class RadialMenu : MonoBehaviour
     static Vector3 Polar(float r, float deg) =>
         new Vector3(Mathf.Cos(deg * Mathf.Deg2Rad) * r, Mathf.Sin(deg * Mathf.Deg2Rad) * r, 0f);
 
-    static void SetColor(Segment s, Color c) => PaintMaterial(s.material, c);
+    static void SetColor(Segment s, Color c)
+    {
+        if (s.painted == c) return;
+        s.painted = c;
+        PaintMaterial(s.material, c);
+    }
 
     static void PaintMaterial(Material material, Color c)
     {

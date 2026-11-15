@@ -78,9 +78,11 @@ add a request to `docs/INTERFACES.md` under "Requested".
   calibration and the piano lesson still work. The Editor skips this Android permission step.
 - Intro → listen when permitted → look at the left then right piano marker. The pinch fallback is FAR then NEAR on A0,
   then FAR then NEAR on C8.
-- After calibration, face the back of your left hand toward the glasses. Tap the raised amber **Menu** button with
-  your right index finger. The ring follows the hand and collapses when you tap its center or choose an action.
-  **Fine Tune** opens the marker offsets. **Recalibrate** starts a fresh scan. **Fingering** toggles the lesson overlay.
+- After calibration, face the back of your left hand toward the glasses. Touch the raised amber **Menu** button with
+  your right index finger, swipe toward an action, then lift. Returning to the center cancels; touching and lifting on the
+  center closes the ring, which follows the hand. **Restart Lesson** and **Recalibrate** reveal a confirmation branch.
+  Swipe farther through it before withdrawing to confirm. **Fine Tune** opens the marker offsets.
+  **Fingering** toggles the lesson overlay, and **Visuals Off** enters audio-only mode.
 - Editor keys: **Enter** skips waits, **M** simulates marker locks, **C** simulates pinch calibration, and **F1** opens/closes
   the hand menu with a simulated hand if needed. **Tools → Piano → Run Fingering Smoke Test** exercises the integrated flow.
 - Missing API keys: canned coach feedback + native TTS on Android (silent in Editor); transcription requires a Groq key.

@@ -2,8 +2,9 @@
 
 For whoever (person or agent) picks this up. Deadline: **Sun 2026-11-15 9:00 AM PT**.
 
-**Current Main_2 controls.** Tap the raised **Menu** button on the back of the left hand, then choose **Fine Tune**
-to open the marker offsets or **Recalibrate** to start another scan. The ring follows the hand while open.
+**Current Main_2 controls.** Touch the raised **Menu** button on the back of the left hand with the right index, swipe
+toward **Fine Tune** to open the marker offsets or **Recalibrate** to start another scan, then lift. Recalibrate reveals
+an **Are you sure?** branch. Continue through the branch before withdrawing. The ring follows the hand while open.
 The device test history below predates the hand menu.
 
 ## Goal
