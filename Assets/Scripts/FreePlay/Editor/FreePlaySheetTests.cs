@@ -54,6 +54,9 @@ public class FreePlaySheetTests
     [TestCase("Show me the music for Für Elise.", "fur elise")]
     [TestCase("Can you pull up the sheet music for Happy Birthday please?", "happy birthday")]
     [TestCase("open twinkle twinkle", "twinkle twinkle")]
+    [TestCase("I want to play The Entertainer", "entertainer")]
+    [TestCase("Let's play the entertainer.", "entertainer")]
+    [TestCase("I'd like to play The Entertainer please", "entertainer")]
     public void ShowCommand_Recognized(string text, string song)
     {
         Assert.IsTrue(FreePlaySheet.TryParseShowCommand(text, out string asked));

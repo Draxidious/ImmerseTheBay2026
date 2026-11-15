@@ -108,7 +108,7 @@ public class FreePlaySheet : MonoBehaviour
     // ------------------------------------------------------------------ Voice: "show Jingle Bells", "close the music"
 
     static readonly Regex ShowCommand = new Regex(
-        @"^(?:show|open|pull up|bring up|put up|load)(?: me)?(?: the)?(?: (?:sheet music|music|sheet|notes|score)(?: for| of| to)?)?(?: the)? (?<song>.+)$");
+        @"^(?:show|open|pull up|bring up|put up|load|play|start|practice|learn|try)(?: me)?(?: the)?(?: (?:sheet music|music|sheet|notes|score)(?: for| of| to)?)?(?: the)? (?<song>.+)$");
     static readonly Regex CloseCommand = new Regex(
         @"^(?:close|hide|remove|put away|take away|clear)(?: the)? (?:sheet music|music|sheet|score|notes)$");
 
@@ -127,7 +127,7 @@ public class FreePlaySheet : MonoBehaviour
     static string StripPolite(string text)
     {
         string t = Normalize(text);
-        t = Regex.Replace(t, @"^(?:(?:please|can you|could you|will you|ok|okay|hey|now)\s+)*", "");
+        t = Regex.Replace(t, @"^(?:(?:please|can you|could you|will you|can we|ok|okay|hey|now|lets|let s|i want to|i wanna|i d like to|i would like to|i want you to|i m going to|i ll)\s+)*", "");
         return Regex.Replace(t, @"\s+(?:please|for me)$", "");
     }
 
