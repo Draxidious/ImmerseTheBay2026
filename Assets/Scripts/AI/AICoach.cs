@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -46,17 +47,40 @@ public class AICoach : MonoBehaviour
         if (string.IsNullOrEmpty(ctx.lastFeedback) && LastResult != null) ctx.lastFeedback = LastResult.say;
         LastContext = ctx;
 
+        // A passed measure, tempo step or repair block gets a few words from code (or none), not a model call.
+        var previous = _plan;
+        if (ctx.curriculum != null && ctx.trigger != CoachTrigger.UserAsked) _plan = CoachPolicy.PlanOf(ctx);
+        var turn = CoachPolicy.Decide(ctx, previous, out string cue);
+        var sound = PassCues.For(ctx, cue);
+        if (turn != CoachPolicy.Turn.Model)
+        {
+            Debug.Log($"[AI] Coach ({CoachContext.TriggerName(ctx.trigger)}) {(turn == CoachPolicy.Turn.Cue ? "cue" : "silent")} -> say=\"{cue}\"");
+            await PlayPassCue(sound);
+            return Deliver(new CoachResult { say = cue ?? "", trigger = ctx.trigger }, false);
+        }
+
         var cfg = Cfg;
+        bool question = ctx.trigger == CoachTrigger.UserAsked;
+        ctx.praiseAllowed = CoachPolicy.PraiseAllowed(ctx);
+        ctx.recentLines = new List<string>(_recent);
         var sw = System.Diagnostics.Stopwatch.StartNew();
         IsThinking = true;
 
         CoachResult result = null;
         try
         {
-            var work = AskProviders(SystemPrompt(cfg), UserMessage(ctx), ctx, cfg);
-            var first = await Task.WhenAny(work, Task.Delay(TimeSpan.FromSeconds(cfg.coachTotalTimeout)));
-            if (first == work) result = work.Result;
-            else Debug.LogWarning($"[AI] Coach timed out after {cfg.coachTotalTimeout:0.#} s.");
+            result = await AskModel(ctx, cfg, null);
+            // Starts like a recent line: ask once more, then use the cue (or nothing). Questions always get their answer.
+            if (result != null && !question && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, false), _recent))
+            {
+                Debug.Log($"[AI] Coach reply repeats a recent opening, asking again: \"{result.say}\"");
+                result = await AskModel(ctx, cfg, RepeatNote);
+                if (result != null && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, false), _recent))
+                {
+                    Debug.Log($"[AI] Coach repeated itself again, skipping: \"{result.say}\"");
+                    result = new CoachResult { say = cue ?? "", trigger = ctx.trigger };
+                }
+            }
         }
         finally
         {
@@ -66,7 +90,7 @@ public class AICoach : MonoBehaviour
         if (result == null)
         {
             // An unprompted free-play comment that failed says nothing; "let's try that again" makes no sense there.
-            string line = ctx.trigger == CoachTrigger.UserAsked ? cfg.questionFallbackLine
+            string line = question ? cfg.questionFallbackLine
                         : ctx.trigger == CoachTrigger.PhraseEnded ? "" : cfg.fallbackLine;
             result = new CoachResult { say = line, trigger = ctx.trigger, isFallback = true };
             Debug.LogWarning("[AI] Coach using canned fallback line.");
@@ -75,12 +99,68 @@ public class AICoach : MonoBehaviour
         Debug.Log($"[AI] Coach ({CoachContext.TriggerName(ctx.trigger)}) total {sw.ElapsedMilliseconds} ms -> say=\"{result.say}\" action={result.action}");
         if (this == null) return result; // destroyed while waiting
 
-        if (ctx.IsFreePlay && !result.isFallback) result.say = KeepWholeSentences(result.say, FreePlayMaxChars);
-        LastResult = result;
+        if (!result.isFallback && !string.IsNullOrWhiteSpace(result.say))
+        {
+            result.say = CoachPolicy.Tidy(result.say, question);
+            _recent.Enqueue(result.say);
+            while (_recent.Count > RecentLines) _recent.Dequeue();
+        }
+        await PlayPassCue(sound); // a milestone chime right before the line
+        if (this == null) return result;
+        return Deliver(result, true);
+    }
+
+    const int RecentLines = 5;
+    const string RepeatNote = "\n\nYour last draft started with the same words as a line in do_not_reuse. Start differently.";
+    readonly Queue<string> _recent = new Queue<string>(); // the model's last lines, tidied
+    CoachPolicy.Plan _plan;                               // the lesson run the last context announced
+
+    // Raises the events and speaks. A cue leaves LastResult alone, so last_feedback still holds the model's line.
+    CoachResult Deliver(CoachResult result, bool fromModel)
+    {
+        if (fromModel) LastResult = result;
         OnCoachAction?.Invoke(result.action);
         OnResponse?.Invoke(result);
-        if (speakReplies && voiceOutput != null) _ = voiceOutput.Speak(result.say);
+        if (speakReplies && voiceOutput != null && !string.IsNullOrWhiteSpace(result.say)) _ = voiceOutput.Speak(result.say);
         return result;
+    }
+
+    // Plays the sound for a passed run once any speech has finished, and returns when it has finished, so the line
+    // (and the lesson's next count-in, which waits for the coach) comes after it.
+    async Task PlayPassCue(PassCues.Kind kind)
+    {
+        var cfg = Cfg;
+        if (kind == PassCues.Kind.None || !cfg.passCues || cfg.passCueVolume <= 0f) return;
+        for (float waited = 0f; voiceOutput != null && voiceOutput.IsSpeaking && waited < 30f; waited += 0.05f) await Task.Delay(50);
+        if (this == null) return;
+
+        if (!_cueSource)
+        {
+            _cueSource = gameObject.AddComponent<AudioSource>();
+            _cueSource.playOnAwake = false;
+            _cueSource.spatialBlend = 0f;
+        }
+        if (!_cueClips.TryGetValue(kind, out var clip)) _cueClips[kind] = clip = PassCues.Make(kind);
+        Debug.Log($"[AI] Pass cue: {kind}");
+        _cueSource.PlayOneShot(clip, cfg.passCueVolume);
+        await Task.Delay(Mathf.CeilToInt(clip.length * 1000f) + 50);
+    }
+
+    AudioSource _cueSource;
+    readonly Dictionary<PassCues.Kind, AudioClip> _cueClips = new Dictionary<PassCues.Kind, AudioClip>();
+
+    void OnDestroy()
+    {
+        foreach (var clip in _cueClips.Values) if (clip) Destroy(clip);
+    }
+
+    async Task<CoachResult> AskModel(CoachContext ctx, AIConfig cfg, string note)
+    {
+        var work = AskProviders(SystemPrompt(cfg), UserMessage(ctx) + note, ctx, cfg);
+        var first = await Task.WhenAny(work, Task.Delay(TimeSpan.FromSeconds(cfg.coachTotalTimeout)));
+        if (first == work) return work.Result;
+        Debug.LogWarning($"[AI] Coach timed out after {cfg.coachTotalTimeout:0.#} s.");
+        return null;
     }
 
     // Speaks a fixed line now, with no model call (stuck hints, "let's stick with the plan"). Returns false (and says nothing)
@@ -102,9 +182,6 @@ public class AICoach : MonoBehaviour
         c.lastFeedback = null;
         return Coach(c);
     }
-
-    // Free play asks for under 110 characters, but the model often runs long and the 2nd sentence is where it starts inventing.
-    const int FreePlayMaxChars = 110;
 
     // Whole sentences up to maxChars; always at least the first sentence.
     public static string KeepWholeSentences(string text, int maxChars)

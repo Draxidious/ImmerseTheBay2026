@@ -36,9 +36,14 @@ public class AIConfig : ScriptableObject
     [Header("Coach")]
     [Tooltip("The system prompt. Leave empty to use Assets/Resources/CoachPrompt.txt. Edit the text file to tune the coach, no recompile needed.")]
     public TextAsset coachPrompt;
+    [Tooltip("Lesson only: a soft ding for a passed run, a two-note chime for a new hand or new bars, three notes for a measure " +
+             "learned or a play-through passed. No speech, no model call.")]
+    public bool passCues = true;
+    [Tooltip("Pass cue volume (0-1); keep it well under the piano.")]
+    [Range(0f, 1f)] public float passCueVolume = 0.2f;
     [Tooltip("Spoken when the model cannot be reached.")]
-    public string fallbackLine = "Nice work, let's try that again";
-    public string questionFallbackLine = "Sorry, I didn't catch that. Could you ask me again?";
+    public string fallbackLine = "Let's try that again.";
+    public string questionFallbackLine = "Sorry, could you say that again?";
     [Tooltip("Asked when the player says \"free play\" during the lesson; their next answer decides.")]
     public string confirmFreePlayLine = "Do you want to switch to free play? Say yes or no.";
     [Tooltip("Spoken when the answer to confirmFreePlayLine is not a yes.")]
@@ -85,7 +90,7 @@ public class AIConfig : ScriptableObject
     [Tooltip("Notes starting within this window form one chord.")]
     public float freePlayChordWindowMs = 80f;
     [Tooltip("The coach comments on a notable phrase at most this often.")]
-    public float freePlayCommentCooldownSeconds = 25f;
+    public float freePlayCommentCooldownSeconds = 40f;
     [Tooltip("Consecutive melody notes that must match a song's opening to recognize it.")]
     public int freePlaySongMatchMinNotes = 6;
     [Tooltip("The rolling key estimate uses the last this many notes.")]

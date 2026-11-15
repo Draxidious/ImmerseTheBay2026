@@ -144,6 +144,8 @@ public class CoachContext
     public CoachActionType[] allowedActions; // null = any action; anything else the model picks becomes None
     public int currentBar;             // the bar the player is on now (questions mid-run); 0 = unknown
     public string freePlayJson;        // mode "free_play" only: FreePlayFacts.ToJson(), sent instead of the lesson fields
+    public bool praiseAllowed;         // AICoach sets it: only a full run (CoachPolicy.PraiseAllowed) may be praised
+    public List<string> recentLines;   // AICoach sets it: its last lines, which the model must not reuse
 
     public const string FreePlayMode = "free_play";
     public bool IsFreePlay => mode == FreePlayMode;
@@ -228,6 +230,7 @@ public class CoachContext
         sb.Append("]}");
 
         sb.Append(",\"last_feedback\":").Append(AIHttp.Quote(lastFeedback ?? ""));
+        AppendStyle(sb);
 
         if (trigger == CoachTrigger.Stuck && stuck != null)
             sb.Append(",\"stuck\":{\"bar\":").Append(stuck.bar).Append(",\"note\":").Append(AIHttp.Quote(SongFormatter.NoteName(stuck.note)))
@@ -258,11 +261,21 @@ public class CoachContext
         return sb.ToString();
     }
 
+    void AppendStyle(StringBuilder sb)
+    {
+        sb.Append(",\"praise_allowed\":").Append(praiseAllowed ? "true" : "false");
+        if (recentLines == null || recentLines.Count == 0) return;
+        sb.Append(",\"do_not_reuse\":[");
+        Join(sb, recentLines, AIHttp.Quote);
+        sb.Append(']');
+    }
+
     // Free play has no song, section or run: only what the analyzer heard, plus the question and the allowed actions.
     string FreePlayJson(StringBuilder sb)
     {
         sb.Append(",\"free_play\":").Append(string.IsNullOrEmpty(freePlayJson) ? "{}" : freePlayJson);
         sb.Append(",\"last_feedback\":").Append(AIHttp.Quote(lastFeedback ?? ""));
+        AppendStyle(sb);
         if (trigger == CoachTrigger.UserAsked)
             sb.Append(",\"user_question\":").Append(AIHttp.Quote(userQuestion ?? ""));
         if (allowedActions != null)

@@ -9,7 +9,6 @@ public class FreePlayFacts
 {
     const int MaxChords = 12;
     const int MaxChordsSeen = 8;
-    const int NotableSteadyNotes = 8;
     const int NotableChords = 3;
 
     // Last phrase (null when nothing was played yet).
@@ -84,14 +83,12 @@ public class FreePlayFacts
         return f;
     }
 
-    // A phrase is worth a comment when: a song was recognized, 3+ chords, a steady phrase of 8+ notes, or a new clear key.
+    // A phrase is worth an unprompted comment only for a recognized song or a new clear key (progressions were too chatty).
     public static bool IsNotable(PhraseAnalysis p, KeyEstimate lastReportedKey, out List<string> reasons)
     {
         reasons = new List<string>();
         if (p == null) return false;
         if (p.song != null) reasons.Add("recognized " + p.song.songName);
-        if (p.chords != null && p.chords.Count >= NotableChords) reasons.Add("a progression of " + p.chords.Count + " chords");
-        if (p.steadiness == Steadiness.Steady && p.noteCount >= NotableSteadyNotes) reasons.Add("a steady phrase of " + p.noteCount + " notes");
         if (p.key != null && p.key.IsClear &&
             (lastReportedKey == null || lastReportedKey.tonic != p.key.tonic || lastReportedKey.major != p.key.major))
             reasons.Add("a new key: " + p.key.name);

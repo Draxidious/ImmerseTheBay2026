@@ -103,7 +103,8 @@ public static class CoachFacts
             if (!wrongBars.Contains(bar) && !slowBars.Contains(bar) && !rushed.Contains(bar)) cleanBars.Add(bar);
 
         int total = judged.Count;
-        if (cleanBars.Count == total && total > 0) good.Add("every bar was clean: " + clean);
+        // Named, because current_section and the bar facts already describe the next run (a play-through of 1-3 sends bar 4).
+        if (cleanBars.Count == total && total > 0) good.Add("every bar played (" + BarsText(judged) + ") was clean: " + clean);
         else if (cleanBars.Count > 0) good.Add("clean bars (" + clean + "): " + string.Join(", ", cleanBars));
 
         if (wrongBars.Count == 0 && cleanBars.Count != total) good.Add("every note was right");
@@ -114,6 +115,14 @@ public static class CoachFacts
             good.Add("more accurate than the earlier attempts");
 
         return good;
+    }
+
+    static string BarsText(List<int> bars)
+    {
+        var sorted = bars.OrderBy(b => b).ToList();
+        bool contiguous = sorted.Last() - sorted.First() == sorted.Count - 1;
+        if (sorted.Count == 1) return "bar " + sorted[0];
+        return contiguous ? $"bars {sorted.First()} to {sorted.Last()}" : "bars " + string.Join(", ", sorted);
     }
 
     // ,"facts":{...} for the context JSON. Empty string when there is no song to work from.
