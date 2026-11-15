@@ -4,6 +4,15 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~01:40 — Claude Code (for Ari): Main_2 is the main scene; markers verified on the Aura
+- **`Assets/Scenes/Main_2.unity` is the main scene**: the only enabled build scene (index 0). `Main.unity` is the older freeplay
+  demo, listed but disabled. CLAUDE.md, INTERFACES, AURA_MAIN_TEST and the handover now say so explicitly.
+- **Device run (Main_2, 01:29–01:31):** offsets loaded from the puck; left marker locked ~6 s after the calibrate line, right 6 s
+  later (span 1.271 m), `Calibrated (markers)` at scale 1.000 → ChooseMode → Lesson. P71 MIDI (plugged in mid-run) drove measure 1
+  right hand: failed, then passed at 50 %, 75 % failed then passed, on to 100 %.
+- **Broken:** ~80k XRI `IndexOutOfRangeException` lines per run (`MaterialHelperBase.GetSharedMaterialForTarget`, affordance
+  receiver), also in Main; not from the markers. Next: find the receiver.
+
 ## 2026-11-15 ~01:30 — Claude Code (for Ari): marker calibration in Main_2
 - Main_2 is the current app scene, so the markers went there; `Main.unity` is unchanged. Ran Tools/Piano/Add Marker
   Calibration To Open Scene on `Main_2.unity` (disabled ARTrackedImageManager + library on the XR Origin, MarkerCalibration,

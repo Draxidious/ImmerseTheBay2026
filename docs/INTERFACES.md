@@ -5,6 +5,8 @@ The contract between modules. If it isn't listed here, don't depend on it.
 
 Status legend: ✅ implemented · 🚧 in progress · 📝 agreed, not built yet
 
+**Main scene = `Assets/Scenes/Main_2.unity`** (the only enabled build scene). `Main.unity` is the older freeplay demo, disabled.
+
 ---
 
 ## Shared types
@@ -19,7 +21,7 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 ---
 
 ## App flow — `AppFlow` (`Assets/Scripts/App/AppFlow.cs`) ✅ — Jordan
-The only script that knows the order of the app in `Main.unity`. It calls the public members below on the other modules and
+The only script that knows the order of the app in the main scene `Main_2.unity` (also in the old `Main.unity`). It calls the public members below on the other modules and
 holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophonePermission` → `Intro` → `Listening` → `Calibrating` → `ChooseMode` → `Lesson` or `FreePlay`.
 
 0. `MicrophonePermission`: hides overlay/evaluator, requests Android microphone permission when needed and waits for
@@ -131,7 +133,7 @@ Two printed ArUco 4x4_50 markers on the P71's rear corners (ID 0 behind A0, ID 1
 asks for `android.permission.SCENE_UNDERSTANDING_COARSE`, enables the `ARTrackedImageManager` on the XR Origin, locks the
 left then the right marker (≥30 samples over ≥1.2 s within 10 mm; marker span 1.18–1.32 m), turns tracking off and calls
 `CalibrateFromMarkers`. Offsets (inward, down, toward player, m) from each marker centre to the key's back outer corner:
-left `(-0.005, 0.016, 0.107)`, right `(0.015, 0.016, 0.090)` (saved on the Aura 2026-11-15, Main run). The blue left-hand dot opens a
+left `(-0.005, 0.016, 0.107)`, right `(0.015, 0.016, 0.090)` (saved on the Aura 2026-11-15). In the main scene `Main_2.unity` and `Dev_Ari`. The blue left-hand dot opens a
 world-space UGUI panel (Left depth, Right depth, Height, Sideways; ±60 mm, `<` `>` = 1 mm; Save / Defaults / Close), driven by
 the rig's XRI interactors through an `XRUIInputModule`. Saved to `marker-offsets.json` in persistent data. Falls back to pinches
 on permission denial, tracker not running after 5 s, or no marker in `giveUpSeconds` (45 s). Log tag `[MarkerCalibration]`.
