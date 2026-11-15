@@ -13,7 +13,7 @@ internal sealed class FingeringGuide : MonoBehaviour
     [SerializeField] CurriculumEngine engine;
     [SerializeField] PianoOverlay overlay;
     [SerializeField] PianoCalibrator calibrator;
-    [SerializeField, Range(0f, 0.5f)] float glowOpacity = 0.24f;
+    [SerializeField, Range(0f, 1f)] float glowOpacity = 0.76f;
 
     static readonly XRHandJointID[] TipJoints =
     {
@@ -30,21 +30,24 @@ internal sealed class FingeringGuide : MonoBehaviour
     const float BadgeDiameter = 0.017f;
     static readonly Color BadgeColor = new Color(1f, 0.77f, 1f);
     static readonly Color RingColor = new Color(0.93f, 0.47f, 1f);
+    static readonly Color ApproachGlow = new Color(0.68f, 1f, 0.16f);
+    static readonly Color PressGlow = new Color(0.86f, 1f, 0.66f);
+    double _nextPressLog;
 
     sealed class Finger
     {
-        public TextMeshPro number;
         public TextMeshPro badge;
         public SpriteRenderer ring;
         public SpriteRenderer glow;
         public ExpectedNote note;
         public double until;
         public float glowAmount;
+        public double pressUntil;
+        public int pressedMidi;
     }
 
     readonly Finger[] _fingers = new Finger[10]; // left thumb to pinky, then right thumb to pinky
     readonly List<XRHandSubsystem> _subsystems = new List<XRHandSubsystem>();
-    static readonly Color IdleColor = new Color(0.83f, 0.91f, 1f, 0.36f);
     XRHandSubsystem _hands;
     Sprite _glowSprite;
     Sprite _ringSprite;
@@ -54,7 +57,7 @@ internal sealed class FingeringGuide : MonoBehaviour
     bool _simulateHands;
 #endif
 
-    bool InLesson => flow && flow.CurrentStep == AppFlow.Step.Lesson;
+    bool InLesson => flow && flow.CurrentStep == AppFlow.Step.Lesson && !VisualsMode.NonVisual;
     internal bool OverlayEnabled => _showFingering;
 
     internal void ToggleOverlay()
@@ -76,10 +79,9 @@ internal sealed class FingeringGuide : MonoBehaviour
             string number = (i % 5 + 1).ToString();
             _fingers[i] = new Finger
             {
-                number = MakeLabel($"Fingertip {hand}{number}", number, 0.010f),
                 badge = MakeLabel($"Key badge {hand}{number}", hand + number, 0.009f),
                 ring = MakeSprite($"Key ring {hand}{number}", _ringSprite, BadgeDiameter),
-                glow = MakeSprite($"Fingertip glow {hand}{number}", _glowSprite, 0.023f)
+                glow = MakeSprite($"Fingertip glow {hand}{number}", _glowSprite, 0.036f)
             };
             _fingers[i].badge.color = BadgeColor;
             _fingers[i].ring.color = RingColor;
@@ -93,6 +95,7 @@ internal sealed class FingeringGuide : MonoBehaviour
         engine.OnNextNote += OnNoteDue;
         engine.OnDemoNoteDown += OnDemoNoteDown;
         engine.OnDemoNoteUp += OnDemoNoteUp;
+        engine.OnNotePlayed += OnNotePlayed;
     }
 
     void OnDisable()
@@ -103,6 +106,7 @@ internal sealed class FingeringGuide : MonoBehaviour
             engine.OnNextNote -= OnNoteDue;
             engine.OnDemoNoteDown -= OnDemoNoteDown;
             engine.OnDemoNoteUp -= OnDemoNoteUp;
+            engine.OnNotePlayed -= OnNotePlayed;
         }
         ClearNotes();
         HideLabels();
@@ -113,7 +117,6 @@ internal sealed class FingeringGuide : MonoBehaviour
         foreach (var finger in _fingers)
         {
             if (finger == null) continue;
-            Destroy(finger.number.gameObject);
             Destroy(finger.badge.gameObject);
             Destroy(finger.ring.gameObject);
             Destroy(finger.glow.gameObject);
@@ -169,7 +172,7 @@ internal sealed class FingeringGuide : MonoBehaviour
         return false;
     }
 
-    static bool HasFingering(ExpectedNote note) => note.finger >= 1 && note.finger <= 5;
+    static bool HasFingering(ExpectedNote note) => note != null && note.finger >= 1 && note.finger <= 5;
 
     static int FingerIndex(ExpectedNote note) => (note.hand == PianoHand.Left ? 0 : 5) + note.finger - 1;
 
@@ -194,6 +197,7 @@ internal sealed class FingeringGuide : MonoBehaviour
             if (finger == null) continue;
             finger.note = null;
             finger.glowAmount = 0f;
+            finger.pressUntil = 0;
         }
     }
 
@@ -202,12 +206,35 @@ internal sealed class FingeringGuide : MonoBehaviour
         foreach (var finger in _fingers)
         {
             if (finger == null) continue;
-            finger.number.enabled = false;
             finger.badge.enabled = false;
             finger.ring.enabled = false;
             finger.glow.enabled = false;
             finger.glowAmount = 0f;
+            finger.pressUntil = 0;
         }
+    }
+
+    void OnNotePlayed(ExpectedNote note, int midi, bool correct)
+    {
+        if (!correct || !_showFingering || !InLesson || calibrator.IsCalibrating || !HasFingering(note) ||
+            !overlay.TryGetKeySurface(midi, out var surface)) return;
+        int index = FingerIndex(note);
+        if (!TryGetTip(index, TrackingSpace(), midi, out var tip, out _, out _) ||
+            KeyProximity(overlay.transform.InverseTransformPoint(tip), surface) < 0.8f) return;
+        _fingers[index].pressedMidi = midi;
+        double now = Time.unscaledTimeAsDouble;
+        _fingers[index].pressUntil = now + 0.24;
+        if (now >= _nextPressLog)
+        {
+            _nextPressLog = now + 1;
+            AuraInteractionLog.Write($"[FingeringGuide] Press glow: MIDI {midi}, {note.hand} finger {note.finger}.");
+        }
+    }
+
+    Transform TrackingSpace()
+    {
+        var origin = calibrator.xrOrigin;
+        return origin ? (origin.CameraFloorOffsetObject ? origin.CameraFloorOffsetObject.transform : origin.transform) : null;
     }
 
     void LateUpdate()
@@ -240,20 +267,16 @@ internal sealed class FingeringGuide : MonoBehaviour
         var cameraPose = _camera.transform;
         var keyboard = overlay.transform;
         var badgeRotation = keyboard.rotation * Quaternion.Euler(90f, 0f, 0f);
-        var origin = calibrator.xrOrigin;
-        var trackingSpace = origin
-            ? (origin.CameraFloorOffsetObject ? origin.CameraFloorOffsetObject.transform : origin.transform)
-            : null;
+        var trackingSpace = TrackingSpace();
+        double now = Time.unscaledTimeAsDouble;
 
         for (int i = 0; i < _fingers.Length; i++)
         {
             var finger = _fingers[i];
             var note = finger.note;
-            if (note != null && Time.unscaledTimeAsDouble >= finger.until)
+            if (note != null && now >= finger.until)
                 finger.note = note = null;
 
-            bool left = i < 5;
-            Color cueColor = left ? overlay.leftNextColor : overlay.nextColor;
             Bounds surface = default;
             bool hasKey = note != null && overlay.TryGetKeySurface(note.midi, out surface);
             finger.badge.enabled = hasKey;
@@ -268,29 +291,28 @@ internal sealed class FingeringGuide : MonoBehaviour
                 finger.badge.transform.SetPositionAndRotation(badgePosition + keyboard.up * 0.0005f, badgeRotation);
             }
 
-            bool tracked = TryGetTip(i, trackingSpace, out Vector3 tip, out Vector3 backAlongFinger, out float radius);
-            finger.number.enabled = tracked;
-            if (!tracked)
+            bool pressed = now < finger.pressUntil && (note == null || note.midi == finger.pressedMidi);
+            if ((!hasKey && !pressed && finger.glowAmount <= 0f) ||
+                !TryGetTip(i, trackingSpace, note?.midi ?? finger.pressedMidi, out Vector3 tip,
+                    out Vector3 backAlongFinger, out float radius))
             {
                 finger.glow.enabled = false;
                 finger.glowAmount = 0f;
                 continue;
             }
 
-            finger.number.color = hasKey ? cueColor : IdleColor;
-            // Aim at the meat of the fingertip and bring the text to its visible surface.
-            Vector3 numberCenter = tip + backAlongFinger * 0.005f;
-            Vector3 towardEye = (cameraPose.position - numberCenter).normalized;
-            Vector3 numberPosition = numberCenter + towardEye * (radius + 0.002f);
-            finger.number.transform.SetPositionAndRotation(numberPosition, cameraPose.rotation);
             float proximity = hasKey ? KeyProximity(keyboard.InverseTransformPoint(tip), surface) : 0f;
             finger.glowAmount = Mathf.MoveTowards(finger.glowAmount, proximity, Time.unscaledDeltaTime * 10f);
-            finger.glow.enabled = finger.glowAmount > 0f;
+            finger.glow.enabled = pressed || finger.glowAmount > 0f;
             if (finger.glow.enabled)
             {
-                cueColor.a = glowOpacity * finger.glowAmount;
+                Vector3 center = tip + backAlongFinger * 0.005f;
+                Vector3 towardEye = (cameraPose.position - center).normalized;
+                Color cueColor = pressed ? PressGlow : ApproachGlow;
+                cueColor.a = pressed ? 1f : glowOpacity * finger.glowAmount;
                 finger.glow.color = cueColor;
-                finger.glow.transform.SetPositionAndRotation(numberPosition - towardEye * 0.001f, cameraPose.rotation);
+                finger.glow.transform.localScale = Vector3.one * (pressed ? 0.044f : 0.036f);
+                finger.glow.transform.SetPositionAndRotation(center + towardEye * (radius + 0.001f), cameraPose.rotation);
             }
         }
     }
@@ -305,16 +327,14 @@ internal sealed class FingeringGuide : MonoBehaviour
         return 0f;
     }
 
-    bool TryGetTip(int index, Transform trackingSpace, out Vector3 tip, out Vector3 backAlongFinger, out float radius)
+    bool TryGetTip(int index, Transform trackingSpace, int midi, out Vector3 tip, out Vector3 backAlongFinger, out float radius)
     {
         backAlongFinger = Vector3.zero;
         radius = 0.008f;
 #if UNITY_EDITOR
         if (_simulateHands)
         {
-            var note = _fingers[index].note;
-            int midi = note?.midi ?? (index < 5 ? 48 : 64) + index % 5;
-            float approach = 0.016f + Mathf.PingPong(Time.unscaledTime * 0.05f, 0.06f);
+            float approach = 0.004f + Mathf.PingPong(Time.unscaledTime * 0.05f, 0.022f);
             tip = overlay.GetKeyWorldCenter(midi) + overlay.transform.up * approach;
             backAlongFinger = -overlay.transform.forward;
             return true;
@@ -388,7 +408,7 @@ internal sealed class FingeringGuide : MonoBehaviour
             float radius = (uv - Vector2.one * 0.5f).magnitude * 2f;
             float alpha = ring
                 ? Mathf.SmoothStep(0f, 1f, (radius - 0.78f) / 0.07f) * (1f - Mathf.SmoothStep(0f, 1f, (radius - 0.93f) / 0.07f))
-                : 1f - Mathf.SmoothStep(0f, 1f, radius);
+                : 1f - Mathf.SmoothStep(0f, 1f, (radius - 0.25f) / 0.75f);
             pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
         }
         texture.SetPixels(pixels);

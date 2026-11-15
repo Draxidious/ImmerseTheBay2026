@@ -4,6 +4,31 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 — Codex (for Ari): integrate wrist swipes with audio-only mode
+- Preserved the upstream Visuals Off sector, audio-only flow, and coach orb spinner. Audio-only mode hides the wrist and disables its input.
+- Fingering shows **Lesson only** before entering Lesson. Restart and Recalibrate reveal the branch while the finger is down
+  and accept a continuous swipe through it. The device log confirmed through-face swipes and the fingering toggle, with no press-pulse events.
+
+## 2026-11-15 — Codex (for Ari): make fingertip feedback visible and retain test logs
+- Fingertip guidance uses a brighter lime glow and a larger, pale-green pulse on a correct tracked MIDI press.
+- Android retains swipe outcomes, depth, radial distance, and sampled fingering pulse events in `interaction-test.log`.
+  The previous log is retained when the current file reaches 256 KiB.
+
+## 2026-11-15 — Codex (for Ari): tolerate swipes through the menu face
+- An armed right index can cross the center between frames. The menu tracks outward movement in its plane even
+  when the finger passes behind the rendered face. Release still requires withdrawing toward the viewer.
+- The device logs showed openings and completed choices. Swipe release logs now include the outcome and deepest
+  travel behind the face. The smoke test covers skipping past the face, swiping behind it, and center cancellation.
+
+## 2026-11-15 — Codex (for Ari): right-index swipes on the wrist menu
+- The wrist menu reads the right index joint directly. Actions require an outward swipe and lift, with travel measured independently
+  of the left wrist. Returning to center cancels the selection. Restart and Recalibrate require a longer second swipe.
+- Removed Main_2's wrist interaction colliders and XRI targets. Each action has its own color and confirmation uses a lighter tint.
+  Menu label refresh is capped and unchanged colors skip material writes.
+- Removed fingertip digits. Correct MIDI with the authored fingertip near the key now produces a stronger pulse.
+- Unity MCP verified the updated Main_2 smoke test and all 114 EditMode tests. Physical gesture feel and frame time
+  still need an Aura pass.
+
 ## 2026-11-15 ~04:15 PT — Claude Code (for Canady): thinking ring around the coach orb
 - New `Assets/Scripts/AI/ThinkingSpinner.cs`: a light-blue 100° arc spins clockwise around the coach orb while the AI is
   thinking (`CoachOrb.State == Thinking`). It fades in only after 0.3 s, so quick replies don't flicker, and fades out

@@ -440,7 +440,7 @@ MonoBehaviour:
   introLine: "Hi, I'm your piano coach. Today we'll play the opening of F\xFCr Elise. Are you ready to learn?"
   calibrateLine: Great. First show me where your piano is. Follow the steps in front of you.
   lessonLine: Got it. Play the first note whenever you're ready.
-  chooseModeLine: Tap Menu on the back of your left hand to choose Lesson or Free Play.
+  chooseModeLine: Touch Menu on your left hand, swipe toward Lesson or Free Play, then lift.
   freePlayLine: Free play. Play anything you like, and I'll listen.
   startDelay: 1.5
   listenSeconds: 4
@@ -476,7 +476,7 @@ MonoBehaviour:
   engine: {fileID: 1472991808}
   overlay: {fileID: 923844200}
   calibrator: {fileID: 60259111}
-  glowOpacity: 0.24
+  glowOpacity: 0.76
 --- !u!1 &355273234
 GameObject:
   m_ObjectHideFlags: 0
