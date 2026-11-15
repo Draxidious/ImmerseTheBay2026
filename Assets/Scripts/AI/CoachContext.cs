@@ -64,6 +64,7 @@ public class RunStats
     public List<int> rushedBars = new List<int>();  // bars played noticeably faster than asked
     public List<int> draggedBars = new List<int>(); // bars played noticeably slower than asked
     public string tempoRating;         // "on_tempo", "too_slow", "too_fast"; null = not rated
+    public List<int> judgedBars;       // the bars this run was judged on; null = the current section
     public float timing = -1f;         // 0-100 timing score, -1 = not measured (informational)
 }
 

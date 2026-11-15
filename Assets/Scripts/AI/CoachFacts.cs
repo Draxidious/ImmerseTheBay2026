@@ -93,11 +93,13 @@ public static class CoachFacts
         bool timing = run.tempoRating == "on_tempo"; // speed is only praised when it was rated and right
         string clean = timing ? "right notes, no long pauses, steady timing" : "right notes, no long pauses";
 
+        // The bars that were played and judged, not the section: the curriculum sends the next run's section.
+        var judged = run.judgedBars ?? Enumerable.Range(section.firstBar, Math.Max(0, section.lastBar - section.firstBar + 1)).ToList();
         var cleanBars = new List<int>();
-        for (int bar = section.firstBar; bar <= section.lastBar; bar++)
+        foreach (int bar in judged)
             if (!wrongBars.Contains(bar) && !slowBars.Contains(bar) && !rushed.Contains(bar)) cleanBars.Add(bar);
 
-        int total = section.lastBar - section.firstBar + 1;
+        int total = judged.Count;
         if (cleanBars.Count == total && total > 0) good.Add("every bar was clean: " + clean);
         else if (cleanBars.Count > 0) good.Add("clean bars (" + clean + "): " + string.Join(", ", cleanBars));
 
