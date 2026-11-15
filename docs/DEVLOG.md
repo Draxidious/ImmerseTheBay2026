@@ -4,6 +4,25 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~22:10 — Claude Code (for Canady): Free Play mode with the AI coach
+- New `Assets/Scripts/FreePlay/`: `FreePlayAnalyzer` (pure C#: phrases, chords incl. inversions, Krumhansl-Schmuckler key + confidence,
+  steadiness, song match vs all `SongDatabase` openings with a distinctiveness guard, range, likely hands), `SongTemplates`,
+  `FreePlayFacts`, `FreePlayController` (lights pressed keys, comments on notable phrases, 25 s cooldown), `ModeChoicePanel`
+  (world-space "Lesson" / "Free Play" poke buttons above the sheet, "Switch mode" afterwards), `AppMode`/`AppModeSwitch`,
+  `FreePlayDebugPanel` (Editor), EditMode tests (`FreePlayAnalyzerTests`, `FreePlayCoachTests`).
+- `AppFlow` (Jordan approved): `ChooseMode` → `Lesson` / `FreePlay` after calibration, switchable any time after; `AIConfig.defaultMode`.
+  Lesson path unchanged apart from `ClearAll()` + `Restart()` on entry. `CoachContext`: `PhraseEnded`, `free_play` JSON.
+  `QuestionRouter`: voice "free play" / "lesson mode", free-play facts for questions. `CoachPrompt.txt`: FREE PLAY section.
+  `AICoach`: free-play replies trimmed to whole sentences ≤ 110 chars; a failed unprompted comment stays silent.
+- **Verified:** 51/51 EditMode tests in Unity. Play mode (Main, via MCP): ChooseMode panel renders (cyan rims, transparent);
+  panel → Free Play (evaluator + sheet off); C–F–G–C → "chords C F G C (I IV V I), key C major" → coach comment in 1.3 s;
+  Für Elise recognized (comment held by cooldown); question "what song was I just playing?" → "That sounded like Für Elise…
+  just say lesson mode"; voice "lesson mode" → Lesson without asking the coach; mid-song switch Lesson → Free Play leaves no lit
+  key; back to Lesson restarts at note 1 with only the Next key lit (held free-play keys cleared).
+- Found + fixed: `PlayedNote` name clash with `Curriculum/EvaluatorContract.cs` (renamed `FreePlayNote`); replies ran to 120–153 chars
+  and added "sounds clear" (prompt tightened + code trim).
+- **Not verified:** real MIDI on the P71, panel poke reach/readability on the Aura (panel ≈ 0.8 m above the keys), phrase-gap feel.
+
 ## 2026-11-14 late — Claude Code (for Canady): "hey teacher" wake word, step B (full pipeline)
 - Step A spike confirmed on the puck by a teammate (detection works).
 - `WakeWordBridge.java`: 20 ms frames, energy VAD with adaptive noise floor, KWS fed only while speech is present (0.5 s pre-roll),

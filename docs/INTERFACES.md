@@ -20,7 +20,7 @@ MIDI note numbers throughout: middle C = 60, P71 range = 21 (A0) to 108 (C8).
 
 ## App flow — `AppFlow` (`Assets/Scripts/App/AppFlow.cs`) ✅ — Jordan
 The only script that knows the order of the app in `Main.unity`. It calls the public members below on the other modules and
-holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophonePermission` → `Intro` → `Listening` → `Calibrating` → `Lesson`.
+holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophonePermission` → `Intro` → `Listening` → `Calibrating` → `ChooseMode` → `Lesson` or `FreePlay`.
 
 0. `MicrophonePermission`: hides overlay/evaluator, requests Android microphone permission when needed and waits for
    grant, denial (including don't-ask-again), or dismissal before the intro. No prompt when already granted, in the Editor,
@@ -29,7 +29,12 @@ holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophoneP
 2. `Listening`: with permission, `VoiceInput.StartListening()` for `listenSeconds` (4 s), then `StopListening()`.
    Permission is rechecked before listening. Any answer, silence, or unavailable recording moves on.
 3. `Calibrating`: shows the overlay, calls `PianoCalibrator.Recalibrate()` (the scene has `calibrateOnStart` off), speaks `calibrateLine`.
-4. `Lesson`: on the first `PianoCalibrator.Calibrated`, activates the `PerformanceEvaluator` object and speaks `lessonLine`.
+4. `ChooseMode`: on the first `PianoCalibrator.Calibrated`, sets `AppModeSwitch.AfterCalibration`, shows `ModeChoicePanel.ShowChoice()`
+   and speaks `chooseModeLine`. `AIConfig.defaultMode` = `Lesson` / `FreePlay` skips the choice (quick tests, demo video).
+5. `Lesson` (`EnterLesson`): ends free play, `PianoOverlay.ClearAll()`, activates the `PerformanceEvaluator` object, `Restart()`s it
+   (always from the first note) and speaks `lessonLine`. `FreePlay` (`EnterFreePlay`): deactivates the evaluator object (stops judging
+   and hides its sheet panel), `ClearAll()`, `FreePlayController.Begin()`, speaks `freePlayLine`. Both show the panel's "Switch mode"
+   button. AppFlow handles `AppModeSwitch.Requested` (panel or voice) at any time after calibration, except while recalibrating.
 
 During `Lesson` it drives `PianoOverlay.SetKey` from the evaluator: `Restarted` / `NoteJudged` → `Next` on the note to play,
 `NoteJudged` → `Correct` flash, `WrongNotePlayed` → `Wrong` flash on the pressed key.
@@ -49,7 +54,7 @@ later calibrations without restarting the evaluator. `sheetDisplay` is found on 
 In `Awake`, AppFlow calls `LessonSongSource.ApplySheets(sheetDisplay, evaluator.songId, evaluator.songSection)`, so the panel
 shows the generated sheet strips of the evaluator's song (fallback: the images set in the scene). Code only, no scene change.
 
-The three lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
+The lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
 
 ---
 
@@ -321,9 +326,26 @@ Java bridge methods: `setTuning`, `setVad`, `setAudio`, `start`, `stop`, `pause`
 `beginQuestion`, `cancelQuestion`, `saveDebugClip(path, seconds)`; callbacks `OnWakeWord`, `OnQuestionAudio(path)`,
 `OnWakeWordStatus`, `OnWakeWordError`. Editor keys: **Q** ask, **F9** save a 10 s mic clip. Logcat: `adb logcat -s Unity WakeWord`.
 
+### Free Play — Canady (`Assets/Scripts/FreePlay/`)
+The player plays anything; pressed keys light up (`KeyState.Correct`); the coach comments now and then and answers "hey teacher"
+questions. Code computes every musical fact (`FreePlayAnalyzer`, pure C#, EditMode tests in `FreePlay/Editor/`); the AI only words them.
+| Member | Purpose |
+|---|---|
+| `enum AppMode { Lesson, FreePlay }`, `enum StartMode { Ask, Lesson, FreePlay }` | Modes; `AIConfig.defaultMode` (Ask = show the panel). |
+| `AppModeSwitch.Request(mode, source)` / `event Requested` / `Current` / `AfterCalibration` | Panel and voice ask, AppFlow switches. |
+| `FreePlayController.Begin()` / `End()` / `IsActive` / `Feed(midi, vel, on)` / `FactsJson(forQuestion)` / `event PhraseFinished` | Runs free play from `MidiPianoReader.NoteOn/NoteOff`. `End()` clears every key it lit. |
+| `ModeChoicePanel.ShowChoice()` / `ShowSwitchButton()` / `Hide()` / `event Chosen` | World-space poke buttons "Lesson" / "Free Play" (+ small "Switch mode"), above the sheet panel, dead while calibrating. |
+| `FreePlayAnalyzer` (`NoteOn`, `NoteOff`, `Poll(now)`, `Peek(now)`, static `IdentifyChord`, `EstimateKey`, `RateSteadiness`, `MatchSong`, `RomanNumeral`) | Phrases (2 s gap), chords within 80 ms (inversions), Krumhansl-Schmuckler key + confidence, tempo steadiness (CV), song match vs `SongDatabase` openings (top voice, transposition-invariant, ≥ 6 notes + distinctiveness guard), range, likely hands. |
+| `FreePlayFacts.Build(...)` / `IsNotable(...)` | Facts JSON for the coach; `can_learn_in_lesson` only for the evaluator's `songId` (today Für Elise). |
+| `CoachTrigger.PhraseEnded`, `CoachContext.freePlayJson`, mode `"free_play"` | Unprompted comment after a notable phrase (song, 3+ chord progression, steady 8+ notes, new key); 25 s cooldown. Free-play replies are trimmed to whole sentences ≤ 110 chars (`AICoach.KeepWholeSentences`). |
+| `QuestionRouter.TryParseModeCommand(text, out mode)` | "hey teacher, free play" / "lesson mode" switch modes instead of asking the coach. |
+Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C–F–G–C, Für Elise, Uneven run). Config: `AIConfig` "Free play" + "Mode".
+
 ---
 
 ## Requested (add asks for other owners here)
+- **PianoOverlay — Ari:** a `KeyState.Pressed` color (held key, no flash). Free Play lights held keys with `Correct` and re-lights
+  them every half flash; a steady Pressed state would be cleaner. Not blocking.
 - **SongFormatter — Nehemiah (song DB):** the coach's song text drops rests and pickups (Für Elise bar 1 shows the pickup E5 D#5 as
   its first notes; "A4 r C4" reads as "A4 C4"). Consider printing rests (`r:0.5`) and the pickup separately. Not blocking.
 - **Song model — Nehemiah → Jordan + Canady:** two `SongNote` classes (Lesson vs AI) can't coexist; agree on one (the song DB uses
