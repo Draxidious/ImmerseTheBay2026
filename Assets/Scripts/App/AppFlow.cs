@@ -289,9 +289,20 @@ public class AppFlow : MonoBehaviour
         StartCoroutine(Say(freePlayLine));
     }
 
+    bool _sheetPlaced;
+
+#if UNITY_EDITOR
+    // Live tuning: edit "Sheet Offset" in the Inspector during Play mode and the panel follows.
+    void OnValidate()
+    {
+        if (Application.isPlaying && _sheetPlaced) PlaceSheetPanel();
+    }
+#endif
+
     void PlaceSheetPanel()
     {
         if (!overlay || !sheetDisplay) return;
+        _sheetPlaced = true;
         Vector3 center = (overlay.GetKeyWorldCenter(overlay.lowestNote) +
                           overlay.GetKeyWorldCenter(overlay.highestNote)) * 0.5f;
         // Canvas text faces local -Z, toward the player. Keep the panel upright and aligned
