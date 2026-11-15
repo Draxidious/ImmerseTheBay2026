@@ -1,4 +1,4 @@
-# AR Piano Teacher
+# Piano Pal
 
 Built for **Immerse the Bay 2026**.
 
