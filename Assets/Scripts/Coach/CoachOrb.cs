@@ -31,6 +31,10 @@ public class CoachOrb : MonoBehaviour
     public Color thinkingColorA = new Color(0.6f, 0.4f, 1f);
     public Color thinkingColorB = new Color(0.3f, 0.7f, 1f);
     public Color speakingColor = new Color(0.45f, 0.9f, 1f);
+    [Tooltip("Gentle bob of the sphere, in meters (up/down). The text stays still so it's easy to read. 0 = off.")]
+    public float floatAmplitude = 0.006f;
+    [Tooltip("Seconds per bob cycle.")]
+    public float floatPeriod = 3.2f;
 
     [Header("Text")]
     [Tooltip("World font size. 0.18 ≈ 1.8 cm lines ≈ 1.5° at 0.68 m (Ari's calibration prompt uses 0.135 at 0.6 m).")]
@@ -300,6 +304,17 @@ public class CoachOrb : MonoBehaviour
         _mpb.SetColor(ColorId, c);
         orbRenderer.SetPropertyBlock(_mpb);
         orbRenderer.transform.localScale = Vector3.one * (orbDiameter * scale);
+
+        // Slight floating: smooth up/down bob with a much smaller, slower sideways drift so it doesn't look mechanical.
+        if (floatAmplitude > 0f && floatPeriod > 0.1f)
+        {
+            float w = Mathf.PI * 2f / floatPeriod;
+            orbRenderer.transform.localPosition = new Vector3(
+                floatAmplitude * 0.3f * Mathf.Sin(t * w * 0.53f + 1.1f),
+                floatAmplitude * Mathf.Sin(t * w),
+                0f);
+        }
+        else orbRenderer.transform.localPosition = Vector3.zero;
     }
 
     void AnimateText()
