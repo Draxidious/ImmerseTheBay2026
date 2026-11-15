@@ -80,7 +80,8 @@ public static class DevAriSceneBuilder
         var handle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         handle.name = "GrabHandle";
         handle.transform.SetParent(overlayGo.transform, false);
-        handle.transform.localPosition = new Vector3(-0.04f, 0.015f, -0.03f);
+        // 15 cm left of the keyboard so a left-hand pinch on the lowest key can't hit it.
+        handle.transform.localPosition = new Vector3(-0.15f, 0.015f, -0.03f);
         handle.transform.localScale = Vector3.one * 0.03f;
         SetupRenderer(handle, handleMat);
         var handleCol = handle.GetComponent<SphereCollider>();
@@ -101,7 +102,7 @@ public static class DevAriSceneBuilder
         var button = GameObject.CreatePrimitive(PrimitiveType.Cube);
         button.name = "RecalibrateButton";
         button.transform.SetParent(overlayGo.transform, false);
-        button.transform.localPosition = new Vector3(-0.04f, 0.01f, 0.03f);
+        button.transform.localPosition = new Vector3(-0.15f, 0.01f, 0.04f);
         button.transform.localScale = new Vector3(0.035f, 0.01f, 0.035f);
         SetupRenderer(button, buttonMat);
         var buttonInteractable = button.AddComponent<XRSimpleInteractable>();
@@ -109,7 +110,7 @@ public static class DevAriSceneBuilder
 
         var buttonLabel = CreateLabel("Label", "Recalibrate", 0.12f);
         buttonLabel.transform.SetParent(overlayGo.transform, false);
-        buttonLabel.transform.localPosition = new Vector3(-0.04f, 0.03f, 0.03f);
+        buttonLabel.transform.localPosition = new Vector3(-0.15f, 0.03f, 0.04f);
         buttonLabel.transform.localRotation = Quaternion.Euler(30f, 0f, 0f); // tilt toward the seated player
         buttonLabel.name = "RecalibrateLabel";
 
@@ -119,8 +120,20 @@ public static class DevAriSceneBuilder
         calib.overlay = overlay;
         calib.xrOrigin = origin;
         calib.overlayGrab = grab;
-        calib.recalibrateButton = buttonInteractable;
+        // The floating Recalibrate tile is superseded by the dot on the back of the left hand (always reachable,
+        // never under a calibration pinch). Kept in the scene but disabled, in case someone wants it back.
+        button.SetActive(false);
+        buttonLabel.gameObject.SetActive(false);
+        calib.recalibrateButton = null;
         calib.markerMaterial = markerMat;
+        calib.hideWhileCalibrating = new[] { handle };
+        if (origin)
+        {
+            var hands = new System.Collections.Generic.List<Renderer>();
+            foreach (var r in origin.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                if (r.name == "LeftHand" || r.name == "RightHand") hands.Add(r); // template hand meshes
+            calib.handMeshRenderers = hands.ToArray();
+        }
         // 0.135 keeps the longest 3-line instruction ≈35° wide at 0.6 m (fits the Aura's field of view).
         var prompt = CreateLabel("CalibrationPrompt", "Pinch the FRONT EDGE of the LOWEST key", 0.135f);
         prompt.transform.SetParent(calibGo.transform, false);

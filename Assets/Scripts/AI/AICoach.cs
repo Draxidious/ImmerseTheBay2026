@@ -80,6 +80,16 @@ public class AICoach : MonoBehaviour
         return result;
     }
 
+    // Speaks a fixed line now, with no model call (stuck hints, "let's stick with the plan"). Returns false (and says nothing)
+    // when the coach is thinking or already speaking. LastResult is left alone so last_feedback still holds the model's line.
+    public bool SayNow(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || voiceOutput == null || IsThinking || voiceOutput.IsSpeaking) return false;
+        Debug.Log($"[AI] Coach (say_now) -> say=\"{line}\"");
+        _ = voiceOutput.Speak(line);
+        return true;
+    }
+
     // Something the student said that was not a fixed voice command. Uses the last context unless one is passed in.
     public Task<CoachResult> Ask(string question, CoachContext ctx = null)
     {
@@ -98,7 +108,7 @@ public class AICoach : MonoBehaviour
 
         Debug.LogError("[AI] Coach prompt not found. Expected Assets/Resources/" + PromptResource + ".txt");
         return "You are a friendly piano coach. Reply ONLY with a JSON object: " +
-               "{\"say\": string, \"action\": \"none\", \"from_bar\": 0, \"to_bar\": 0, \"tempo_pct\": 0, \"hand\": \"right\"}.";
+               "{\"say\": string, \"action\": \"none\", \"from_bar\": 0, \"to_bar\": 0, \"hand\": \"right\"}.";
     }
 
     static string UserMessage(CoachContext ctx)

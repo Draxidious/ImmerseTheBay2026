@@ -89,18 +89,20 @@ public static class CoachFacts
 
         var wrongBars = new HashSet<int>((run.wrongNotes ?? new List<WrongNote>()).Select(w => w.bar));
         var slowBars = new HashSet<int>((run.hesitations ?? new List<Hesitation>()).Where(h => h.ms >= NotableHesitationMs).Select(h => h.bar));
-        var rushed = new HashSet<int>(run.rushedBars ?? new List<int>());
+        var rushed = new HashSet<int>((run.rushedBars ?? new List<int>()).Concat(run.draggedBars ?? new List<int>()));
+        bool timing = run.tempoRating == "on_tempo"; // speed is only praised when it was rated and right
+        string clean = timing ? "right notes, no long pauses, steady timing" : "right notes, no long pauses";
 
-        var clean = new List<int>();
+        var cleanBars = new List<int>();
         for (int bar = section.firstBar; bar <= section.lastBar; bar++)
-            if (!wrongBars.Contains(bar) && !slowBars.Contains(bar) && !rushed.Contains(bar)) clean.Add(bar);
+            if (!wrongBars.Contains(bar) && !slowBars.Contains(bar) && !rushed.Contains(bar)) cleanBars.Add(bar);
 
         int total = section.lastBar - section.firstBar + 1;
-        if (clean.Count == total && total > 0) good.Add("every bar was clean: right notes, no long pauses, steady timing");
-        else if (clean.Count > 0) good.Add("clean bars (right notes, no long pauses, not rushed): " + string.Join(", ", clean));
+        if (cleanBars.Count == total && total > 0) good.Add("every bar was clean: " + clean);
+        else if (cleanBars.Count > 0) good.Add("clean bars (" + clean + "): " + string.Join(", ", cleanBars));
 
-        if (wrongBars.Count == 0 && clean.Count != total) good.Add("every note was right");
-        if (rushed.Count == 0 && slowBars.Count == 0 && clean.Count != total) good.Add("steady timing all the way through");
+        if (wrongBars.Count == 0 && cleanBars.Count != total) good.Add("every note was right");
+        if (timing && rushed.Count == 0 && slowBars.Count == 0 && cleanBars.Count != total) good.Add("steady timing all the way through");
 
         var trend = ctx.history?.accuracyTrend;
         if (trend != null && trend.Count >= 2 && trend[trend.Count - 1] > trend[trend.Count - 2] && trend[trend.Count - 1] > trend[0])
@@ -141,6 +143,8 @@ public static class CoachFacts
                     int[] fingers = Fingering(song, bar, hand, section);
                     if (fingers != null)
                         sb.Append(",\"fingering\":").Append(AIHttp.Quote(string.Join(", ", notes.Select((n, i) => SongFormatter.NoteName(n.midi) + " " + FingerName(fingers[i])))));
+                    var hints = notes.Where(n => !string.IsNullOrEmpty(n.hint)).Select(n => SongFormatter.NoteName(n.midi) + ": " + n.hint).ToList();
+                    if (hints.Count > 0) sb.Append(",\"hints\":").Append(AIHttp.Quote(string.Join("; ", hints)));
                     sb.Append('}');
                 }
             }
@@ -171,7 +175,21 @@ public static class CoachFacts
     }
 
     // How to find the note someone is stuck on, from the note before it.
-    public static string HowToFind(SongData song, int bar, int midi)
+    public static string HowToFind(SongData song, int bar, int midi) => Find(song, bar, midi, SongFormatter.NoteName, true);
+
+    static readonly string[] SpokenNames = { "C", "C sharp", "D", "D sharp", "E", "F", "F sharp", "G", "G sharp", "A", "A sharp", "B" };
+
+    // "F sharp": the note as it is said out loud, no octave.
+    public static string SpokenNoteName(int midi) => SpokenNames[((midi % 12) + 12) % 12];
+
+    // One sentence the coach can say straight away, without the model: "Next is E: a white key, right hand, a step down from F."
+    public static string StuckHint(SongData song, int bar, int midi)
+    {
+        return "Next is " + SpokenNoteName(midi) + ": " + Find(song, bar, midi, SpokenNoteName, false) + ".";
+    }
+
+    // Song hints are written for the model and may hold finger numbers, so the spoken version leaves those out.
+    static string Find(SongData song, int bar, int midi, Func<int, string> name, bool allowDigits)
     {
         string key = IsBlack(midi) ? "a black key" : "a white key";
         if (song == null) return key;
@@ -186,7 +204,13 @@ public static class CoachFacts
             int back = index - 1;
             while (back >= 0 && notes[back].midi == midi) back--;
             string hint = key + ", " + (hand == PianoHand.Right ? "right hand" : "left hand");
-            if (back >= 0) hint += ", " + Motion(notes[back].midi, midi) + " from " + SongFormatter.NoteName(notes[back].midi);
+            if (back >= 0) hint += ", " + Motion(notes[back].midi, midi) + " from " + name(notes[back].midi);
+            string extra = notes[index].hint;
+            if (!string.IsNullOrEmpty(extra))
+            {
+                if (allowDigits) hint += ", " + extra;
+                else if (!extra.Any(char.IsDigit)) hint += ", " + extra.Trim().TrimEnd('.');
+            }
             return hint;
         }
         return key;

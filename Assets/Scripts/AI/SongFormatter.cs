@@ -40,6 +40,7 @@ public static class SongFormatter
         var sb = new StringBuilder();
         sb.Append(string.IsNullOrEmpty(song.name) ? song.id : song.name)
           .Append(" | ").Append(song.tempoBpm).Append(" bpm")
+          .Append(string.IsNullOrEmpty(song.timeSignature) ? "" : " | " + song.timeSignature + " time")
           .Append(" | ").Append(song.beatsPerBar).Append(" beats per bar")
           .Append(" | ").Append(song.BarCount).Append(" bars");
 

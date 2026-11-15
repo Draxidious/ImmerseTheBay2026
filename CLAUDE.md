@@ -7,8 +7,8 @@ An AR piano teacher on **XREAL Aura** (Android XR, optical see-through glasses).
 **Yamaha P71** digital piano. The glasses overlay which key to press, show the sheet music on a floating panel,
 and an AI coach gives short spoken feedback between phrases.
 
-- **Modes:** Curriculum (guided lessons) and Freeplay (e.g., Für Elise).
-- **Core loop ("wait mode"):** highlight the next key → wait for the correct press → advance → AI comments after each phrase.
+- **Main demo:** Freeplay of the 35-note right-hand Für Elise opening (8 bars). A separate CurriculumEngine exists but is not in Main.
+- **Core loop ("wait mode"):** highlight the next key → wait for the correct press → advance → AI comments after the completed excerpt.
 - **Pitch:** see-through glasses show your real keys and fingers sharply (passthrough headsets can't), plus a coach that talks to you,
   plus linking each written note on the sheet to its physical key.
 
@@ -17,6 +17,9 @@ and an AI coach gives short spoken feedback between phrases.
 - Devpost + **public Git repo** + **30-second vertical demo video**.
 - **All team code is MIT-licensed** (`LICENSE` at repo root).
 - **Never commit API keys or secrets.** The repo is public. Keys go in gitignored files only. Check `git status` before every commit.
+- **AI keys:** copy `Assets/StreamingAssets/secrets.example.json` to `secrets.json` (gitignored) and fill in
+  `ANTHROPIC_API_KEY` / `GROQ_API_KEY`. Files in `StreamingAssets` are **packed inside the APK**, so every build carries the
+  keys: never upload or share an APK built with real keys.
 
 ## Stack
 - **Unity 6000.6.8f1** (everyone must use exactly this version). Fallback: 6000.3 LTS if Android XR breaks.
@@ -27,11 +30,12 @@ and an AI coach gives short spoken feedback between phrases.
 ## Architecture
 ```
 Yamaha P71 ──USB MIDI──► Aura puck ──► Unity app
-                                        ├─ MidiInput         (native Android MidiManager bridge → C# events)
-                                        ├─ LessonEngine      (wait mode, scoring, metrics — plain code, no AI)
+                                        ├─ MidiPianoReader   (native Android MidiManager bridge → C# events)
+                                        ├─ AppFlow          (startup, calibration, overlay and coach wiring)
+                                        ├─ PerformanceEvaluator (wait mode, scoring, RunStats — no AI)
                                         ├─ UI
                                         │   ├─ PianoOverlay  (88-key highlight overlay + calibration)
-                                        │   ├─ SheetPanel    (sheet music pages + current-measure highlight)
+                                        │   ├─ SongNoteDisplay (sheet music lines + current-measure highlight)
                                         │   └─ CoachOrb      (AI coach visual: Idle/Listening/Thinking/Speaking)
                                         └─ AICoach           (LLM + speech in/out, runs BETWEEN phrases only)
 ```
@@ -39,16 +43,19 @@ Yamaha P71 ──USB MIDI──► Aura puck ──► Unity app
 **Rule: the AI is never in the real-time loop.** Note matching, highlighting and advancing must work instantly
 even if the AI is slow or offline. The AI only receives a short JSON summary of performance and speaks between phrases.
 
-**Rule: the AI does not generate notes.** Pieces come from MIDI files in `Assets/Music/`. The AI picks exercises
-and coaches; it doesn't compose.
+**Rule: the AI does not generate notes.** Main's notes come from `SongLibrary.FurElise`; the separate curriculum uses
+JSON song resources. `Assets/Music/` holds the sheet images. Main allows spoken feedback only, not demo/fingering actions.
+
+**Lesson progression** (measure by measure, tempo ladder, full play-throughs, repairing weak measures) follows
+`docs/COACH_PLAYBOOK.md`. Read it before working on the LessonEngine or the coach's actions.
 
 ## Ownership (update when this changes)
 | Area | Owner | Folder |
 |---|---|---|
-| UI: PianoOverlay, SheetPanel, CoachOrb | Ari | `Assets/Scripts/UI/` |
-| MIDI input (Android bridge) | TBD | `Assets/Scripts/Midi/`, `Assets/Plugins/Android/` |
-| LessonEngine (wait mode, scoring, metrics) | TBD | `Assets/Scripts/Lesson/` |
-| AICoach (LLM, speech) | TBD | `Assets/Scripts/AI/` |
+| UI: PianoOverlay, PianoCalibrator (+ hand occlusion), SheetPanel, CoachOrb | Ari | `Assets/Scripts/UI/` |
+| MIDI input (`MidiPianoReader`, `MidiLogUI`, Android `MidiBridge.java`) | Jordan | `Assets/Scripts/` (root, not yet in `Midi/`), `Assets/Plugins/Android/` |
+| PerformanceEvaluator / SongNoteDisplay (wait mode, scoring, `RunStats`) and AppFlow | Jordan | `Assets/Scripts/Lesson/`, `Assets/Scripts/App/` |
+| AICoach (LLM, speech in/out) | Canady | `Assets/Scripts/AI/` |
 
 Don't edit another owner's folder without telling them. If you need something from their module,
 add a request to `docs/INTERFACES.md` under "Requested".
@@ -56,16 +63,40 @@ add a request to `docs/INTERFACES.md` under "Requested".
 ## Conventions
 - **One scene per person** for development (`Assets/Scenes/Dev_<Name>.unity`). Only `Assets/Scenes/Main.unity`
   is shared, and only one person edits it at a time, announced in chat. Unity scene merges are painful.
+  `Main` exists and is the only enabled build scene (index 0). Dev scenes: `Dev_Ari` (overlay + calibration),
+  `JordanScene` / `JordanPianoReading` (MIDI), `AITest` (AI coach). Keep AIDebugPanel out of Main: its keys clash with the evaluator.
 - Communicate between modules through the public methods and events listed in `docs/INTERFACES.md`, not by
   reaching into another module's internals.
 - Notes are **MIDI note numbers** everywhere (middle C = 60, P71 range = 21 to 108).
 - Units are meters.
 - Every module gets an Editor-only debug driver (keyboard shortcuts) so it can be tested without the piano or headset.
 
+## Main demo flow and verification
+- Open `Assets/Scenes/Main.unity`. `AppFlow` finds its references automatically; the evaluator starts inactive,
+  and `PianoCalibrator.calibrateOnStart` is off.
+- Android: request microphone permission **before the intro** and wait for grant, denial, or dismissal. With permission
+  already granted there is no dialog. Denial/dismissal skips recording without asking again during the intro flow;
+  calibration and the piano lesson still work. The Editor skips this Android permission step.
+- Intro speech → listen for 4 seconds (when permitted) → four-point calibration → lesson. Any answer or silence continues.
+  Pinch FAR then NEAR end of A0, then FAR then NEAR end of C8. Sheet placement is 0.45 m above / 0.20 m behind the drawn
+  keyboard center; it updates after recalibration without restarting the lesson.
+- Next key lights up; correct/wrong presses flash. At the end of all 35 notes, the coach receives `RunStats` and speaks
+  feedback via the orb. After the restart delay (1.5 s), play the first E5 again for a new attempt.
+- Editor keys: **Enter** skips speech/listen waits; **C** simulates calibration, **R** recalibrates;
+  **Space** correct note, **X** wrong note, **P** toggles autoplay, **Backspace** restarts. Use P to verify completed-run coaching.
+- Missing API keys: canned coach feedback + native TTS on Android (silent in Editor); transcription requires a Groq key.
+  Native TTS needs a working voice on the puck. Never share an APK containing real keys.
+- Full device checklist and adb commands: `docs/AURA_MAIN_TEST.md`. Editor tests do not validate the Android dialog,
+  real MIDI, alignment, hand gestures, or optical-display readability.
+
 ## Designing for the Aura (optical see-through)
 - The display is **additive**: it only adds light. **Black = invisible.** There are no dark glass panels.
   Use bright rims, glow and high contrast.
 - Sheet music should be **light notes on a transparent background**, or raise the lens dimming while the panel is visible.
+- Black is invisible **in the lenses**, but it still writes alpha 1: screen captures and recordings (the demo video) show it as
+  solid black. Don't draw black fills; disable the renderer instead.
+- Any material override on the template hand meshes must replace **every** slot: they carry `DepthOnly` plus a grey glove
+  material (`Unity_Hand_Medium`), and leaving the glove draws an outline around the hands.
 - Test on the real glasses early. Colors that look good in the Editor often wash out.
 
 ## Building for the Aura (Android XR) — settings that must stay this way
@@ -95,6 +126,16 @@ add a request to `docs/INTERFACES.md` under "Requested".
 - Direct Preview is flaky → restart Unity, the hub and the device, or use the XR Simulator for in-editor testing.
 - Play mode crashes with the Android XR Extensions package installed → remove it if it's not needed.
 - Prerelease and retail firmware images aren't interchangeable. Don't reflash without checking.
+
+## Device tooling (puck)
+- **See what the glasses show:** `adb shell screencap -d 4626964206039778834 -p /sdcard/x.png` then `adb pull /sdcard/x.png`
+  (display "XREAL 1 Ultra" = camera image + app content). Plain `adb exec-out screencap` fails: the puck has two displays.
+- **Wireless adb:** put the PC and puck on a private network (phone hotspot, not the open venue Wi-Fi), then with USB plugged in
+  `adb tcpip 5555`, unplug, `adb connect <puck-ip>:5555`. Reverts to USB-only on reboot or `adb usb`.
+- **Logs:** `adb logcat -s Unity`; calibration lines are tagged `[PianoCalibrator]`. App files (e.g. logs written by a script)
+  are under `/sdcard/Android/data/com.DefaultCompany.VRTemplate/files/`.
+- **Aura runtime facts (Android XR 1.0, probed 2026-11-14):** marker / QR / planar-image tracking, depth texture, raycast,
+  scene meshing and `XR_ANDROID_hand_mesh` / `XR_FB_hand_tracking_mesh` are listed; Unity scripts get **no camera CPU frames**.
 
 ## Unity MCP setup (lets agents read/drive the Unity Editor)
 - **Package:** `com.coplaydev.unity-mcp` pinned in `Packages/manifest.json` to

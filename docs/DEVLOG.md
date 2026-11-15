@@ -53,6 +53,94 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Next:** someone checks the songs against sheet music and flips `verified`; import Clair de Lune / Für Elise from public-domain MIDI;
   lesson engine/evaluator loads songs from the DB.
 
+## 2026-11-14 night — Codex (for Ari): startup mic permission and Main device checklist (handoff commit 9)
+- `AppFlow` requests Android microphone permission before the intro and waits for the system response. An existing
+  grant skips the dialog. Denial or dismissal skips recording and continues to calibration without a second request.
+- Updated `CLAUDE.md` and `INTERFACES.md` for Main's wait-mode flow. `AURA_MAIN_TEST.md` covers permission cases,
+  passthrough, calibration, real MIDI, the full excerpt, and the coach reply.
+- **Verified:** Editor compile and Android development build succeeded with zero errors (Android build reported 355 warnings).
+  `Builds/AuraMain-commit9.apk` declares `RECORD_AUDIO`. Installed on the connected Aura puck with `adb install -r`.
+  The installed app resolves its launch activity, and the puck reports no mic grant or prior user-choice flags.
+- **Pending hands-on test:** open ImmerseTheBay2026 on the puck with the glasses on and follow the checklist. The APK
+  was built without cloud credentials. Check recording starts, then expect fallback feedback rather than a cloud transcript or reply.
+
+## 2026-11-14 night — Codex (for Ari): sheet panel follows calibration (handoff commit 8)
+- `AppFlow` finds the evaluator's `SongNoteDisplay` and positions it from the midpoint of the keyboard's lowest/highest
+  drawn key centers on every `Calibrated` event, including later recalibrations. Default `sheetOffset`: 0 m sideways,
+  0.45 m up, 0.20 m toward the fallboard. The panel follows keyboard yaw, stays upright and keeps its existing size.
+- Placement happens before first activation, so the generated canvas inherits it. Recalibration does not restart the
+  lesson, speak the lesson-start line again, or create another canvas. No scene asset changes or other-owner script edits.
+- **Verified via Unity MCP:** no compile errors. Clean Main Play-mode run reached Lesson through normal startup and
+  scripted calibration; measured offset exactly (0, 0.45, 0.20). Recalibration translated the piano, rotated it 25 degrees,
+  and narrowed its span to 1.14 m: panel position error 0 m, yaw 25 degrees, scale unchanged, note index stayed 1, one canvas.
+  Screenshot visually checked at `Temp/AppFlowVerification/appflow-sheet-calibration.png` (local, not committed).
+- The clean run had no application exceptions; the same six missing-XR/Direct-Preview/secret environment errors remain.
+  An earlier test-harness attempt cleared VoiceInput during its coroutine and was discarded; the clean rerun left startup intact.
+- **Still not done (commit 9, outside this handoff's stopping point):** startup microphone permission, broader Main docs cleanup,
+  and a full Aura/piano test. Cloud coaching/audio also needs local credentials. No push performed.
+
+## 2026-11-14 night — Codex (for Ari): finished wait-mode runs reach the coach (handoff commit 7)
+- `AppFlow` subscribes/unsubscribes `SongFinished`, converts the evaluator's actual 35-note right-hand excerpt into
+  `SongData`, and sends `RunFinished` / `freeplay` context with `RunStats`, bars 1–8 and recent attempt history.
+- Main allows only the `None` coach action because it has no demo/fingering player. The existing orb bridge handles replies.
+- **Verified via Unity MCP:** script compilation completed with no compile errors; Main reached Lesson after scripted
+  four-point calibration. A timed 35-note run sent 100% accuracy and displayed the fallback on the orb. A second run after
+  disabling/re-enabling AppFlow sent one wrong press (77 instead of 76), 97.14% accuracy, and exactly two attempts in history.
+- **Limitations:** no `secrets.json` exists on this machine, so cloud coaching/audio was not tested; native TTS is silent in
+  the Editor. Play mode reports unavailable XR session/camera/eye/hand tracking, Direct Preview adb and missing-secret
+  diagnostics. No AppFlow exceptions were reported. No device test, scene save, or changes to other owners' scripts.
+- **Next:** place the sheet panel relative to calibration (commit 8); microphone startup permission remains commit 9.
+
+## 2026-11-14 night — Claude Code (for Jordan): lesson lights the keys on the overlay
+- `AppFlow` forwards evaluator events to `PianoOverlay.SetKey`: the note to play is `Next`, a right press flashes `Correct`,
+  a wrong press flashes `Wrong` on the key that was pressed.
+- **Works (Editor Play mode, scripted):** E5 `Next` → F5 `Wrong` → E5 `Correct` → D#5 `Next`. Untested on the Aura.
+- **Known:** the calibrator's 5 s "all C keys" preview clears the keys it lit, so a C that is `Next` in that window goes dark once.
+- **Next (not done):** send finished runs to the coach, place the sheet panel from the calibrated overlay, mic permission at startup.
+
+## 2026-11-14 night — Claude Code (for Jordan): `AppFlow` sequences Main (intro → listen → calibrate → lesson)
+- New `Assets/Scripts/App/AppFlow.cs` + an `App Flow` object in `Main`. `PianoCalibrator.calibrateOnStart` is off in `Main` only.
+- Order: coach speaks a fixed intro and asks "are you ready", mic opens 4 s, calibration starts, and on `Calibrated` the evaluator
+  object is switched on. The overlay is hidden until calibration starts.
+- **Works (Editor Play mode):** one full run with real Groq TTS + Whisper (silence came back as "Thank you.", which is fine: any
+  answer moves on); a second run with voice off and scripted calibration points reached `Lesson` with the evaluator active. 0 errors.
+- **Not yet:** mic permission on Android is only asked at the first listen, so the first answer is missed there (fixed in a later
+  commit). Untested on the Aura.
+
+## 2026-11-14 night — Claude Code (for Jordan): Main gets the MIDI reader, evaluator and sheet panel
+- Moved `MidiPianoReader` and `Performance Evaluator` (`PerformanceEvaluator` + `SongNoteDisplay` with the 21 sheet lines) from
+  `JordanScene` into `Main` (JordanScene itself is unchanged). The evaluator object **starts inactive**; nothing turns it on yet.
+- Left behind: JordanScene's rig, Plane, light, EventSystem and the MIDI Log Canvas.
+- **Works (Editor Play mode):** activating the evaluator by hand builds the sheet panel and it advances on key presses, 0 errors.
+  **Not yet:** the panel still sits at its JordanScene position (0.95, 1.5, 1.8), not relative to the piano.
+
+## 2026-11-14 night — Claude Code (for Jordan): `Main.unity` = Dev_Ari + coach orb + AI coach
+- `Assets/Scenes/Main.unity` is a copy of `Dev_Ari` (rig, AR Session, PianoOverlay, PianoCalibrator untouched) plus the `CoachOrb`
+  prefab and an `AI Coach` object (AudioSource, `VoiceOutput`, `AICoach`, `VoiceInput`; no `AIDebugPanel`, its keys clash).
+- Build scenes: `Main` at index 0; `Dev_Ari`, `SampleScene`, `JordanScene` are in the list but disabled.
+- **Works (Editor Play mode, no headset):** orb idles, the bridge finds the coach / voice in / voice out, calibration starts as in
+  `Dev_Ari`, 0 errors. **Not yet:** MIDI, evaluator, any sequencing. Untested on the Aura.
+
+## 2026-11-14 night — Claude Code (for Jordan): coach menu compiles again (Nehemiah's folder, with Jordan's OK)
+- `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs`: **Tools ▸ Coach ▸ Add AI Coach + Orb Bridge** no longer adds `HesitationTracker`
+  or sets `AIDebugPanel.tracker`; both were deleted on Canady's branch. Nothing else in the menu changed.
+- **Works:** 0 compile errors in the Console, so Play mode is available again.
+
+## 2026-11-14 night — Claude Code (for Jordan): Lesson scripts compile again after the AI merge
+- Main had 6 compile errors in `Assets/Scripts/Lesson/` after merging Canady: `SongNote` defined twice, `PerformanceMetrics`
+  deleted, `WrongNote` changed to MIDI numbers.
+- Lesson types renamed `Song` → `LessonSong`, `SongNote` → `LessonNote`. `PerformanceEvaluator.SongFinished` now hands out the
+  coach's `RunStats` (accuracy, timing, `tempoRating`, wrong notes, rushed / dragged bars). `avgTimingErrorMs` and `songName` are gone.
+- **Works:** the runtime assembly compiles. **Still broken:** `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs` references the deleted
+  `HesitationTracker` and `AIDebugPanel.tracker` (2 errors, editor assembly), so Play mode is still blocked.
+
+## 2026-11-14 evening — Claude Code (for Jordan): coach playbook linked from the docs
+- `docs/COACH_PLAYBOOK.md` (already on main) is now referenced from `CLAUDE.md` (Architecture) and `INTERFACES.md` (LessonEngine).
+  It defines the lesson progression: learn each new measure alone at 50% → 75% → 100% tempo, then a full play-through from
+  measure 1 at song tempo, then repair any Problem measures (with a lead-in when the measures before were shaky).
+- **Not implemented yet.** `PerformanceEvaluator` (`Assets/Scripts/Lesson/`) still plays the whole Für Elise excerpt at one tempo.
+  Next: per-measure ratings, a tempo rating per run, section looping and tempo steps in the evaluator.
+
 ## 2026-11-14 ~19:20 — Claude Code (for Nehemiah): orb glows brighter when speaking; words appear in time with the voice
 - **Glow:** new `Glow` child in the CoachOrb prefab: additive halo quad (`Assets/Scripts/Coach/Materials/CoachOrbGlow.mat`,
   URP Unlit transparent/additive, runtime radial texture) behind the sphere, strength per state (idle 0.12 → speaking 0.45–1.0
@@ -102,6 +190,23 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   pulse path did run). Needs Unity focused + a Groq key, or the Aura. Native TTS pulse and readability: Aura only.
 - Requests for the AI owner added under "Requested" in INTERFACES (speaking/thinking events, TTS-started signal, native TTS level).
 
+## 2026-11-14 ~18:00 — Claude Code (for Ari): docs caught up with the merged branch
+- CLAUDE.md: owners (MIDI = Jordan, AICoach = Canady, LessonEngine still TBD), current dev scenes, AI key setup (secrets.json
+  in StreamingAssets ships inside the APK), recording/alpha and hand-material-slot rules, new "Device tooling" section
+  (glasses capture, wireless adb, logs, probed Aura runtime features).
+- INTERFACES.md: PerformanceMetrics / CoachResponse shapes, VoiceInput / VoiceOutput / AIConfig, LessonEngine contract, and the
+  open requests (LessonEngine owner, MIDI → overlay on hold, IsConnected, CoachOrb wiring, MIDI folder move).
+- Added the MIT `LICENSE` at the repo root (required for the Devpost submission; CLAUDE.md already referred to it).
+- Merged branch compiles in Unity (0 script errors). Not built for the puck yet.
+
+## 2026-11-14 ~17:45 — Claude Code (for Ari): branch ARI-MAIN-MERGE-531 = ARI + main
+- New branch from ARI (ARI itself unchanged); main merged in (MIDI reader + Android MidiBridge, AI coach, Jordan's scenes).
+- Conflicts: `Packages/manifest.json` + lock kept ARI's (MCP pinned to v10.0.0, `com.google.xr.extensions` kept, and
+  `com.unity.ai.assistant` NOT re-added: it clashes with MCP for Unity, see CLAUDE.md; main's code doesn't use it).
+  Build scenes: Dev_Ari first, then main's JordanScene. `Assets/Scripts.meta`: main's folder GUID.
+- INTERFACES.md now lists the real MidiPianoReader and AICoach APIs from main.
+- Not yet opened/compiled in Unity on this branch; MIDI is not wired to PianoOverlay yet.
+
 ## 2026-11-14 ~17:45 — Claude Code (for Nehemiah): CoachOrb (floating coach orb + text)
 - **Added** `Assets/Scripts/Coach/CoachOrb.cs` (implements the INTERFACES `CoachOrb` contract + `ShowText`/`HideText`) and
   `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs` (Tools ▸ Coach ▸ Add Coach Orb / Add Aura XR Rig to Scene), material
@@ -113,6 +218,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Untested on the Aura:** readability of 0.18 text at ~0.7 m, whether 36° right is comfortable/in view, colors on the additive display,
   piano-anchored placement (Dev_Nehemiah has no PianoOverlay; it anchors automatically in a scene that has one).
 - **Next:** AI coach calls `SetState(Thinking)` while waiting, `SetState(Speaking)` + `SetVoiceLevel` during TTS, and `ShowText(response.say)`.
+
+## 2026-11-14 ~17:30 — Claude Code (for Ari): hand occluder back to the first (depth-only) version
+- The soft black-mask occluder (~16:40 entry below) was wrong: it drew the hand instead of only hiding the overlay. Reverted to the
+  first version: `PianoTeacher/HandOccluder` is depth-only again (ColorMask 0, ZWrite On, queue 1990), mesh grown +4 mm
+  (`_Inflate` 0.004). Shrinking the mesh let the overlay show through at the finger edges.
+- Fix kept from the investigation: the template hand meshes have TWO material slots (DepthOnly + the grey `Unity_Hand_Medium`
+  glove). Replacing only slot 0 left the glove drawing an outline around the hands. `PianoCalibrator` now replaces every slot.
+- Hand shape is the generic template hand posed by XR Hands: joint positions/finger lengths follow the tracked hand, width
+  and thickness are generic. The runtime hand meshes (XR_ANDROID_hand_mesh / XR_FB_hand_tracking_mesh) failed every query in
+  an on-device test and are not used; those features are off again.
+- Tooling: `adb exec-out screencap` doesn't work (two displays); `adb shell screencap -d 4626964206039778834 -p <file>` captures
+  the glasses' mixed-reality view (camera + app). Wireless adb works over a private hotspot.
 
 ## 2026-11-14 ~17:15 — Claude Code (for Nehemiah): merged `main` into `nehemiah`
 - Merged `origin/main` (up to `e81d0de`: TTS, AI coach incl. Claude/Groq providers, `MidiPianoReader`, JordanScene) into `nehemiah` (`79f877d`).
@@ -134,6 +251,80 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   after the reimport. Scene not modified.
 - **Gotcha:** UnityMCP tools only show up in a Claude Code session started *after* the server is running; restart Claude Code if they're missing.
 - **Next:** open `Dev_Ari` / `MIDI OVERLAY` to confirm they load cleanly here; merge `main` once ARI lands there.
+
+## 2026-11-14 ~16:30 — Claude Code (for Ari): hands occlude the overlay
+- New shader `Assets/Scripts/UI/Shaders/HandOccluder.shader` (`PianoTeacher/HandOccluder`): depth-only (ColorMask 0, ZWrite On,
+  queue 1990), stereo-instancing safe, inflates the mesh 4 mm along normals to cover tracking error. Material at
+  `Assets/Scripts/UI/Resources/HandOccluder.mat` (loaded at runtime, so no scene change).
+- `PianoCalibrator`: once calibrated (`handsOccludeOverlay`, default on), the tracked hand meshes get the occluder material and
+  follow tracking instead of being hidden, so overlay keys under a hand aren't drawn and the real hand shows through. While
+  calibrating the meshes stay hidden as before, so pinch markers remain visible.
+- Built and installed on the puck; not yet checked on the glasses. The template hand mesh is a generic size, so occlusion
+  edges may be a few mm off for small or large hands (tune `_Inflate` on the material).
+- ~16:40 update after a device test ("occluded zone too big, edge too clean"): the occluder is now a soft black mask drawn
+  after the keys (queue 2450, alpha blend, ColorMask RGB, ZWrite Off). Alpha = smoothstep(0, `_EdgeWidth`, |N·V|), so it
+  fades from 0 at the hand outline to full just inside it; `_Inflate` now -1.5 mm (shrinks the generic mesh). Cost: one extra
+  draw per tracked hand, no render targets or full-screen passes. Depth-map occlusion (XR_ANDROID_depth_texture) was
+  considered and rejected: a per-pixel depth sample in every overlay shader plus the runtime's depth computation, with
+  coarser edges than the hand mesh at finger scale.
+
+## 2026-11-14 ~16:10 — Claude Code (for Ari): brighter overlay, standard black-key layout, Aura tracking check
+- Faint overlay cause: idle keys were 0.10 grey in Linear color space (≈1% light on an additive display), drawn only on the back
+  65% of each key. `PianoOverlay` now draws idle keys as bright outlines (`outlineKeys`, `outlineColor`, `outlineWidth`); lit keys
+  get a filled top plus outline in the state color. White-key side lines stop where a black key covers them.
+- Black keys now follow the standard layout (C#/D# split C–E into 5 parts, F#/G#/A# split F–B into 7) instead of sitting centered
+  on the white-key boundary; `blackKeyRaise` = 12 mm. White-key sizes were already standard (octave 164.5 mm).
+- Aura runtime check (diagnostic build, not committed): the Android XR runtime lists XR_ANDROID_trackables_marker, _qr_code,
+  _image, depth texture, raycast and scene meshing. Camera CPU images are NOT available to Unity scripts (as Unity's Android XR
+  docs state). Next: marker tracking (ArUco on a phone screen) to place the overlay without pinching.
+- Built and installed on the puck; outline look not yet checked on the glasses.
+
+## 2026-11-14 ~15:20 — Claude Code (for Ari): four-point order is now far end → near end
+- Real cause of "back points aren't behind the front points": the prompts said "FRONT edge" / "BACK end", which Ari (sitting at
+  the piano) read the opposite way. Device log showed every second pinch 14–18 cm toward the player = pinched in reverse.
+- New order per key: **FAR end (where the key goes under the panel) first, then NEAR end (closest to you)**; far-left key, then
+  far-right key. The reverse order is accepted too: each key's two pinches are sorted into near/far by direction toward the panel.
+  Prompts and error messages say "far end" / "near end" now.
+- Every four-point pinch is logged with its position relative to the head (right/up/forward cm). Not tested in Play mode; built and
+  installed on the puck for an on-device test.
+
+## 2026-11-14 ~15:10 — Claude Code (for Ari): fix "back points aren't behind the front points"
+- Cause: steps 2/4 only checked the 3D distance (6–25 cm, any direction), but the final fit needs the back points to be
+  behind the front ones on the level, toward the panel. A pinch fired while lifting the hand passed the step check, failed
+  the fit, and all four points were thrown away. The device log also showed the other, resting hand firing stray pinches.
+- `PianoCalibrator`: back pinches must now be ≥ `minBackDepth` (8 cm) back toward the panel (gaze direction for the left key,
+  the left→right line for the right key) and within `maxBackHeightDelta` (6 cm) of the front pinch height, else only that step repeats.
+  A key's back pinch is only accepted from the hand that pinched its front edge (the other hand's pinches are ignored).
+  `SubmitPoint(Vector3, int hand)` overload added (0 = left, 1 = right, -1 = unknown); the old `SubmitPoint(Vector3)` still works.
+  When the fit is rejected, the four points and both depth vectors are logged.
+- **Works (Editor play mode, scripted):** clean four points calibrate; other-hand pinch ignored; lifted (3 cm back) and sideways
+  (2 cm back) back pinches rejected at that step; then good pinches calibrate (key length 13.7 cm). **Untested on the Aura.**
+
+## 2026-11-14 ~15:05 — Claude Code (for Ari): four-point calibration, Recalibrate dot on the left hand
+- Device log: a good two-hand calibration (116 cm, scale 0.968) was overwritten 9 s later by a mid-air pinch (87 cm, right point
+  ~9 cm above / 25 cm in front of the keys) after Recalibrate. Simultaneous pinches were also awkward at 1.2 m apart.
+- **Four-point calibration (default):** front edge + back end of the far-left key, then of the far-right key, one hand at a time.
+  Each step is validated (key depth 6–25 cm, right side 85–115% of ~1.20 m and to the right, depths/back span consistent);
+  a stray pinch repeats only that step. Fit keeps side-to-side tilt, measures real key length; front-to-back stays level
+  (14 cm baseline is too noisy for pitch). Span tolerance tightened 60–160% → 85–115%.
+- **Recalibrate dot** on the back of the LEFT hand (visible when the back of the hand faces you); right index touch-and-hold 0.6 s.
+  The floating Recalibrate tile is disabled (it was hidden mid-calibration and sat under the A0 pinch).
+- Verified in Editor Play mode (scripted): stray 40 cm back point, 87 cm right point and mismatched depth each rejected with only that
+  step repeated; good points → scale 1.001, roll 2.00°, key length 14.0 cm, A0/C8 error 0.0 mm. Hand dot needs on-device testing.
+- **Android XR navigation:** still unexplained. Built manifest has `XR_ACTIVITY_START_MODE_FULL_SPACE_UNMANAGED` and Quest leftovers
+  (`com.oculus.intent.category.VR`, `com.oculus.permission.HAND_TRACKING`); unproven. Needs a log captured at the moment it fails.
+
+## 2026-11-14 ~14:55 — Claude Code (for Ari): visible keyboard + two-hand calibration
+- On-device run of the 14:11 build: saved calibration scale 0.548 (points ~66 cm apart) → a stray 2nd pinch ended calibration early.
+  (That build predates the span check.)
+- **Off keys now drawn faintly** (white 10% grey, black 3–5%) so the whole keyboard is visible on the additive display;
+  `upcomingColor` brightened (0.15,0.35,0.6 → 0.25,0.55,1). `SetIdleKeysVisible(bool)` to toggle.
+- **Two-hand calibration (default):** left hand on the far-left key, right hand on the far-right key, pinch both within 1 s.
+  A lone pinch only shows its marker + a hint. Span check / swap still apply. One-hand flow kept behind `twoHandCalibration = false`.
+- Prompt re-wrapped: 29° wide. Verified in Editor Play mode (scripted): lone pinch ignored, pair calibrates at scale 1.000,
+  pinches 2 s apart ignored, 30 cm pair rejected.
+- **Glasses screenshots work:** `adb shell screencap -d <XREAL display id> -p` (display "XREAL 1 Ultra") captures the composited
+  passthrough + app view, so the overlay can be checked from the PC.
 
 ## 2026-11-14 ~14:45 — Claude Code (for Ari): calibration robustness (tiny keyboard), geometry assessment
 - **Tiny keyboard root cause:** a bad calibration was accepted and saved (PlayerPrefs on the puck: scale 0.0497, yaw ~174°, i.e. the two
