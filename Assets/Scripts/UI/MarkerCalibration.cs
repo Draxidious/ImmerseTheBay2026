@@ -52,7 +52,7 @@ public class MarkerCalibration : MonoBehaviour
     public float lockTolerance = 0.010f;
     [Tooltip("Accepted distance between the two marker centres (m). The P71 markers are ~1.24 m apart.")]
     public Vector2 spanRange = new Vector2(1.18f, 1.32f);
-    [Tooltip("Fall back to the pinch steps if no marker is found within this many seconds of the tracker starting.")]
+    [Tooltip("Fall back to the pinch steps if the current marker does not lock within this many seconds.")]
     public float giveUpSeconds = 45f;
 
     [Header("Keyboard")]
@@ -71,6 +71,7 @@ public class MarkerCalibration : MonoBehaviour
     bool _scanning, _hasMarkerPose, _waitingForPermission, _applyingMarkerPose;
     volatile bool _permissionGranted, _permissionDenied;
     float _trackerStartedAt = -1f;
+    float _markerStepStartedAt;
     Vector3 _markerLeft, _markerRight, _axis, _toPlayer;
     Vector3 _defaultLeft, _defaultRight;
     GameObject _leftDot;
@@ -196,6 +197,7 @@ public class MarkerCalibration : MonoBehaviour
 
     void ShowLeftCue(bool retry = false)
     {
+        _markerStepStartedAt = Time.time;
         calibrator.ShowInfo(retry ? $"<b>1 of 2</b>\n{RetryCue}\n{LeftCue}" : $"<b>1 of 2</b>\n{LeftCue}", 0f);
         _ = Speak(retry ? RetryCue + " " + LeftCue : LeftCue);
     }
@@ -204,6 +206,7 @@ public class MarkerCalibration : MonoBehaviour
     {
         imageManager.enabled = true;
         _trackerStartedAt = Time.time;
+        _markerStepStartedAt = _trackerStartedAt;
         Debug.Log($"[MarkerCalibration] Image tracker enabled; library={(imageManager.referenceLibrary != null ? imageManager.referenceLibrary.count : 0)} entries.");
     }
 
@@ -248,8 +251,8 @@ public class MarkerCalibration : MonoBehaviour
                 float t = Time.time - _trackerStartedAt;
                 if (t > 5f && imageManager.subsystem?.running != true)
                     FallBackToPinches("marker tracking isn't running on this device");
-                else if (t > giveUpSeconds && !_left.HasValue)
-                    FallBackToPinches($"no marker found in {giveUpSeconds:F0} s");
+                else if (Time.time - _markerStepStartedAt > giveUpSeconds)
+                    FallBackToPinches($"no {(_left.HasValue ? "right" : "left")} marker lock in {giveUpSeconds:F0} s");
             }
         }
 
@@ -292,6 +295,7 @@ public class MarkerCalibration : MonoBehaviour
         if (!_left.HasValue)
         {
             _left = center;
+            _markerStepStartedAt = Time.time;
             ShowLeftDot(center);
             Debug.Log($"[MarkerCalibration] Left marker locked at {center:F3}.");
             calibrator.ShowInfo($"<b>2 of 2</b>\n{RightCue}", 0f);
