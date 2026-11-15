@@ -30,6 +30,12 @@ holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `Intro` → 
 During `Lesson` it drives `PianoOverlay.SetKey` from the evaluator: `Restarted` / `NoteJudged` → `Next` on the note to play,
 `NoteJudged` → `Correct` flash, `WrongNotePlayed` → `Wrong` flash on the pressed key.
 
+`SongFinished` sends `RunStats` to `AICoach.Coach` in a `CoachContext` (`RunFinished`, `freeplay`).
+The context contains the evaluator's actual right-hand Für Elise excerpt (including the pickup), bars 1–8,
+target tempo, attempt count and the last five accuracy scores. `coach` is found automatically when unassigned.
+Only `CoachActionType.None` is allowed: Main has no demo/fingering action player. `CoachOrbBridge` presents the
+reply and voice state as usual; missing keys use the coach's existing fallback. The note loop never waits for this request.
+
 The three lines are fixed text on the component (no model call). Editor debug: `Enter` = skip the current speech / listening wait.
 
 ---

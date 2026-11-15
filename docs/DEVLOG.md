@@ -4,6 +4,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Codex (for Ari): finished wait-mode runs reach the coach (handoff commit 7)
+- `AppFlow` subscribes/unsubscribes `SongFinished`, converts the evaluator's actual 35-note right-hand excerpt into
+  `SongData`, and sends `RunFinished` / `freeplay` context with `RunStats`, bars 1–8 and recent attempt history.
+- Main allows only the `None` coach action because it has no demo/fingering player. The existing orb bridge handles replies.
+- **Verified via Unity MCP:** script compilation completed with no compile errors; Main reached Lesson after scripted
+  four-point calibration. A timed 35-note run sent 100% accuracy and displayed the fallback on the orb. A second run after
+  disabling/re-enabling AppFlow sent one wrong press (77 instead of 76), 97.14% accuracy, and exactly two attempts in history.
+- **Limitations:** no `secrets.json` exists on this machine, so cloud coaching/audio was not tested; native TTS is silent in
+  the Editor. Play mode reports unavailable XR session/camera/eye/hand tracking, Direct Preview adb and missing-secret
+  diagnostics. No AppFlow exceptions were reported. No device test, scene save, or changes to other owners' scripts.
+- **Next:** place the sheet panel relative to calibration (commit 8); microphone startup permission remains commit 9.
+
 ## 2026-11-14 night — Claude Code (for Jordan): lesson lights the keys on the overlay
 - `AppFlow` forwards evaluator events to `PianoOverlay.SetKey`: the note to play is `Next`, a right press flashes `Correct`,
   a wrong press flashes `Wrong` on the key that was pressed.

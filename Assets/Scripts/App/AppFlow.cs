@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEngine.InputSystem;
@@ -21,6 +22,7 @@ public class AppFlow : MonoBehaviour
     [Header("Found automatically when empty")]
     public VoiceOutput voiceOutput;
     public VoiceInput voiceInput;
+    public AICoach coach;
     public CoachOrb orb;
     public PianoCalibrator calibrator;
     public PianoOverlay overlay;
@@ -43,11 +45,13 @@ public class AppFlow : MonoBehaviour
     public Step CurrentStep { get; private set; }
 
     bool _skip, _answered;
+    readonly LessonHistory _history = new LessonHistory();
 
     void Awake()
     {
         if (!voiceOutput) voiceOutput = FindAnyObjectByType<VoiceOutput>();
         if (!voiceInput) voiceInput = FindAnyObjectByType<VoiceInput>();
+        if (!coach) coach = FindAnyObjectByType<AICoach>();
         if (!orb) orb = FindAnyObjectByType<CoachOrb>();
         if (!calibrator) calibrator = FindAnyObjectByType<PianoCalibrator>();
         if (!overlay) overlay = FindAnyObjectByType<PianoOverlay>();
@@ -63,6 +67,7 @@ public class AppFlow : MonoBehaviour
             evaluator.Restarted += ShowNextKey;
             evaluator.NoteJudged += OnNoteJudged;
             evaluator.WrongNotePlayed += OnWrongNote;
+            evaluator.SongFinished += OnSongFinished;
         }
     }
 
@@ -75,6 +80,7 @@ public class AppFlow : MonoBehaviour
             evaluator.Restarted -= ShowNextKey;
             evaluator.NoteJudged -= OnNoteJudged;
             evaluator.WrongNotePlayed -= OnWrongNote;
+            evaluator.SongFinished -= OnSongFinished;
         }
     }
 
@@ -138,6 +144,51 @@ public class AppFlow : MonoBehaviour
     void OnWrongNote(int expected, int played)
     {
         if (overlay) overlay.SetKey(played, KeyState.Wrong);
+    }
+
+    // ------------------------------------------------------------------ Finished run -> coach (outside the note loop)
+
+    async void OnSongFinished(RunStats stats)
+    {
+        if (!coach || !evaluator || evaluator.Song == null) return;
+
+        // Describe exactly the right-hand excerpt the evaluator judged, including its pickup.
+        // Use a separate cache id from the curriculum's song, which also has fingering data.
+        var source = evaluator.Song;
+        var song = new SongData
+        {
+            id = "wait_mode_fur_elise", name = source.name,
+            tempoBpm = Mathf.RoundToInt(source.bpm), beatsPerBar = source.beatsPerBar,
+            timeSignature = "3/8"
+        };
+        var barStarts = new Dictionary<int, float>();
+        foreach (var note in source.notes)
+        {
+            if (!barStarts.ContainsKey(note.bar)) barStarts[note.bar] = note.beat;
+            song.notes.Add(new SongNote
+            {
+                midi = note.midi, bar = note.bar, beat = note.beat - barStarts[note.bar] + 1f,
+                beats = note.duration, hand = PianoHand.Right
+            });
+        }
+        SongFormatter.Invalidate(song.id);
+        _history.attemptsThisSection++;
+        _history.accuracyTrend.Add(stats.accuracy);
+        if (_history.accuracyTrend.Count > 5) _history.accuracyTrend.RemoveAt(0);
+        var context = new CoachContext
+        {
+            trigger = CoachTrigger.RunFinished, mode = "freeplay", song = song, thisRun = stats,
+            currentSection = new SectionInfo { firstBar = 1, lastBar = song.BarCount, tempoPct = 100 },
+            history = new LessonHistory
+            {
+                attemptsThisSection = _history.attemptsThisSection,
+                accuracyTrend = new List<float>(_history.accuracyTrend)
+            },
+            // Main has no demo/fingering action player. Keep the feedback spoken only.
+            allowedActions = new[] { CoachActionType.None }
+        };
+        try { await coach.Coach(context); }
+        catch (System.Exception e) { Debug.LogWarning("[AppFlow] Coach feedback failed: " + e.Message); }
     }
 
     // ------------------------------------------------------------------ Helpers
