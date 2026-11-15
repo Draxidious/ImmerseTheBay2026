@@ -11,8 +11,9 @@ using UnityEngine.InputSystem;
 
 // Hands-free questions during the lesson: "hey teacher" (WakeWordTrigger), Q key or right-hand pinch-hold (BackupVoiceTrigger)
 // -> chime -> record the question -> Groq Whisper -> AICoach.Ask. Never touches the note loop: it only reads the evaluator.
-// Triggers are armed only in the lesson while nobody is talking, thinking or listening (plus muteAfterSpeechSeconds after the
-// coach stops speaking, so the coach's own voice can't trigger it). Added at runtime to any scene with an AppFlow (see Bootstrap).
+// Triggers are armed only in the lesson, free play or the mode choice, while nobody is talking, thinking or listening (plus
+// muteAfterSpeechSeconds after the coach stops speaking, so the coach's own voice can't trigger it). "free play" / "lesson mode"
+// switch modes (AppModeSwitch) instead of going to the coach. Added at runtime to any scene with an AppFlow (see Bootstrap).
 // Editor debug keys: Q = ask (BackupVoiceTrigger), F9 = save a mic debug clip.
 public class QuestionRouter : MonoBehaviour
 {
@@ -178,9 +179,10 @@ public class QuestionRouter : MonoBehaviour
         UpdateDebugClip(cfg);
     }
 
+    // In the lesson, or anywhere after the first calibration (choosing a mode, free play; AppFlow sets AfterCalibration).
     bool CanListen(AIConfig cfg, bool speaking) =>
         cfg.wakeWordEnabled
-        && appFlow && appFlow.CurrentStep == AppFlow.Step.Lesson
+        && appFlow && (appFlow.CurrentStep == AppFlow.Step.Lesson || AppModeSwitch.AfterCalibration)
         && !(voiceInput && voiceInput.IsListening)
         && !(coach && coach.IsThinking)
         && !speaking
@@ -258,6 +260,13 @@ public class QuestionRouter : MonoBehaviour
             if (!coach) return;
             if (string.IsNullOrEmpty(question)) { coach.SayNow(cfg.questionFallbackLine); return; }
 
+            if (TryParseModeCommand(question, out var mode))
+            {
+                Debug.Log($"[Question] Mode command \"{question}\" -> {mode}");
+                AppModeSwitch.Request(mode, "voice");
+                return;
+            }
+
             Debug.Log($"[Question] Asking the coach: \"{question}\"");
             await coach.Ask(question, BuildContext());
         }
@@ -278,17 +287,55 @@ public class QuestionRouter : MonoBehaviour
         return LeadingWakeWord.Replace(text.Trim(), "", 1).Trim();
     }
 
+    // "free play", "switch to free play mode", "lesson", "lesson mode", "back to the lesson", ... Case and punctuation are
+    // ignored, and the whole question must be the command (so "what is a lesson about" still goes to the coach).
+    public static bool TryParseModeCommand(string text, out AppMode mode)
+    {
+        mode = AppMode.Lesson;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        string t = Regex.Replace(text.ToLowerInvariant(), @"[^a-z\s]", " ");
+        t = Regex.Replace(t, @"\bfreeplay\b", "free play");
+        t = Regex.Replace(t, @"\s+", " ").Trim();
+        t = Regex.Replace(t, @"^(?:(?:please|can we|can you|let s|lets|i want to|i d like to|ok|okay)\s+)*", "");
+        t = Regex.Replace(t, @"\s+please$", "");
+        var m = ModeCommand.Match(t);
+        if (!m.Success) return false;
+        mode = m.Groups["free"].Success ? AppMode.FreePlay : AppMode.Lesson;
+        return true;
+    }
+
+    static readonly Regex ModeCommand = new Regex(
+        @"^(?:(?:switch|go|change|move|get|go back)\s+(?:to|into)\s+|back\s+to\s+|start\s+|play\s+)?(?:the\s+)?" +
+        @"(?:(?<free>free play)|lesson)(?:\s+mode)?$");
+
     CoachContext BuildContext()
     {
+        var freePlay = FindFreePlay();
+        if (freePlay && freePlay.IsActive)
+            return new CoachContext
+            {
+                mode = CoachContext.FreePlayMode,
+                freePlayJson = freePlay.FactsJson(true),
+                allowedActions = new[] { CoachActionType.None }
+            };
+
         var last = coach ? coach.LastContext : null;
-        var ctx = last != null && last.song != null ? last.Clone() : FreeplayContext();
+        var ctx = last != null && last.song != null && !last.IsFreePlay ? last.Clone() : LessonContext();
         ctx.thisRun = _lastRun;
         ctx.currentBar = evaluator && evaluator.Song != null ? evaluator.CurrentNote?.bar ?? 0 : 0;
         return ctx;
     }
 
+    FreePlayController _freePlay;
+
+    FreePlayController FindFreePlay()
+    {
+        if (!_freePlay) _freePlay = FindAnyObjectByType<FreePlayController>(FindObjectsInactive.Include);
+        return _freePlay;
+    }
+
     // Mirrors AppFlow.OnSongFinished (Assets/Scripts/App/AppFlow.cs). Update both together.
-    CoachContext FreeplayContext()
+    CoachContext LessonContext()
     {
         var ctx = new CoachContext
         {
@@ -297,24 +344,29 @@ public class QuestionRouter : MonoBehaviour
         };
         if (!evaluator || evaluator.Song == null) return ctx;
 
-        var source = evaluator.Song;
-        var song = new SongData
+        // The song database's section when the evaluator's song is there, otherwise built from the evaluator's own notes.
+        var song = LessonSongSource.ForCoach(evaluator.songId, evaluator.songSection);
+        if (song == null)
         {
-            id = "wait_mode_fur_elise", name = source.name,
-            tempoBpm = Mathf.RoundToInt(source.bpm), beatsPerBar = source.beatsPerBar,
-            timeSignature = "3/8"
-        };
-        var barStarts = new Dictionary<int, float>();
-        foreach (var note in source.notes)
-        {
-            if (!barStarts.ContainsKey(note.bar)) barStarts[note.bar] = note.beat;
-            song.notes.Add(new SongNote
+            var source = evaluator.Song;
+            song = new SongData
             {
-                midi = note.midi, bar = note.bar, beat = note.beat - barStarts[note.bar] + 1f,
-                beats = note.duration, hand = PianoHand.Right
-            });
+                id = "wait_mode_fur_elise", name = source.name,
+                tempoBpm = Mathf.RoundToInt(source.bpm), beatsPerBar = source.beatsPerBar,
+                timeSignature = "3/8"
+            };
+            var barStarts = new Dictionary<int, float>();
+            foreach (var note in source.notes)
+            {
+                if (!barStarts.ContainsKey(note.bar)) barStarts[note.bar] = note.beat;
+                song.notes.Add(new SongNote
+                {
+                    midi = note.midi, bar = note.bar, beat = note.beat - barStarts[note.bar] + 1f,
+                    beats = note.duration, hand = PianoHand.Right
+                });
+            }
+            SongFormatter.Invalidate(song.id);
         }
-        SongFormatter.Invalidate(song.id);
         ctx.song = song;
         ctx.currentSection = new SectionInfo { firstBar = 1, lastBar = song.BarCount, tempoPct = 100 };
         return ctx;

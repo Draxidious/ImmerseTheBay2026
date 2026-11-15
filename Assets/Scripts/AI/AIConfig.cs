@@ -75,6 +75,31 @@ public class AIConfig : ScriptableObject
     public bool saveMicDebugClip = false;
     public float micDebugClipSeconds = 10f;
 
+    [Header("Free play")]
+    [Tooltip("Silence (no key held) that ends a phrase.")]
+    public float freePlayPhraseGapSeconds = 2f;
+    [Tooltip("Notes starting within this window form one chord.")]
+    public float freePlayChordWindowMs = 80f;
+    [Tooltip("The coach comments on a notable phrase at most this often.")]
+    public float freePlayCommentCooldownSeconds = 25f;
+    [Tooltip("Consecutive melody notes that must match a song's opening to recognize it.")]
+    public int freePlaySongMatchMinNotes = 6;
+    [Tooltip("The rolling key estimate uses the last this many notes.")]
+    public int freePlayKeyWindowNotes = 32;
+
+    [Header("Mode")]
+    [Tooltip("Ask = show the Lesson / Free Play panel after calibration. Lesson / FreePlay skip it, for quick tests and the demo video.")]
+    public StartMode defaultMode = StartMode.Ask;
+
+    // Analyzer settings from the fields above (key thresholds keep the analyzer's tuned defaults).
+    public FreePlaySettings FreePlaySettings() => new FreePlaySettings
+    {
+        phraseGapSeconds = freePlayPhraseGapSeconds,
+        chordWindowSeconds = freePlayChordWindowMs / 1000.0,
+        songMatchMinNotes = freePlaySongMatchMinNotes,
+        keyWindowNotes = freePlayKeyWindowNotes
+    };
+
     static AIConfig cached;
 
     // Components use their inspector reference if set, otherwise this.
