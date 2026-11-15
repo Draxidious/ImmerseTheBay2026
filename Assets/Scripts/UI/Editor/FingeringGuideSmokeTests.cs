@@ -148,8 +148,8 @@ public static class FingeringGuideSmokeTests
         Sample(Vector3.back * 0.05f);
         Sample(Vector3.forward * 0.045f);
         Require(menu.IsOpen && flow.CurrentStep == AppFlow.Step.ChooseMode, "Skipping past the menu face should still open the menu.");
-        Require(root.Find("FingeringSegment/Label").GetComponent<TextMeshPro>().text == "Fingering\nLesson only",
-            "The startup fingering label does not explain why it is unavailable.");
+        Require(root.Find("FingeringSegment/Label").GetComponent<TextMeshPro>().text == "Fingering" &&
+            !menu.Choose(RadialMenu.Choice.Fingering), "Fingering should be disabled outside Lesson.");
         Sample(Vector3.back * 0.045f);
         Vector3 previousCenter = anchor.position;
         handOffset.SetValue(menu, new Vector3(0.07f, 0.01f, 0f));

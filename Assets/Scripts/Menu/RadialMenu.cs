@@ -207,7 +207,7 @@ public class RadialMenu : MonoBehaviour
                 return calibrator && Calibrated;
             case Choice.Fingering:
                 bool enabled = _fingeringGuide && _fingeringGuide.OverlayEnabled;
-                label = !InLesson ? "Fingering\nLesson only" : enabled ? "Fingering\nOn" : "Fingering\nOff";
+                label = !InLesson ? "Fingering" : enabled ? "Fingering\nOn" : "Fingering\nOff";
                 return _fingeringGuide && Calibrated && !calibrating && InLesson;
             case Choice.FineTune:
                 bool canFineTune = _markerCalibration && _markerCalibration.CanFineTune;

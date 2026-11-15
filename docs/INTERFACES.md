@@ -443,7 +443,7 @@ Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C
 
 ## Radial menu — built by Nehemiah (`Assets/Scripts/Menu/RadialMenu.cs`) ✅ (Editor) / untested on the Aura
 Main_2 uses the tracked right index only. Poke **Menu**, pull back, then poke a colored action. A poke can pass through the face. **Restart Lesson** and **Recalibrate** require a separate confirmation poke. Poke the center to close.
-The ring and confirmation follow the left hand. The Fingering sector reads **Lesson only** before entering Lesson.
+The ring and confirmation follow the left hand. The **Fingering** sector is disabled outside Lesson.
 Fine Tune opens the existing calibration panel. Fingering is available in Lesson. The Main_2 wrist menu handles pokes from tracked joints without XRI interactables.
 Legacy scenes retain their original orange-dot menu. Editor: **F1** toggles the ring with a simulated hand if needed, and **Esc** closes it.
 
