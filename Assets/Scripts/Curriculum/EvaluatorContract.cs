@@ -41,6 +41,7 @@ public class BarResult
     public float timingScore;  // 0-1, informational: how close the hit notes landed to where the student's own tempo put them
     public float tempoRatio = 1f; // played speed / asked speed over the note pairs whose later note is in this bar (1 = none measured)
     public int firstTryMisses;    // the bar's notes not right on the first try: missed, or a wrong key pressed while it was next
+    public int missed;            // of firstTryMisses, the notes that were never played at all (no press matched them)
     public int rightMisses;       // firstTryMisses split by the hand of the note; they add up to firstTryMisses
     public int leftMisses;
     public bool passed;        // the evaluator's own view (score >= passAccuracy); the curriculum decides for itself

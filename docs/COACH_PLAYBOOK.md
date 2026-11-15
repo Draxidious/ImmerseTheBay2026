@@ -33,6 +33,12 @@ full play-throughs, and repairs weak spots before moving on.
 - **Passed run:** no Problem measures, at least 90% of notes right on the first try, and On tempo.
 - **Exception:** below song tempo, a run that is Too fast but otherwise passes still counts as passed (the student is ahead of
   the step). At song tempo, Too fast fails.
+- **Silent run:** a run in which the student presses no key at all is not an attempt. It does not count toward the
+  failed runs of rule 7; the coach says it heard nothing and the run is played again. After 2 silent runs in a row the
+  lesson stops counting in and waits until the student presses any key.
+- **When the coach talks:** only between runs, while the student is listening. Nothing is spoken during a run.
+- **Count-in:** every run starts with four metronome clicks shown as 4, 3, 2, 1, then "Play!" on the beat the music
+  starts. Clicks during the run are quieter than the count-in.
 - **Nothing to play:** a hand with no notes in the measures of a run is skipped. If only one hand has notes there,
   the both-hands run is skipped too, because it would be the same as the one-hand run.
 

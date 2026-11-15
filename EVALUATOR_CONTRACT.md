@@ -105,6 +105,8 @@ public class BarResult
     public float timingScore;    // 0-1, informational
     public float tempoRatio;     // the same tempo measure over this bar
     public int firstTryMisses;   // the bar's notes not right on the first try
+    public int missed;           // of firstTryMisses, the notes never played at all; they are not in wrongNotes, and
+                                 // the coach is told about them (RunStats.notesMissed / missedBars / nothingPlayed)
     public int rightMisses;      // firstTryMisses split by the hand of the note (they add up to firstTryMisses);
     public int leftMisses;       // the curriculum rates each hand of a measure from these
     public bool passed;          // informational

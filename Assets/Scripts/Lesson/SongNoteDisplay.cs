@@ -132,6 +132,7 @@ public class SongNoteDisplay : MonoBehaviour
         float pulse = 0.65f + 0.35f * Mathf.Sin(Time.unscaledTime * 6f);
         if (engine != null)
         {
+            UpdateCue();
             if (!UseSheet || !_runActive) return;
             Color c = frameColor;
             c.a = pulse;
@@ -270,15 +271,52 @@ public class SongNoteDisplay : MonoBehaviour
         }
     }
 
+    private string _cue;      // what the big line shows now
+    private string _runLine;  // what it shows once the student is playing: hand and speed
+
+    private void ShowCue(string text)
+    {
+        if (text == _cue) return;
+        _cue = text;
+        _next.text = text;
+    }
+
+    // The big line counts the student in with the metronome: 4, 3, 2, 1, then "Play!" on the beat the music starts.
+    private void UpdateCue()
+    {
+        if (engine.Pause == LessonPause.WaitingForStudent)
+        {
+            ShowCue("<size=60%>Press any key when you're ready</size>");
+            return;
+        }
+        var run = engine.CurrentRun;
+        if (!_runActive || run == null) return;
+
+        double now = Time.unscaledTimeAsDouble;
+        if (now < run.goTime)
+        {
+            int clicked = 0;
+            foreach (double t in run.countIn) if (t <= now) clicked++;
+            ShowCue(clicked == 0 ? "<size=60%>Get ready</size>" : (run.countIn.Count - clicked + 1).ToString());
+        }
+        else if (now < run.goTime + 1.2)
+        {
+            ShowCue($"<color=#{ColorUtility.ToHtmlStringRGB(perfectColor)}>Play!</color>");
+        }
+        else ShowCue(_runLine);
+    }
+
     private void OnRunStarted(RunInfo run)
     {
         if (!_built) Build();
         _runActive = true;
         _ratings.Clear();
         _lessonBar = run.notes.Count > 0 ? run.notes[0].bar : run.bars.First;
-        _title.text = LessonHeader();
-        _next.text = $"{HandName(run.hand)}   <size=70%>{run.tempoPct}% speed</size>";
-        _feedback.text = "Listen to the count-in, then play";
+        _title.text = $"{LessonHeader()}  ·  {HandName(run.hand)}  ·  {run.tempoPct}%";
+        _runLine = $"{HandName(run.hand)}   <size=70%>{run.tempoPct}% speed</size>";
+        _cue = null;
+        ShowCue("<size=60%>Get ready</size>");
+        _feedback.text = "Start playing when it says Play";
         _feedback.color = textColor;
         _stats.text = "";
         bool sheetSong = engine.State != CurriculumState.WarmupPlay && engine.State != CurriculumState.WarmupDemo;
@@ -323,6 +361,11 @@ public class SongNoteDisplay : MonoBehaviour
                      : engine.LastTempoRating == TempoRating.TooFast ? "slow down a little" : "on tempo";
         _feedback.text = (engine.LastPassed ? "Passed" : "Try again") + $"   <size=75%>{tempo}</size>";
         _feedback.color = engine.LastPassed ? perfectColor : offTempoColor;
+        if (engine.LastRunSilent)
+        {
+            _feedback.text = "I didn't hear any notes. Start when it says Play.";
+            _feedback.color = offTempoColor;
+        }
 
         var lines = new List<string>();
         lines.Add($"Notes right first try {engine.LastAccuracy * 100f:0}%");

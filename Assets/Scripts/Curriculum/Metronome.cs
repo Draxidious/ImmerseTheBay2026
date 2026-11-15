@@ -28,12 +28,13 @@ public class Metronome : MonoBehaviour
     }
 
     // Plays a click at this Time.unscaledTimeAsDouble (now if it has already passed).
-    public void ClickAt(double unscaledTime, bool accented)
+    // volumeScale: 1 = the full volume (count-in), less for the clicks that keep time while the student plays.
+    public void ClickAt(double unscaledTime, bool accented, float volumeScale = 1f)
     {
         var source = sources[nextSource];
         nextSource = (nextSource + 1) % sources.Length;
         source.clip = accented ? accent : click;
-        source.volume = volume;
+        source.volume = volume * Mathf.Clamp01(volumeScale);
         double delay = unscaledTime - Time.unscaledTimeAsDouble;
         source.PlayScheduled(AudioSettings.dspTime + System.Math.Max(0.0, delay));
     }

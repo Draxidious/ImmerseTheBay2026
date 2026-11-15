@@ -104,6 +104,7 @@ public class StubEvaluator : IPerformanceEvaluator
             if (match[i] < 0 || wrongs[i] != null)
             {
                 b.firstTryMisses++;
+                if (match[i] < 0) b.missed++;
                 if (e.hand == PianoHand.Left) b.leftMisses++;
                 else b.rightMisses++;
             }

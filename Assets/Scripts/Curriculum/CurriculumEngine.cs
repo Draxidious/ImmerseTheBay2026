@@ -33,6 +33,12 @@ public class RunInfo
     public float secondsPerBeat;
     public double startTime;
     public List<ExpectedNote> notes;
+    public List<double> countIn = new List<double>(); // the count-in clicks, in Time.unscaledTimeAsDouble: show 4, 3, 2, 1
+    public double goTime;                             // the beat after the last count-in click: "Play!"
+}
+
+// Why the lesson is not running a run right now.
+public enum LessonPause { None, WaitingForStudent
 }
 
 // The guided lesson, following COACH_PLAYBOOK.md: a C major scale warm-up, then the song built up one measure at a time.
@@ -70,6 +76,11 @@ public class CurriculumEngine : MonoBehaviour
     public MidiPianoReader reader;
     [Tooltip("Go straight to the song, without the C major scale warm-up.")]
     public bool skipWarmup;
+    [Tooltip("Speak a hint (\"Next is E...\") when the student stalls in the middle of a run. Off: the coach only talks " +
+             "between runs, while the student is listening.")]
+    public bool hintsDuringRuns;
+    [Tooltip("Runs in a row with no key pressed before the lesson stops and waits for any key.")]
+    public int silentRunsBeforeWaiting = 2;
     [Tooltip("Start the curriculum on Start. Otherwise call StartLesson.")]
     public bool autoStart;
     [Tooltip("Send transitions to the coach. Turn off to walk the curriculum without API calls.")]
@@ -130,6 +141,9 @@ public class CurriculumEngine : MonoBehaviour
     public string LastEvaluatorError { get; private set; }
     public bool IsDemoPlaying => demoPlayer != null && demoPlayer.IsPlaying;
     public RunInfo CurrentRun { get; private set; }
+    // WaitingForStudent: nothing was played for silentRunsBeforeWaiting runs; the next run starts when any key is pressed.
+    public LessonPause Pause { get; private set; }
+    public bool LastRunSilent { get; private set; }          // no key was pressed during the last run (it did not count)
     public IReadOnlyList<double> Clicks => clicks;           // this run's metronome clicks, in Time.unscaledTimeAsDouble
 
     LessonConfig Cfg => config != null ? config : LessonConfig.Get();
@@ -175,6 +189,8 @@ public class CurriculumEngine : MonoBehaviour
     int dueIndex;
     readonly List<double> clicks = new List<double>(); // metronome clicks, in Time.unscaledTimeAsDouble
     int clickIndex;
+    int countInClicks;     // the first clicks are the count-in; the rest sound during the run, quieter
+    int silentRuns;        // runs in a row with no key pressed
     List<ExpectedNote> expected = new List<ExpectedNote>();
     bool[] claimed = new bool[0];
     readonly List<PlayedNote> played = new List<PlayedNote>();
@@ -296,6 +312,7 @@ public class CurriculumEngine : MonoBehaviour
     // Skips whatever the lesson is waiting for (a demo, the coach finishing) so a run is ready to play.
     public void FastForward()
     {
+        if (Pause == LessonPause.WaitingForStudent) ResumeFromWaiting();
         for (int i = 0; i < 6 && !running && State != CurriculumState.Idle && State != CurriculumState.SongComplete; i++)
         {
             if (coachDemoRoutine != null) SkipCoachDemo();
@@ -1006,6 +1023,8 @@ public class CurriculumEngine : MonoBehaviour
         clicks.Clear();
         clickIndex = 0;
         for (int i = countIn; i >= 1; i--) clicks.Add(runStart + grid - i * spb);
+        countInClicks = clicks.Count;
+        Pause = LessonPause.None;
         if (cfg.metronomeDuringRun && TempoPct <= cfg.metronomeMaxTempoPct && expected.Count > 0)
             for (double c = grid; c <= expected[expected.Count - 1].time + 1e-4; c += spb) clicks.Add(runStart + c);
         metronome.volume = cfg.metronomeVolume;
@@ -1015,6 +1034,7 @@ public class CurriculumEngine : MonoBehaviour
         {
             song = song, bars = bars, tempoPct = TempoPct, hand = Hand, secondsPerBeat = spb,
             startTime = runStart, notes = expected,
+            countIn = clicks.GetRange(0, countInClicks), goTime = runStart + grid,
         };
         Debug.Log($"[Lesson] {State}: play {Measures(bars)} of {song.name} {HandWords(Hand)} ({expected.Count} notes) at {TempoPct}%, step {TempoStep + 1}/{Steps.Count}" +
                   (State == CurriculumState.SongRepair ? $", judging block {CurrentBlock}" : "") +
@@ -1028,7 +1048,8 @@ public class CurriculumEngine : MonoBehaviour
         double now = Time.unscaledTimeAsDouble;
         while (clickIndex < clicks.Count && clicks[clickIndex] <= now + 0.1) // scheduled a little ahead on the audio clock
         {
-            metronome.ClickAt(clicks[clickIndex], clickIndex == 0);
+            // The count-in is at full volume; once the student is playing the clicks drop back.
+            metronome.ClickAt(clicks[clickIndex], clickIndex == 0, clickIndex < countInClicks ? 1f : Cfg.metronomeRunVolume);
             clickIndex++;
         }
         double t = now - runStart;
@@ -1045,6 +1066,8 @@ public class CurriculumEngine : MonoBehaviour
     // No correct key for longer than the pause limit while a note is waiting: say how to find it, without the model.
     void CheckStuck(double t)
     {
+        // Off by default: a hint spoken in the middle of a run talks over the student's playing and the metronome.
+        if (!hintsDuringRuns) return;
         if (!sendToCoach || coach == null || stallHinted || expected.Count == 0) return;
         if (Time.unscaledTime - lastHintAt < Cfg.stuckHintMinIntervalSeconds) return;
         int next = -1;
@@ -1064,6 +1087,11 @@ public class CurriculumEngine : MonoBehaviour
 
     void Press(int midi, int velocity, double time)
     {
+        if (Pause == LessonPause.WaitingForStudent && !running && !IsDemoPlaying)
+        {
+            ResumeFromWaiting(); // any key: the student is back, count them in again (this key is not judged)
+            return;
+        }
         if (!running || IsDemoPlaying) return;
         double t = time - runStart;
         played.Add(new PlayedNote { midi = midi, velocity = velocity, time = t });
@@ -1092,6 +1120,13 @@ public class CurriculumEngine : MonoBehaviour
     {
         running = false;
         OnNextNote?.Invoke(null);
+        LastRunSilent = played.Count == 0 && expected.Count > 0;
+        if (LastRunSilent)
+        {
+            NothingPlayed();
+            return;
+        }
+        silentRuns = 0;
         switch (State)
         {
             case CurriculumState.WarmupPlay: EvaluateWarmup(); break;
@@ -1101,8 +1136,50 @@ public class CurriculumEngine : MonoBehaviour
         }
     }
 
+    // No key was pressed during the run. It is shown as missed, but it is not an attempt: it does not count toward
+    // stepping down, help or setting the measure aside. The coach says so once; after silentRunsBeforeWaiting such runs
+    // in a row the lesson stops counting in and waits for any key.
+    void NothingPlayed()
+    {
+        var r = Evaluate();
+        bool warmup = State == CurriculumState.WarmupPlay;
+        var judged = State == CurriculumState.SongRepair ? CurrentBlock : runBars;
+        var v = Rate(r, judged, !warmup);
+        silentRuns++;
+
+        string step = warmup ? "warmup" : State == CurriculumState.SongPlayThrough ? "play_through"
+                    : State == CurriculumState.SongRepair ? "repair" : "learn";
+        var info = Info(step, v);
+        info.passed = false;
+        string what = warmup ? "the scale" : $"{Measures(CurrentRange)} {HandWords(Hand)}";
+
+        if (silentRuns >= Mathf.Max(1, silentRunsBeforeWaiting))
+        {
+            Pause = LessonPause.WaitingForStudent;
+            Debug.Log($"[Lesson] Nothing played for {silentRuns} runs: waiting for any key before {what}.");
+            if (sendToCoach && coach != null) coach.SayNow("I'll wait for you. Press any key when you're ready.");
+            return;
+        }
+
+        info.nextStep = $"They did not play anything, so that run does not count. They play {what} again at {Speed()}, " +
+                        "starting as soon as the count-in ends.";
+        Tell(CoachTrigger.RunFinished, runSong, CurrentRange, r, v, info, null);
+        NextRun();
+    }
+
+    void ResumeFromWaiting()
+    {
+        Pause = LessonPause.None;
+        silentRuns = 0;
+        Debug.Log("[Lesson] The student is back: starting the run again.");
+        BeginRun(CurrentSong, CurrentRange);
+    }
+
+    int lastRunPresses;
+
     EvaluationResult Evaluate()
     {
+        lastRunPresses = played.Count;
         EvaluationResult r;
         try
         {
@@ -1229,6 +1306,8 @@ public class CurriculumEngine : MonoBehaviour
         coachDemoResume = null;
         running = false;
         helpWaiting = false;
+        Pause = LessonPause.None;
+        silentRuns = 0;
         if (demoPlayer != null) demoPlayer.Stop();
         if (metronome != null) metronome.Stop();
         pendingCoach.Clear();
@@ -1410,6 +1489,11 @@ public class CurriculumEngine : MonoBehaviour
                 tempoRating = v != null ? TempoName(v.tempo) : null,
                 rushedBars = v != null ? new List<int>(v.rushed) : new List<int>(),
                 draggedBars = v != null ? new List<int>(v.dragged) : new List<int>(),
+                // Notes never played are not wrong notes; without these a silent run would look spotless to the coach.
+                notesExpected = expected.Count(e => judged.Any(b => b.barNumber == e.bar)),
+                notesMissed = judged.Sum(b => b.missed),
+                missedBars = judged.Where(b => b.missed > 0).Select(b => b.barNumber).ToList(),
+                nothingPlayed = lastRunPresses == 0,
             };
         }
 

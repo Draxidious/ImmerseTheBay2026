@@ -4,6 +4,23 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 early — Claude Code (for Jordan): silent runs, count-in cue, no hints during runs
+- **Coach praised a run where nothing was played.** The judge was right (measure red, accuracy 0); nothing auto-fills
+  notes. The coach was only told about wrong keys and pauses, so a run with every note *missed* had no wrong notes and
+  `CoachFacts.WentWell` called every bar clean. Now `BarResult.missed`, `RunStats.notesExpected / notesMissed /
+  missedBars / nothingPlayed` (AI folder, Canady's), bars with missed notes are not "clean", and `CoachPrompt.txt`
+  explains the new fields.
+- **Silent runs** (no key pressed) are rated and shown red but are not attempts: no step-down, help or set-aside. The
+  coach says it heard nothing; after 2 in a row the engine stops and waits for any key (`Pause`, `LastRunSilent`).
+- **Count-in:** the sheet panel counts 4, 3, 2, 1 with the clicks and shows "Play!" on the beat the music starts
+  (`RunInfo.countIn`, `goTime`). Clicks during the run are at 30% of the count-in volume
+  (`LessonConfig.metronomeRunVolume`). "Play" is shown, not spoken: online speech can't be timed to the beat.
+- **No hints during runs:** the stuck hint ("Next is E...") spoke in the middle of a run, just before it failed.
+  `CurriculumEngine.hintsDuringRuns` is off by default; the coach talks between runs only.
+- **Verified in Editor Play mode, nothing played:** countdown and Play!, no speech during the run, coach said "I didn't
+  hear any notes that time...", failed-run count stayed 0, second silent run → "Press any key when you're ready", a key
+  press started the run again. **Not tested:** a run with only some notes missed, and all of it with a real piano.
+
 ## 2026-11-14 late — Claude Code (for Jordan): coach voice in the Editor, lesson waits for it, orb clear of the sheet
 - **Root cause of "the coach doesn't say the words" and "the lesson doesn't wait":** Groq TTS was over its daily limit
   (429, 3,600 tokens per day on the free tier), so every line fell back to `NativeTts`, which in the Windows Editor only

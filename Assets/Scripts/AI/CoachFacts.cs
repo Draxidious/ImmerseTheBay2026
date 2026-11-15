@@ -86,8 +86,11 @@ public static class CoachFacts
         var run = ctx.thisRun;
         var section = ctx.currentSection;
         if (run == null || section == null || ctx.trigger == CoachTrigger.LessonStart) return good;
+        if (run.nothingPlayed) return good; // nothing was played, so there is nothing to praise
 
-        var wrongBars = new HashSet<int>((run.wrongNotes ?? new List<WrongNote>()).Select(w => w.bar));
+        // A bar with a note that was never played is not clean, even though no wrong key was pressed in it.
+        var wrongBars = new HashSet<int>((run.wrongNotes ?? new List<WrongNote>()).Select(w => w.bar)
+            .Concat(run.missedBars ?? new List<int>()));
         var slowBars = new HashSet<int>((run.hesitations ?? new List<Hesitation>()).Where(h => h.ms >= NotableHesitationMs).Select(h => h.bar));
         var rushed = new HashSet<int>((run.rushedBars ?? new List<int>()).Concat(run.draggedBars ?? new List<int>()));
         bool timing = run.tempoRating == "on_tempo"; // speed is only praised when it was rated and right

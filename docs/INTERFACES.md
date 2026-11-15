@@ -202,6 +202,9 @@ Applies `docs/COACH_PLAYBOOK.md` (rules 1–22) in timed runs and tells the coac
 | `void StartLesson()` / `StopLesson()` | Start from the warm-up (or the song when `skipWarmup` is on) / stop. |
 | `HandMode Hand` | `Right`, `Left` or `Both`: the hand(s) of the current or next run. `Stages` / `StageIndex`: the hand stages of the measure or repair block. |
 | `event Action<RunInfo> OnRunStarted` | A run begins (count-in first). `RunInfo.hand`, `bars`, `tempoPct`, `notes` (only that hand's notes, each with `hand`). |
+| `RunInfo.countIn`, `RunInfo.goTime` | The count-in click times and the beat the music starts (`Time.unscaledTimeAsDouble`): show 4, 3, 2, 1, then "Play!". |
+| `LessonPause Pause`, `bool LastRunSilent` | `WaitingForStudent`: nothing was played for `silentRunsBeforeWaiting` (2) runs; any key (or `FastForward`) starts the run again. A silent run is rated but is not an attempt. |
+| `bool hintsDuringRuns` | Off by default: no spoken stuck hints in the middle of a run; the coach talks between runs only. |
 | `event Action<ExpectedNote> OnNextNote` | This note is due now; `null` when the run is over. |
 | `event Action<ExpectedNote, int, bool> OnNotePlayed` | Live feedback: the matched (or nearest) note, the key, correct. |
 | `event Action<BarRange> OnRunRated` | The run is judged. Read `LastRatings` (bar → clean / shaky / problem), `LastRightRatings`, `LastLeftRatings`, `LastTempoRating`, `LastPassed`, `LastAccuracy`. |
