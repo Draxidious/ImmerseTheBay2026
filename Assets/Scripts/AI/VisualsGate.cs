@@ -45,7 +45,10 @@ public class VisualsGate : MonoBehaviour
             if (menu) menu.Close();
             Hide();
             // During setup (the intro answer, or skipping calibration) AppFlow speaks next ("Say lesson mode or free play").
-            if (calibrated || AppModeSwitch.Current.HasValue) Say(cfg.visualsOffLine);
+            if (calibrated || AppModeSwitch.Current.HasValue)
+                Say(app && app.VoiceCommandsConfigured
+                    ? "Audio-only mode. To bring visuals back, say Hey teacher, wait for the chime, then say visuals on."
+                    : cfg.visualsOffLine);
             return;
         }
         Unhide();
@@ -56,8 +59,9 @@ public class VisualsGate : MonoBehaviour
             Debug.Log("[Visuals] Never calibrated: calibrating first.");
             if (app.overlay) app.overlay.gameObject.SetActive(true);
             app.calibrator.Recalibrate();
-            Say(cfg.visualsCalibrateFirstLine);
+            if (!app.calibrator.markersAvailable) Say(cfg.visualsCalibrateFirstLine);
         }
+        else if (calibrated) Say("Visuals on.");
     }
 
     void OnCalibrated()

@@ -66,6 +66,7 @@ public class AppFlow : MonoBehaviour
     public float transcriptTimeout = 6f;
 
     public Step CurrentStep { get; private set; }
+    internal bool VoiceCommandsConfigured { get; private set; }
 
     bool _skip, _answered;
     readonly Dictionary<int, double> _litUntil = new Dictionary<int, double>(); // keys lit as "next", and when to turn them off
@@ -170,6 +171,7 @@ public class AppFlow : MonoBehaviour
             canListen = secrets.Status == System.Threading.Tasks.TaskStatus.RanToCompletion &&
                 !string.IsNullOrWhiteSpace(secrets.Result.GROQ_API_KEY);
         }
+        VoiceCommandsConfigured = canListen && AIConfig.Get().wakeWordEnabled;
         yield return Say(!canListen || VisualsMode.NonVisual || string.IsNullOrWhiteSpace(hint) ? introLine : introLine + " " + hint);
 
         CurrentStep = Step.Listening;

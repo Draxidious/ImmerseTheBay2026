@@ -200,7 +200,7 @@ public class RadialMenu : MonoBehaviour
                 return Calibrated && !calibrating && !InFreePlay && app;
             case Choice.Visuals:
                 label = "Visuals\nOff";
-                return Calibrated && !calibrating;
+                return Calibrated && !calibrating && (!_wearable || Application.isEditor || app && app.VoiceCommandsConfigured);
             case Choice.Recalibrate:
                 // A calibration in progress can be cancelled only if there is an older one to go back to.
                 label = calibrating ? "Cancel\nRecalibrate" : "Recalibrate\nPiano";
