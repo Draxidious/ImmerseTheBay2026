@@ -34,10 +34,10 @@ public class MarkerCalibration : MonoBehaviour
     [Header("Markers")]
     public string leftMarker = "ArUco4x4_50-0";
     public string rightMarker = "ArUco4x4_50-1";
-    [Tooltip("Marker centre → back outer corner of A0 (inward, down, toward player), metres. Calibrated on the Aura 2026-11-14.")]
-    public Vector3 leftOffset = new Vector3(-0.010f, 0.012f, 0.091f);
-    [Tooltip("Marker centre → back outer corner of C8 (inward, down, toward player), metres. Calibrated on the Aura 2026-11-14.")]
-    public Vector3 rightOffset = new Vector3(0.020f, 0.012f, 0.075f);
+    [Tooltip("Marker centre → back outer corner of A0 (inward, down, toward player), metres. Saved on the Aura 2026-11-15 (Main run).")]
+    public Vector3 leftOffset = new Vector3(-0.005f, 0.016f, 0.107f);
+    [Tooltip("Marker centre → back outer corner of C8 (inward, down, toward player), metres. Saved on the Aura 2026-11-15 (Main run).")]
+    public Vector3 rightOffset = new Vector3(0.015f, 0.016f, 0.090f);
     [Tooltip("Use the real keyboard width; take only the centre and direction from the markers (tracked spans read ~2% long).")]
     public bool useKnownWidth = true;
 
@@ -50,6 +50,11 @@ public class MarkerCalibration : MonoBehaviour
     public Vector2 spanRange = new Vector2(1.18f, 1.32f);
     [Tooltip("Fall back to the pinch steps if no marker is found within this many seconds of the tracker starting.")]
     public float giveUpSeconds = 45f;
+
+    [Header("Keyboard")]
+    [Tooltip("Hide the keyboard overlay while the markers are being scanned (it covered the marker dot and the prompt); it comes " +
+             "back when both markers lock, on a pinch fallback, or when calibration ends any other way.")]
+    public bool hideKeyboardWhileScanning = true;
 
     [Header("Offsets panel")]
     public float sliderRangeMm = 60f;
@@ -102,6 +107,17 @@ public class MarkerCalibration : MonoBehaviour
             calibrator.markersAvailable = false;
         }
         if (imageManager) imageManager.trackablesChanged.RemoveListener(OnTrackablesChanged);
+        SetKeyboardVisible(true);
+    }
+
+    /// <summary>Show/hide the keyboard overlay (AppFlow turns it on when calibration starts; we hide it during the scan).</summary>
+    void SetKeyboardVisible(bool visible)
+    {
+        var overlay = calibrator ? calibrator.overlay : null;
+        if (!overlay || overlay.gameObject.activeSelf == visible) return;
+        if (!visible && !hideKeyboardWhileScanning) return;
+        overlay.gameObject.SetActive(visible);
+        Debug.Log($"[MarkerCalibration] Keyboard {(visible ? "shown" : "hidden while scanning")}.");
     }
 
     void Start()
@@ -127,6 +143,7 @@ public class MarkerCalibration : MonoBehaviour
         _trackerStartedAt = -1f;
         if (_leftDot) _leftDot.SetActive(false);
         calibrator.markersAvailable = true;
+        SetKeyboardVisible(false);
         Debug.Log($"[MarkerCalibration] Scan started. Look at {leftMarker} (left), then {rightMarker} (right).");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -164,6 +181,7 @@ public class MarkerCalibration : MonoBehaviour
         _scanning = false;
         StopTracker();
         calibrator.markersAvailable = false;
+        SetKeyboardVisible(true); // the pinch steps pulse the end keys on the keyboard
         if (calibrator.IsCalibrating) calibrator.ShowInfo($"Can't use the markers ({why}).\nUse the pinch steps instead.", 5f);
     }
 
@@ -181,6 +199,7 @@ public class MarkerCalibration : MonoBehaviour
             {
                 _scanning = false;
                 StopTracker();
+                SetKeyboardVisible(true);
             }
             else if (_trackerStartedAt > 0f)
             {
@@ -257,11 +276,13 @@ public class MarkerCalibration : MonoBehaviour
         _hasMarkerPose = true;
 
         Corners(out var low, out var high);
+        SetKeyboardVisible(true); // both scans done: the keyboard appears where the markers put it
         string reason = calibrator.CalibrateFromMarkers(low, high, useKnownWidth);
         if (reason != null)
         {
             _hasMarkerPose = false;
             _left = null;
+            SetKeyboardVisible(false);
             calibrator.ShowInfo($"Marker calibration failed ({reason}).\nLook at the LEFT marker again.", 6f);
             _scanning = true;
             StartTracker();

@@ -71,11 +71,11 @@ public class AICoach : MonoBehaviour
         {
             result = await AskModel(ctx, cfg, null);
             // Starts like a recent line: ask once more, then use the cue (or nothing). Questions always get their answer.
-            if (result != null && !question && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, false), _recent))
+            if (result != null && !question && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, ctx.trigger), _recent))
             {
                 Debug.Log($"[AI] Coach reply repeats a recent opening, asking again: \"{result.say}\"");
                 result = await AskModel(ctx, cfg, RepeatNote);
-                if (result != null && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, false), _recent))
+                if (result != null && CoachPolicy.RepeatsOpening(CoachPolicy.Tidy(result.say, ctx.trigger), _recent))
                 {
                     Debug.Log($"[AI] Coach repeated itself again, skipping: \"{result.say}\"");
                     result = new CoachResult { say = cue ?? "", trigger = ctx.trigger };
@@ -90,8 +90,10 @@ public class AICoach : MonoBehaviour
         if (result == null)
         {
             // An unprompted free-play comment that failed says nothing; "let's try that again" makes no sense there.
+            // A passed play-through still announces the next bar; "let's try that again" would be wrong there.
             string line = question ? cfg.questionFallbackLine
-                        : ctx.trigger == CoachTrigger.PhraseEnded ? "" : cfg.fallbackLine;
+                        : ctx.trigger == CoachTrigger.PhraseEnded ? ""
+                        : ctx.trigger == CoachTrigger.PlayThroughPassed ? cue ?? "" : cfg.fallbackLine;
             result = new CoachResult { say = line, trigger = ctx.trigger, isFallback = true };
             Debug.LogWarning("[AI] Coach using canned fallback line.");
         }
@@ -101,10 +103,13 @@ public class AICoach : MonoBehaviour
 
         if (!result.isFallback && !string.IsNullOrWhiteSpace(result.say))
         {
-            result.say = CoachPolicy.Tidy(result.say, question);
+            result.say = CoachPolicy.Tidy(result.say, ctx.trigger);
             _recent.Enqueue(result.say);
             while (_recent.Count > RecentLines) _recent.Dequeue();
         }
+        // The model's line names what was played; the cue says what comes next ("... solid. Now bar 3.").
+        if (ctx.trigger == CoachTrigger.PlayThroughPassed && !string.IsNullOrEmpty(cue) && result.say != cue)
+            result.say = string.IsNullOrWhiteSpace(result.say) ? cue : result.say.TrimEnd() + " " + cue;
         await PlayPassCue(sound); // a milestone chime right before the line
         if (this == null) return result;
         return Deliver(result, true);
