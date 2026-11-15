@@ -1028,6 +1028,7 @@ public class CurriculumEngine : MonoBehaviour
         if (cfg.metronomeDuringRun && TempoPct <= cfg.metronomeMaxTempoPct && expected.Count > 0)
             for (double c = grid; c <= expected[expected.Count - 1].time + 1e-4; c += spb) clicks.Add(runStart + c);
         metronome.volume = cfg.metronomeVolume;
+        metronome.Anchor(); // one audio-clock offset for all of this run's clicks
         running = true;
 
         CurrentRun = new RunInfo
@@ -1046,7 +1047,7 @@ public class CurriculumEngine : MonoBehaviour
     {
         if (!running || IsDemoPlaying) return;
         double now = Time.unscaledTimeAsDouble;
-        while (clickIndex < clicks.Count && clicks[clickIndex] <= now + 0.1) // scheduled a little ahead on the audio clock
+        while (clickIndex < clicks.Count && clicks[clickIndex] <= now + 0.5) // handed to the audio clock well ahead of slow frames
         {
             // The count-in is at full volume; once the student is playing the clicks drop back.
             metronome.ClickAt(clicks[clickIndex], clickIndex == 0, clickIndex < countInClicks ? 1f : Cfg.metronomeRunVolume);

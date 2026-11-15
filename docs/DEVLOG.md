@@ -4,6 +4,16 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 early — Claude Code (for Jordan): metronome and demo steady at low frame rates
+- **Metronome jitter below 60 fps:** every click converted its time from the game clock (start of frame) to the audio
+  clock at the moment it was scheduled, only 0.1 s ahead, so each click carried a different error and slow frames made
+  clicks late. Now `Metronome.Anchor()` fixes one game-to-audio offset per run (tracked over many frames, so one slow
+  frame can't skew it) and the engine hands clicks over 0.5 s ahead.
+- `DemoPlayer` played each note with `PlayOneShot` on the frame it fell due: same unevenness. It now schedules the
+  sound on the audio clock 0.3 s ahead (12 sources in turn); the keys still light on the frame clock.
+- **Measured in Editor Play mode at 10 fps:** the anchor used for a run and an independent estimate differed by 0.9 ms.
+  Not listened to by a person yet, and not tried on the puck.
+
 ## 2026-11-15 early — Claude Code (for Jordan): silent runs, count-in cue, no hints during runs
 - **Coach praised a run where nothing was played.** The judge was right (measure red, accuracy 0); nothing auto-fills
   notes. The coach was only told about wrong keys and pauses, so a run with every note *missed* had no wrong notes and
