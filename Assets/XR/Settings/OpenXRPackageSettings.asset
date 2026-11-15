@@ -913,8 +913,23 @@ MonoBehaviour:
   features:
   - {fileID: 8736661028334727731}
   - {fileID: 3598254934845347770}
+  - {fileID: -7957651626438920935}
+  - {fileID: 5793795837509951106}
+  - {fileID: 4394297183417477379}
+  - {fileID: -3108476005576618038}
+  - {fileID: 624165544554481878}
+  - {fileID: -2890405050636197139}
   - {fileID: 1170704673688743257}
+  - {fileID: -8540138377385337845}
+  - {fileID: 7022958822548095667}
+  - {fileID: -8252133869900825972}
+  - {fileID: -5040507797185505591}
+  - {fileID: -7552371172471865042}
   - {fileID: 5153017048313567732}
+  - {fileID: -6118407702897976503}
+  - {fileID: -9175957898162705143}
+  - {fileID: 2452001611440805681}
+  - {fileID: 1790590478407306004}
   - {fileID: -8705318006256794946}
   - {fileID: 6481653220666705815}
   - {fileID: 7393116930172532905}
@@ -924,6 +939,8 @@ MonoBehaviour:
   - {fileID: 3344995148386438684}
   - {fileID: 6389727029650002286}
   - {fileID: -4166740740631445519}
+  - {fileID: 4555227199702176590}
+  - {fileID: 1909485116069374255}
   - {fileID: -8999059302058509960}
   - {fileID: -5212364890371797913}
   - {fileID: 3837512152752227827}
@@ -936,11 +953,13 @@ MonoBehaviour:
   - {fileID: -6300852659050339468}
   - {fileID: -4782912542820276973}
   - {fileID: 1109513913212486038}
+  - {fileID: -650581822538134799}
   - {fileID: -500553951895718075}
   - {fileID: 8461216366325073885}
   - {fileID: -8385369577385903398}
   - {fileID: -2778858118241658710}
   - {fileID: 430188747721659633}
+  - {fileID: -2391659975019402995}
   - {fileID: 750856212347791325}
   - {fileID: 2821238428615573753}
   - {fileID: -7677771197093365762}
@@ -950,25 +969,6 @@ MonoBehaviour:
   - {fileID: 6854443372140345734}
   - {fileID: 8347051584439025853}
   - {fileID: 2684350569200705238}
-  - {fileID: -650581822538134799}
-  - {fileID: -2391659975019402995}
-  - {fileID: -7552371172471865042}
-  - {fileID: 7022958822548095667}
-  - {fileID: 624165544554481878}
-  - {fileID: -2890405050636197139}
-  - {fileID: -8252133869900825972}
-  - {fileID: -6118407702897976503}
-  - {fileID: 2452001611440805681}
-  - {fileID: -5040507797185505591}
-  - {fileID: -8540138377385337845}
-  - {fileID: -9175957898162705143}
-  - {fileID: 1790590478407306004}
-  - {fileID: 1909485116069374255}
-  - {fileID: 4555227199702176590}
-  - {fileID: 4394297183417477379}
-  - {fileID: 5793795837509951106}
-  - {fileID: -3108476005576618038}
-  - {fileID: -7957651626438920935}
   customLoaderName: 
   m_renderMode: 0
   m_latencyOptimization: 0
@@ -3087,7 +3087,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd1de50525c9641288a102ed3682fd1d, type: 3}
   m_Name: XRSessionFeature Android
   m_EditorClassIdentifier: Google.XR.Extensions::Google.XR.Extensions.XRSessionFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Android XR (Extensions): Session Management'
   version: 1.0.0
   featureIdInternal: com.google.xr.extensions.session_management
@@ -3491,7 +3491,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4430c2a4b47b415b8468555c5db5f48, type: 3}
   m_Name: XRMarkerTrackingFeature Android
   m_EditorClassIdentifier: Google.XR.Extensions::Google.XR.Extensions.XRMarkerTrackingFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Android XR (Extensions): Image Tracking (Marker)'
   version: 1.0.0
   featureIdInternal: com.google.xr.extensions.marker_tracking

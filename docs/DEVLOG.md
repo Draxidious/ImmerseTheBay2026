@@ -4,6 +4,20 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~00:10 — Claude Code (for Ari): corner markers take over calibration (Dev_Ari)
+- New `MarkerCalibration` (UI folder), ported from the AuraMarkerTest prototype: two 33 mm ArUco markers on the P71's rear
+  corners replace the four pinch steps. Hands, occlusion, the orange recalibrate dot and all XRI interaction are unchanged.
+- `PianoCalibrator`: `CalibrateFromMarkers` / `ApplyMarkerAdjustment` (fit from the back outer corners of A0/C8, real keyboard
+  width), `CalibrationStarted`, `ShowInfo`, `markersAvailable` (pinches off while markers run), and a blue second dot below the
+  orange one (`OffsetsDotPressed`) that opens the offset sliders.
+- Setup tool `Tools/Piano/Add Marker Calibration To Open Scene` (applied to Dev_Ari; idempotent, for Main later) and
+  `Enable Marker Tracking (OpenXR Android)`: **project-wide**, Google `XRSessionFeature` + `XRMarkerTrackingFeature` are now on.
+- Editor-verified (play mode, simulated lock): `Calibrated` fires once, scale 1.000, A0–C8 span = 1.1985 m, Height +10 mm raises
+  the keys 10.0 mm, arrows step 1 mm, Sideways moves the keyboard, recalibrate closes the panel, fallback restores pinches.
+- **Verified on the Aura (Dev_Ari, 00:11–00:13):** extensions 1.5.0 track the markers; permission dialog OK; two scans locked
+  (spans 1.249 / 1.256 m), calibrated at scale 1.000; blue dot opened the panel; saved offsets left (-0.005, 0.012, 0.091),
+  right (0.015, 0.012, 0.090). Rescans differ by 8–16 mm (mostly height at the C8 end). **Not yet in Main.**
+  History and evidence: `docs/marker-tracking/PIANO_CORNERS_HANDOFF.md` and `PIANO_CORNERS_ITERATIONS.md`.
 
 
 ## 2026-11-15 ~00:30 PT — Claude Code (for Nehemiah): song DB expanded to 37 songs (30 new)

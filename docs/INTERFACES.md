@@ -114,10 +114,29 @@ a hand are not drawn and the real hand shows through. Toggle with `handsOccludeO
 | `bool handsOccludeOverlay` / `Material handOccluderMaterial` | Hand occlusion on/off; occluder material (loaded from `Resources/HandOccluder` if empty). |
 | `void SubmitHandPinch(bool isLeft, Vector3 worldPoint)` | Two-hand flow (`twoHandCalibration`, used only when `fourPointCalibration` is off): left hand on the lowest key + right hand on the highest, pinched within `twoHandWindowSeconds`. A lone pinch never calibrates. |
 | `float ExpectedSpanMeters()` | Real-size distance between the lowest and highest key's front centers (≈1.20 m for 88 keys). |
-| `event Action Calibrated` | Raised after a successful calibration. |
+| `event Action Calibrated` | Raised after a successful calibration (pinches or markers). |
 | `bool IsCalibrating` / `Phase CurrentPhase` | `Phase { Idle, WaitingForLow, WaitingForHigh }`. |
+| `event Action CalibrationStarted` | Raised by every `Recalibrate()`, so another calibration source (`MarkerCalibration`) can start. |
+| `string CalibrateFromMarkers(Vector3 backLowOuter, Vector3 backHighOuter, bool useKnownWidth = true)` | Calibrate from the BACK OUTER corners of A0 and C8 (where they meet the panel). Corners are moved half a white key inward; the front points are one `whiteKeyLength` toward the player; with `useKnownWidth` only the centre and direction come from the corners (span = real keyboard width). Ends calibration and raises `Calibrated`. Returns null on success, else a reason. |
+| `string ApplyMarkerAdjustment(Vector3 backLowOuter, Vector3 backHighOuter, bool useKnownWidth = true)` | Same fit without ending calibration or raising events (offset sliders). |
+| `void ShowInfo(string text, float seconds)` | Temporary message on the calibration prompt. |
+| `bool markersAvailable` (runtime) | Set by `MarkerCalibration`: pinches are ignored and the prompt asks for the corner markers. Cleared if marker tracking can't run that round, which brings the pinch steps back. |
+| `event Action OffsetsDotPressed` | A second, blue dot sits just below the orange one (toward the wrist) while something listens; touch-and-hold it the same way (~0.6 s). |
 
 Editor debug: `C` = fake both pinches in front of the camera, `R` = recalibrate.
+
+### MarkerCalibration (`Assets/Scripts/UI/MarkerCalibration.cs`) 🚧 — Dev_Ari
+Two printed ArUco 4x4_50 markers on the P71's rear corners (ID 0 behind A0, ID 1 behind C8, 33 mm symbols; print sheet
+`output/pdf/Yamaha-P71-Corner-Markers-Letter.pdf`) take over `PianoCalibrator`'s four pinch steps. On `CalibrationStarted` it
+asks for `android.permission.SCENE_UNDERSTANDING_COARSE`, enables the `ARTrackedImageManager` on the XR Origin, locks the
+left then the right marker (≥30 samples over ≥1.2 s within 10 mm; marker span 1.18–1.32 m), turns tracking off and calls
+`CalibrateFromMarkers`. Offsets (inward, down, toward player, m) from each marker centre to the key's back outer corner:
+left `(-0.010, 0.012, 0.091)`, right `(0.020, 0.012, 0.075)` (calibrated on the Aura 2026-11-14). The blue left-hand dot opens a
+world-space UGUI panel (Left depth, Right depth, Height, Sideways; ±60 mm, `<` `>` = 1 mm; Save / Defaults / Close), driven by
+the rig's XRI interactors through an `XRUIInputModule`. Saved to `marker-offsets.json` in persistent data. Falls back to pinches
+on permission denial, tracker not running after 5 s, or no marker in `giveUpSeconds` (45 s). Log tag `[MarkerCalibration]`.
+Setup: **Tools → Piano → Add Marker Calibration To Open Scene** (+ **Enable Marker Tracking (OpenXR Android)**, which turns on
+Google's `XRSessionFeature` + `XRMarkerTrackingFeature`). Editor keys: `M` = simulate a marker lock, `O` = offsets panel.
 
 ### SheetPanel (`Assets/Scripts/UI/SheetPanel.cs`) 📝
 | Member | Purpose |
