@@ -42,6 +42,26 @@ public class FreePlayCoachTests
         Assert.IsFalse(QuestionRouter.IsYes(text));
     }
 
+    [TestCase("Play it again.")]
+    [TestCase("play that again")]
+    [TestCase("Can you play that again please?")]
+    [TestCase("Play this one more time.")]
+    [TestCase("Show me again.")]
+    [TestCase("Play it for me again")]
+    public void ReplayCommand_Recognized(string text)
+    {
+        Assert.IsTrue(QuestionRouter.IsReplayCommand(text));
+    }
+
+    [TestCase("Why do I play it again so slowly?")]
+    [TestCase("Play free play")]
+    [TestCase("How do I play this part?")]
+    [TestCase("")]
+    public void ReplayCommand_NotACommand(string text)
+    {
+        Assert.IsFalse(QuestionRouter.IsReplayCommand(text));
+    }
+
     [Test]
     public void KeepWholeSentences_DropsTheSentenceThatOverflows()
     {

@@ -297,6 +297,8 @@ Applies `docs/COACH_PLAYBOOK.md` (rules 1–22) in timed runs and tells the coac
 
 | Member | Purpose |
 |---|---|
+| `bool ReplayDemo()` | Plays the current bars again (hand being practised, at the current step's tempo); a run in progress stops and restarts after. False when idle, during the song intro, a demo, or at song complete. (Canady, OK'd by Jordan) |
+| `LessonConfig.autoDemoNewMeasure` (on) | The first run of each new measure (measure 1 too) is demoed first, after the coach's line; skipped when those bars were demoed in the last 5 s (e.g. the coach asked). No demo for tempo steps, hand changes, play-throughs, repairs or retries. Plays at the current step's tempo, like every other demo. |
 | `void StartLesson()` / `StopLesson()` | Start from the warm-up (or the song when `skipWarmup` is on) / stop. |
 | `HandMode Hand` | `Right`, `Left` or `Both`: the hand(s) of the current or next run. `Stages` / `StageIndex`: the hand stages of the measure or repair block. |
 | `event Action<RunInfo> OnRunStarted` | A run begins (count-in first). `RunInfo.hand`, `bars`, `tempoPct`, `notes` (only that hand's notes, each with `hand`). |
@@ -397,6 +399,7 @@ questions. Code computes every musical fact (`FreePlayAnalyzer`, pure C#, EditMo
 | `LessonWalkthrough.Run(n, realTime)` (Editor only) | Play-mode driver for Main_2: passes every run up to measure n and logs each coach line as `[Walkthrough]`. `realTime` keeps speech on and lets each count-in play first (logs its tempo). |
 | `PassCues.For(ctx, cue)` / `AIConfig.passCues`, `passCueVolume` (0.2) | Lesson-only sounds, no speech or model call: soft ding (150 ms) for a pass that only speeds up, two-note G4→C5 (300 ms) for a new hand or new bars, three-note C5-E5-G5 (540 ms) for a measure learned, play-through or song complete. Low plucked tones, unlike the high flat "hey teacher" chime. Played after any speech, and `AICoach.Coach` returns only once it ends, so the next count-in (already at the new tempo) and the spoken line come after it. |
 | `QuestionRouter.TryParseModeCommand(text, out mode)` | "hey teacher, free play" / "lesson mode" switch modes instead of asking the coach. |
+| `QuestionRouter.IsReplayCommand(text)`, `AIConfig.cantReplayLine` | "hey teacher, play it again / play that again / show me again": no model call, calls `CurriculumEngine.ReplayDemo()`; says `cantReplayLine` when there's nothing to replay (Main has no demo player). |
 | `QuestionRouter.IsYes(text)`, `AIConfig.confirmFreePlayLine` / `keepLessonLine` | "free play" said during the lesson first asks "Do you want to switch to free play?" (once the coach is free), then listens without a wake word: yes switches; no, anything else or silence keeps the lesson. "lesson mode" and the panel switch at once. |
 Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C–F–G–C, Für Elise, Uneven run). Config: `AIConfig` "Free play" + "Mode".
 

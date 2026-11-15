@@ -4,6 +4,19 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~00:30 — Claude Code (for Canady): demo each new measure, "play it again", shorter speech
+- `CurriculumEngine` (Jordan OK'd the change list): `BeginRunOrDemo` demos the first run of each new measure (incl. measure 1:
+  lesson start has no fixed demo of it) for the hand about to be played; `ReplayDemo()`; coach demos share `RequestDemo`.
+  `LessonConfig.autoDemoNewMeasure`. Demos play at the current step's tempo, like the warm-up, coach and 3-fails demos
+  (a `demoTempo` Step/Song option was added and then removed).
+- Voice: "hey teacher, play that again" -> `ReplayDemo()`, no model call (`QuestionRouter.IsReplayCommand`).
+- TTS: Groq Orpheus pads every clip with 0.3-0.55 s of silence before and 0.4-1 s after; `GroqTts.TrimSilence` keeps 50/120 ms.
+  "Now bar 2." went from 3.3 s to 2.1 s request + playback; "Both hands now." 2.3 -> 1.3 s.
+- Lesson start and play-through lines: at most 8 words (prompt) and 50 chars (`CoachPolicy.Tidy(say, trigger)`), no "next we...".
+- **Verified (Editor, Main_2, `LessonWalkthrough.Run(3, true)`):** "Bar one, right hand, slowly." -> demo m1 RH 50% -> count-in -> ...;
+  "Now bar 2." -> demo m2 RH 50% -> count-in 1333 ms; no demo for tempo steps, hand changes or play-throughs. Replay via a spoken WAV
+  through Whisper. EditMode 91/91. **Untested:** device; the prompt tweak after "clean all the way" was copied twice (not re-run).
+
 ## 2026-11-15 ~00:10 — Claude Code (for Ari): corner markers take over calibration (Dev_Ari)
 - New `MarkerCalibration` (UI folder), ported from the AuraMarkerTest prototype: two 33 mm ArUco markers on the P71's rear
   corners replace the four pinch steps. Hands, occlusion, the orange recalibrate dot and all XRI interaction are unchanged.
