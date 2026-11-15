@@ -1234,6 +1234,239 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::SongNoteDisplay
   evaluator: {fileID: 1900000003}
+  sheet:
+  - image: {fileID: 2800000, guid: 429e21cf852347bcbb357083c79ad3fc, type: 3}
+    firstBar: 1
+    barEdges:
+    - 0.0318
+    - 0.3432
+    - 0.4989
+    - 0.6545
+    - 0.8108
+    - 0.9665
+    top: 0.17
+    bottom: 0.83
+  - image: {fileID: 2800000, guid: 78a1e0003f3840279f27cca8843c9853, type: 3}
+    firstBar: 6
+    barEdges:
+    - 0.0318
+    - 0.242
+    - 0.4199
+    - 0.5744
+    - 0.7784
+    - 0.9665
+    top: 0.17
+    bottom: 0.828
+  - image: {fileID: 2800000, guid: cbbe720df88442948063f2316444c29b, type: 3}
+    firstBar: 11
+    barEdges:
+    - 0.0318
+    - 0.2432
+    - 0.4216
+    - 0.6091
+    - 0.7875
+    - 0.9665
+    top: 0.194
+    bottom: 0.806
+  - image: {fileID: 2800000, guid: 78994324100c4ff89c55f67658b5bc84, type: 3}
+    firstBar: 16
+    barEdges:
+    - 0.0318
+    - 0.2449
+    - 0.4256
+    - 0.6057
+    - 0.7858
+    - 0.9665
+    top: 0.17
+    bottom: 0.83
+  - image: {fileID: 2800000, guid: af26b82512df4839b76aa7933c9f14aa, type: 3}
+    firstBar: 21
+    barEdges:
+    - 0.0318
+    - 0.2358
+    - 0.4068
+    - 0.5881
+    - 0.771
+    - 0.9665
+    top: 0.152
+    bottom: 0.85
+  - image: {fileID: 2800000, guid: 0d4e93dc6bce4a7dbee2388c2c2b477d, type: 3}
+    firstBar: 26
+    barEdges:
+    - 0.0318
+    - 0.2432
+    - 0.4153
+    - 0.6216
+    - 0.7938
+    - 0.9665
+    top: 0.158
+    bottom: 0.84
+  - image: {fileID: 2800000, guid: 9dc774b54f8543198d24789d30171c44, type: 3}
+    firstBar: 31
+    barEdges:
+    - 0.0318
+    - 0.2051
+    - 0.3955
+    - 0.5852
+    - 0.7756
+    - 0.9665
+    top: 0.15
+    bottom: 0.85
+  - image: {fileID: 2800000, guid: 529776142cae4a2cab0bebd4fcd84738, type: 3}
+    firstBar: 36
+    barEdges:
+    - 0.0318
+    - 0.3284
+    - 0.4648
+    - 0.6023
+    - 0.7892
+    - 0.9665
+    top: 0.156
+    bottom: 0.844
+  - image: {fileID: 2800000, guid: 11e5ce55dfea4bc69316f180d376064c, type: 3}
+    firstBar: 41
+    barEdges:
+    - 0.0318
+    - 0.2449
+    - 0.4256
+    - 0.6057
+    - 0.7858
+    - 0.9665
+    top: 0.17
+    bottom: 0.83
+  - image: {fileID: 2800000, guid: c3869e83b3924c94b111c33f2ebf0507, type: 3}
+    firstBar: 46
+    barEdges:
+    - 0.0318
+    - 0.2449
+    - 0.4256
+    - 0.6057
+    - 0.7858
+    - 0.9665
+    top: 0.172
+    bottom: 0.83
+  - image: {fileID: 2800000, guid: 48056a14654f453bb06c4d5139eaa46d, type: 3}
+    firstBar: 51
+    barEdges:
+    - 0.0318
+    - 0.2528
+    - 0.4307
+    - 0.6091
+    - 0.7875
+    - 0.9665
+    top: 0.172
+    bottom: 0.83
+  - image: {fileID: 2800000, guid: 7b22dce8faa1460d81f4fc32b4dd69b2, type: 3}
+    firstBar: 56
+    barEdges:
+    - 0.0318
+    - 0.2449
+    - 0.4256
+    - 0.6057
+    - 0.7858
+    - 0.9665
+    top: 0.17
+    bottom: 0.83
+  - image: {fileID: 2800000, guid: bd118edca23c440e9f2d3ed11624697f, type: 3}
+    firstBar: 61
+    barEdges:
+    - 0.0318
+    - 0.2369
+    - 0.4307
+    - 0.6023
+    - 0.7852
+    - 0.9665
+    top: 0.166
+    bottom: 0.834
+  - image: {fileID: 2800000, guid: d1dfecb36b0a4c0fb538fb59879f4df9, type: 3}
+    firstBar: 66
+    barEdges:
+    - 0.0318
+    - 0.2386
+    - 0.4233
+    - 0.5966
+    - 0.771
+    - 0.9665
+    top: 0.16
+    bottom: 0.842
+  - image: {fileID: 2800000, guid: f10ee2489be842e288330f3f8630f5c7, type: 3}
+    firstBar: 71
+    barEdges:
+    - 0.0267
+    - 0.2335
+    - 0.4068
+    - 0.5915
+    - 0.7761
+    - 0.9602
+    top: 0.154
+    bottom: 0.846
+  - image: {fileID: 2800000, guid: e6df218c19fd4fc4ade14948ba7d2cc4, type: 3}
+    firstBar: 76
+    barEdges:
+    - 0.0222
+    - 0.2727
+    - 0.3858
+    - 0.5386
+    - 0.7489
+    - 0.9557
+    top: 0.148
+    bottom: 0.85
+  - image: {fileID: 2800000, guid: 4a06a3dd2bbf4624a4da172137330d10, type: 3}
+    firstBar: 81
+    barEdges:
+    - 0.0239
+    - 0.2165
+    - 0.4267
+    - 0.6375
+    - 0.7972
+    - 0.9574
+    top: 0.138
+    bottom: 0.862
+  - image: {fileID: 2800000, guid: fade950300b84c018543fccdee2165f8, type: 3}
+    firstBar: 86
+    barEdges:
+    - 0.0273
+    - 0.2403
+    - 0.4205
+    - 0.6011
+    - 0.7813
+    - 0.9619
+    top: 0.148
+    bottom: 0.85
+  - image: {fileID: 2800000, guid: 1e8c69fcd520443a9c5722a20df1cba0, type: 3}
+    firstBar: 91
+    barEdges:
+    - 0.0318
+    - 0.2432
+    - 0.4216
+    - 0.6006
+    - 0.779
+    - 0.9665
+    top: 0.158
+    bottom: 0.842
+  - image: {fileID: 2800000, guid: dbe4164f09c04ee797787b6c77245652, type: 3}
+    firstBar: 96
+    barEdges:
+    - 0.0318
+    - 0.2449
+    - 0.425
+    - 0.6057
+    - 0.7858
+    - 0.9665
+    top: 0.144
+    bottom: 0.856
+  - image: {fileID: 2800000, guid: 141c6b6a30c746fdbc3bf512060d5b94, type: 3}
+    firstBar: 101
+    barEdges:
+    - 0.0318
+    - 0.271
+    - 0.4773
+    - 0.683
+    - 0.8886
+    - 0.9625
+    top: 0.156
+    bottom: 0.844
+  sheetAspect: 3.52
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
