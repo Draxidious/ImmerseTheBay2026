@@ -60,6 +60,7 @@ public class SongNoteDisplay : MonoBehaviour
     public Color goodColor = new Color(0.75f, 1f, 0.25f, 1f);
     public Color offTempoColor = new Color(1f, 0.65f, 0.10f, 1f);
     public Color wrongColor = new Color(1f, 0.25f, 0.25f, 1f);
+    public Color chipYellowColor = new Color(1f, 0.88f, 0.15f, 1f);
     public Color textColor = new Color(0.85f, 0.95f, 1f, 1f);
     public Color guideColor = new Color(0.4f, 0.7f, 0.9f, 0.18f);
     [Range(0f, 1f)] public float barFillAlpha = 0.4f;
@@ -318,6 +319,7 @@ public class SongNoteDisplay : MonoBehaviour
         ShowCue("<size=60%>Get ready</size>");
         _feedback.text = "Start playing when it says Play";
         _feedback.color = textColor;
+        SetChips(false);
         _stats.text = "";
         bool sheetSong = engine.State != CurriculumState.WarmupPlay && engine.State != CurriculumState.WarmupDemo;
         if (UseSheet) RefreshSheet(_lessonBar, sheetSong, RatingColor);
@@ -357,15 +359,15 @@ public class SongNoteDisplay : MonoBehaviour
         _ratings.Clear();
         foreach (var kv in engine.LastRatings) _ratings[kv.Key] = kv.Value;
 
-        string tempo = engine.LastTempoRating == TempoRating.TooSlow ? "a little faster next time"
-                     : engine.LastTempoRating == TempoRating.TooFast ? "slow down a little" : "on tempo";
-        _feedback.text = (engine.LastPassed ? "Passed" : "Try again") + $"   <size=75%>{tempo}</size>";
+        _feedback.text = engine.LastPassed ? "Passed" : "Try again";
         _feedback.color = engine.LastPassed ? perfectColor : offTempoColor;
         if (engine.LastRunSilent)
         {
             _feedback.text = "I didn't hear any notes. Start when it says Play.";
             _feedback.color = offTempoColor;
+            SetChips(false);
         }
+        else ShowRunChips();
 
         var lines = new List<string>();
         lines.Add($"Notes right first try {engine.LastAccuracy * 100f:0}%");
@@ -380,6 +382,101 @@ public class SongNoteDisplay : MonoBehaviour
         }
         _stats.text = string.Join("\n", lines);
         if (UseSheet && engine.State != CurriculumState.WarmupPlay) RefreshSheet(_lessonBar, false, RatingColor);
+    }
+
+    // Two chips beside the verdict: how steady the speed was, and how accurate the notes were.
+    // Green = good, yellow = passable but off, red = what failed the run.
+    private Image _tempoChip, _accuracyChip;
+    private TMP_Text _tempoChipText, _accuracyChipText;
+
+    private void SetChips(bool visible)
+    {
+        if (_tempoChip == null) return;
+        _tempoChip.gameObject.SetActive(visible);
+        _accuracyChip.gameObject.SetActive(visible);
+        // With chips the verdict sits on the left half of its row; without them it is centred on the whole panel.
+        var rt = (RectTransform)_feedback.transform;
+        rt.sizeDelta = new Vector2(visible ? panelSize.x * 0.28f : panelSize.x, rt.sizeDelta.y);
+    }
+
+    private void ShowRunChips()
+    {
+        var cfg = LessonConfig.Get();
+        bool passed = engine.LastPassed;
+
+        var tempo = engine.LastTempoRating;
+        Color tempoColor = tempo == TempoRating.OnTempo ? perfectColor : passed ? chipYellowColor : wrongColor;
+        string tempoWord = tempo == TempoRating.TooSlow ? "too slow" : tempo == TempoRating.TooFast ? "too fast" : "on tempo";
+
+        bool problem = false, shaky = false;
+        foreach (var kv in engine.LastRatings)
+        {
+            if (kv.Value == "problem") problem = true;
+            else if (kv.Value == "shaky") shaky = true;
+        }
+        float acc = engine.LastAccuracy;
+        bool accPass = acc >= cfg.passAccuracy - 1e-4f;
+        Color accColor = problem || !accPass ? wrongColor : shaky ? chipYellowColor : perfectColor;
+        // A run that missed only by a little is yellow, not red.
+        if (!problem && !accPass && acc >= cfg.passAccuracy - 0.1f) accColor = chipYellowColor;
+
+        SetChips(true);
+        StyleChip(_tempoChip, _tempoChipText, $"Tempo: {tempoWord}", tempoColor);
+        StyleChip(_accuracyChip, _accuracyChipText, $"Accuracy {acc * 100f:0}%", accColor);
+    }
+
+    private static void StyleChip(Image chip, TMP_Text label, string text, Color color)
+    {
+        Color fill = color;
+        fill.a = 0.55f;
+        chip.color = fill;
+        label.text = text;
+        label.color = Color.white;
+    }
+
+    private static Sprite _roundedSprite;
+
+    // A white pill, 9-sliced: the border is the corner radius (21 units = half the chip height, so the ends are fully round).
+    private static Sprite RoundedSprite()
+    {
+        if (_roundedSprite != null) return _roundedSprite;
+        const int size = 64, radius = 21;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                // Distance outside the rounded rectangle's inner core; 0 or less is inside.
+                float dx = Mathf.Max(radius - (x + 0.5f), (x + 0.5f) - (size - radius), 0f);
+                float dy = Mathf.Max(radius - (y + 0.5f), (y + 0.5f) - (size - radius), 0f);
+                float a = Mathf.Clamp01(radius - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f);
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+        }
+        tex.Apply();
+        _roundedSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect,
+                                       new Vector4(radius, radius, radius, radius));
+        return _roundedSprite;
+    }
+
+    private void BuildChip(string name, float x, float y, float w, float h, out Image chip, out TMP_Text label)
+    {
+        chip = Box(name, _root, x, y, w, h, Color.clear);
+        chip.sprite = RoundedSprite();
+        chip.type = Image.Type.Sliced; // corners stay round at any chip size
+        var go = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        var rt = (RectTransform)go.transform;
+        rt.SetParent(chip.transform, false);
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        label = go.GetComponent<TextMeshProUGUI>();
+        label.fontSize = 26f;
+        label.fontStyle = FontStyles.Bold;
+        label.alignment = TextAlignmentOptions.Center;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.raycastTarget = false;
+        chip.gameObject.SetActive(false);
     }
 
     // Clean = green, Shaky = orange, Problem = red; nothing for a bar that was not judged.
@@ -479,6 +576,15 @@ public class SongNoteDisplay : MonoBehaviour
         _next = Text("Next", 0f, below, panelSize.x, 70f, 56f, TextAlignmentOptions.Center);
         _feedback = Text("Feedback", 0f, below + 75f, panelSize.x, 50f, 36f, TextAlignmentOptions.Center);
         _stats = Text("Stats", 0f, below + 130f, panelSize.x, 110f, 26f, TextAlignmentOptions.Top);
+        if (engine != null)
+        {
+            // The verdict is centred in its own box; the chips go to the right of it, so keep that box left-aligned.
+            float chipY = below + 75f + 4f, chipH = 42f, gap = 12f;
+            float chipW = (panelSize.x * 0.72f - gap * 3f) / 2f;
+            float x0 = panelSize.x * 0.28f + gap;
+            BuildChip("Tempo Chip", x0, chipY, chipW, chipH, out _tempoChip, out _tempoChipText);
+            BuildChip("Accuracy Chip", x0 + chipW + gap, chipY, chipW, chipH, out _accuracyChip, out _accuracyChipText);
+        }
         _built = true;
     }
 

@@ -418,3 +418,9 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Works:** builds in the Editor; debug keys 1/2/3/0.
 - **Next:** hook the hand-tracking pinch to `CalibrateFromTwoKeys`, add a grab handle for fine adjustment, test colors on the Aura.
 - **Blocked on:** MIDI input (to drive keys from the real piano).
+
+## 2026-11-15 — Jordan (Claude)
+- `SongNoteDisplay`: the post-run feedback row now shows the verdict ("Passed" / "Try again") plus two chips: **Tempo** (on tempo / too slow / too fast)
+  and **Accuracy** (first-try %). Green = good, yellow = off but not what failed the run, red = what failed it. Replaces the old "Passed   on tempo" text.
+  Chips hide when the next run starts and on a silent run. New field `chipYellowColor`.
+- **Untested:** on the Aura (readability of the translucent chip fills) and in play mode; compile console showed no errors.
