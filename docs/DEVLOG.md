@@ -4,6 +4,20 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~19:00 — Claude Code (for Nehemiah): CoachOrb drag-and-drop prefab, BasicScene_Coach
+- **Prefab:** `Assets/Scripts/Coach/Prefabs/CoachOrb.prefab` = CoachOrb + Text + CoachOrbBridge, no scene references.
+  Bridge now looks for the orb on its own object first and searches the scene at most once a second when something is missing.
+  `debugKeys` toggle on CoachOrb (T/Y/H/V) and CoachOrbBridge (G). Menu: **Tools ▸ Coach ▸ Rebuild CoachOrb Prefab**;
+  "Add Coach Orb" / "Add AI Coach + Orb Bridge" now place the prefab (the AI coach object no longer gets its own bridge).
+- **Scenes:** `Dev_Nehemiah` and new `BasicScene_Coach` (copy of Jordan's BasicScene + Jordan's passthrough camera: solid
+  (0,0,0,0) background, no ARSession) use the prefab + an AI Coach object.
+- **Verified (Editor Play mode via UnityMCP):** prefab dropped into BasicScene_Coach auto-found orb/coach/voice in/out →
+  Thinking → Claude reply → Groq TTS → Speaking. Prefab alone in an empty scene: placed itself 0.68 m / eye level, ShowText
+  shown and faded, 0 errors.
+- **Not done:** BasicScene_Coach still has the sample rig's locomotion/gravity on and the grid Plane; no ARSession (Ari saw
+  OPAQUE/90% dimming without it). Jordan's newest commit (`165021c` Performance Evaluation) isn't merged: its
+  `Assets/Scripts/Lesson/SongData.cs` defines `SongNote`, which clashes with Canady's `Assets/Scripts/AI/SongData.cs`.
+
 ## 2026-11-14 ~18:15 — Claude Code (for Nehemiah): CoachOrb hooked up to the AI coach
 - Merged `origin/Canady` (`9c4984f`: CoachContext/CoachFacts/CoachAction, SongData, CoachPrompt.txt) into `nehemiah` first. No conflicts, no keys.
 - **Added** `Assets/Scripts/Coach/CoachOrbBridge.cs` (AI scripts untouched): Listening > Thinking > Speaking > Idle from the AI flags,

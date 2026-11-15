@@ -35,10 +35,13 @@ public class CoachOrbBridge : MonoBehaviour
     [Header("Debug")]
     [Tooltip("Log orb state and text changes to the Console.")]
     public bool logChanges;
+    [Tooltip("Editor only: G = send a fake 'run finished' to the coach. Untick if G is used elsewhere in your scene.")]
+    public bool debugKeys = true;
 
     const float KeepUp = 600f; // "until we say otherwise" for ShowText
 
     readonly float[] _samples = new float[256];
+    float _nextSearch;
     AICoach _subscribed;
     OrbState _lastState = (OrbState)(-1);
     bool _placeholderShown;
@@ -51,10 +54,18 @@ public class CoachOrbBridge : MonoBehaviour
 
     void Resolve()
     {
-        if (!orb) orb = FindAnyObjectByType<CoachOrb>();
-        if (!coach) coach = FindAnyObjectByType<AICoach>();
-        if (!voiceOutput) voiceOutput = coach && coach.voiceOutput ? coach.voiceOutput : FindAnyObjectByType<VoiceOutput>();
-        if (!voiceInput) voiceInput = FindAnyObjectByType<VoiceInput>();
+        if (!orb) orb = GetComponent<CoachOrb>();
+        // Scene searches are slow: when something is missing, look again at most once a second
+        // (so an AI coach spawned later is still picked up, but a scene without one costs nothing).
+        bool missing = !orb || !coach || !voiceOutput || !voiceInput;
+        if (missing && Time.unscaledTime >= _nextSearch)
+        {
+            _nextSearch = Time.unscaledTime + 1f;
+            if (!orb) orb = FindAnyObjectByType<CoachOrb>();
+            if (!coach) coach = FindAnyObjectByType<AICoach>();
+            if (!voiceOutput) voiceOutput = coach && coach.voiceOutput ? coach.voiceOutput : FindAnyObjectByType<VoiceOutput>();
+            if (!voiceInput) voiceInput = FindAnyObjectByType<VoiceInput>();
+        }
         if (coach != _subscribed)
         {
             Unsubscribe();
@@ -171,7 +182,7 @@ public class CoachOrbBridge : MonoBehaviour
     void DebugKeys()
     {
         var kb = UnityEngine.InputSystem.Keyboard.current;
-        if (kb == null || !coach) return;
+        if (!debugKeys || kb == null || !coach) return;
         if (kb.gKey.wasPressedThisFrame && !coach.IsThinking)
         {
             Debug.Log("[CoachOrbBridge] G: sending a fake 'run finished' context to the coach.");

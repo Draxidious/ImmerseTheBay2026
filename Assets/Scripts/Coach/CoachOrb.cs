@@ -67,6 +67,10 @@ public class CoachOrb : MonoBehaviour
     [Tooltip("Head tracking must be valid this long before the orb is placed (poses settle after the session starts).")]
     public float trackingSettleSeconds = 1f;
 
+    [Header("Debug")]
+    [Tooltip("Editor only: T = sample text, Y = cycle state, H = hide text, V = fake voice. Untick if these keys are used elsewhere in your scene.")]
+    public bool debugKeys = true;
+
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -372,7 +376,7 @@ public class CoachOrb : MonoBehaviour
     void DebugKeys()
     {
         var kb = UnityEngine.InputSystem.Keyboard.current;
-        if (kb == null) return;
+        if (!debugKeys || kb == null) return;
         if (kb.tKey.wasPressedThisFrame) ShowText(SampleLines[_sample++ % SampleLines.Length]);
         if (kb.yKey.wasPressedThisFrame) SetState((OrbState)(((int)State + 1) % 4));
         if (kb.hKey.wasPressedThisFrame) HideText();

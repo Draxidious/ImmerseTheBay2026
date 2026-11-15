@@ -7,17 +7,55 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.Interaction.Toolkit;
 
 /// <summary>
-/// Menu: Tools ▸ Coach ▸ Add Coach Orb             — adds a CoachOrb to the open scene (or selects the existing one).
-///       Tools ▸ Coach ▸ Add AI Coach + Orb Bridge — AICoach/VoiceOutput/VoiceInput/HesitationTracker + AIDebugPanel + CoachOrbBridge.
+/// Drag-and-drop: <c>Assets/Scripts/Coach/Prefabs/CoachOrb.prefab</c> (orb + text + CoachOrbBridge).
+///
+/// Menu: Tools ▸ Coach ▸ Add Coach Orb             — adds the CoachOrb prefab to the open scene (or selects the existing one).
+///       Tools ▸ Coach ▸ Add AI Coach + Orb Bridge — the orb prefab + an AI coach (AICoach/VoiceOutput/VoiceInput/
+///                                                    HesitationTracker + AIDebugPanel) for testing.
 ///       Tools ▸ Coach ▸ Add Aura XR Rig to Scene  — the project's hands rig + passthrough setup (same as Dev_Ari),
 ///                                                    so the open scene can run on the Aura.
-/// Neither saves the scene; save it yourself.
+///       Tools ▸ Coach ▸ Rebuild CoachOrb Prefab   — regenerates the prefab from the current script defaults.
+/// None of them saves the scene; save it yourself.
 /// </summary>
 public static class CoachOrbMenu
 {
     const string MaterialDir = "Assets/Scripts/Coach/Materials";
+    public const string PrefabPath = "Assets/Scripts/Coach/Prefabs/CoachOrb.prefab";
     const string RigPrefab = "Assets/VRTemplateAssets/Prefabs/Setup/Complete XR Origin Set Up Hands Variant.prefab";
     const string HandPermissionsPrefab = "Assets/VRTemplateAssets/Prefabs/Setup/Hands Permissions Manager.prefab";
+
+    [MenuItem("Tools/Coach/Rebuild CoachOrb Prefab")]
+    public static GameObject BuildPrefab()
+    {
+        if (File.Exists(PrefabPath) &&
+            !EditorUtility.DisplayDialog("CoachOrb prefab", $"{PrefabPath} exists. Rebuild it from the script defaults? " +
+                                         "Changes made to the prefab by hand will be lost.", "Rebuild", "Cancel"))
+            return AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+        return CreatePrefabAsset();
+    }
+
+    static GameObject CreatePrefabAsset()
+    {
+        var temp = new GameObject("CoachOrb");
+        try
+        {
+            var orb = temp.AddComponent<CoachOrb>();
+            orb.orbMaterial = GetOrCreateUnlit("CoachOrbUnlit", orb.idleColor);
+            orb.EnsureParts();
+            temp.AddComponent<CoachOrbBridge>(); // finds the orb on this object and the AI coach in the scene by itself
+            Directory.CreateDirectory(Path.GetDirectoryName(PrefabPath));
+            var prefab = PrefabUtility.SaveAsPrefabAsset(temp, PrefabPath);
+            Debug.Log($"[CoachOrbMenu] Saved {PrefabPath}.");
+            return prefab;
+        }
+        finally
+        {
+            Object.DestroyImmediate(temp);
+        }
+    }
+
+    static GameObject LoadOrCreatePrefab() =>
+        AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) ?? CreatePrefabAsset();
 
     [MenuItem("Tools/Coach/Add Coach Orb")]
     public static void AddCoachOrb()
@@ -30,13 +68,9 @@ public static class CoachOrbMenu
             return;
         }
 
-        var go = new GameObject("CoachOrb");
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(LoadOrCreatePrefab());
         Undo.RegisterCreatedObjectUndo(go, "Add Coach Orb");
-        var orb = go.AddComponent<CoachOrb>();
-        orb.orbMaterial = GetOrCreateUnlit("CoachOrbUnlit", orb.idleColor);
-        orb.piano = Object.FindAnyObjectByType<PianoOverlay>();
-        orb.calibrator = Object.FindAnyObjectByType<PianoCalibrator>();
-        orb.EnsureParts();
+        var orb = go.GetComponent<CoachOrb>();
 
         // Editor preview spot only: at runtime the orb places itself once the head is tracked.
         var cam = Camera.main ? Camera.main.transform : null;
@@ -50,12 +84,12 @@ public static class CoachOrbMenu
 
         Selection.activeGameObject = go;
         EditorSceneManager.MarkSceneDirty(go.scene);
-        Debug.Log("[CoachOrbMenu] Added CoachOrb. Play-mode keys: T = sample text, Y = cycle state, H = hide, V = fake voice.");
+        Debug.Log("[CoachOrbMenu] Added CoachOrb. Play-mode keys: T = sample text, Y = cycle state, H = hide, V = fake voice, G = fake coach run.");
     }
 
     /// <summary>
     /// AI coach set up the way AIDebugPanel expects (AICoach + VoiceOutput + VoiceInput + HesitationTracker on one object),
-    /// plus the debug panel and the bridge that drives the orb. Adds the orb too if the scene has none.
+    /// plus the debug panel. Adds the orb prefab (which carries the bridge) if the scene has no orb.
     /// </summary>
     [MenuItem("Tools/Coach/Add AI Coach + Orb Bridge")]
     public static void AddAICoachBridge()
@@ -82,9 +116,9 @@ public static class CoachOrbMenu
         var tracker = GetOrAdd<HesitationTracker>(go);
         var panel = GetOrAdd<AIDebugPanel>(go);
         panel.coach = coach; panel.voiceOutput = output; panel.voiceInput = input; panel.tracker = tracker;
-        var bridge = GetOrAdd<CoachOrbBridge>(go);
-        bridge.orb = Object.FindAnyObjectByType<CoachOrb>();
-        bridge.coach = coach; bridge.voiceOutput = output; bridge.voiceInput = input;
+        // The orb prefab carries the bridge; only add one here for an older, hand-built orb without it.
+        var orb = Object.FindAnyObjectByType<CoachOrb>();
+        if (orb && !Object.FindAnyObjectByType<CoachOrbBridge>()) Undo.AddComponent<CoachOrbBridge>(orb.gameObject);
 
         Selection.activeGameObject = go;
         EditorSceneManager.MarkSceneDirty(go.scene);

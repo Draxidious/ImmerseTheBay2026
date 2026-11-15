@@ -63,6 +63,12 @@ Editor debug: `C` = fake both pinches in front of the camera, `R` = recalibrate.
 | `Vector3 GetNoteWorldPosition(int measureIndex, int noteIndex)` | (stretch) For drawing a line from a note to its key. |
 
 ### CoachOrb (`Assets/Scripts/Coach/CoachOrb.cs`) ✅ — built by Nehemiah (kept out of `Assets/Scripts/UI/`, Ari's folder)
+
+**Drag and drop:** `Assets/Scripts/Coach/Prefabs/CoachOrb.prefab` (orb + text + `CoachOrbBridge`). Drop it anywhere in a scene,
+no wiring needed: it places itself at runtime, anchors to a `PianoOverlay` if there is one, and follows the AI coach if the
+scene has an `AICoach` (+ `VoiceOutput`/`VoiceInput`). Without an AI coach it just idles (no errors); call `ShowText(...)` yourself.
+Debug keys (Editor only) can be switched off with the `debugKeys` box on both components. Only one orb per scene.
+
 Glowing 7 cm orb + text beside it. World-locked at the player's eye level on their right side of the piano:
 anchored to `PianoOverlay` when one is present and not calibrating (follows recalibration / grab nudges),
 otherwise placed once ~0.55 m ahead / 0.4 m right of the head after tracking settles. Re-places on tracking-origin changes.
