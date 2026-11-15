@@ -20,6 +20,17 @@ public class VisualsModeTests
         Assert.AreEqual(on, visualsOn, text);
     }
 
+    [TestCase("Yes, audio only.", true)]
+    [TestCase("voice only please", true)]
+    [TestCase("I'd like no visuals", true)]
+    [TestCase("Yes, I'm ready!", false)]
+    [TestCase("no", false)]
+    [TestCase("sure, let's go with the visual one", false)]
+    public void IntroAnswer_AsksForNonVisual(string text, bool expected)
+    {
+        Assert.AreEqual(expected, VisualsMode.AsksForNonVisual(text), text);
+    }
+
     [TestCase("")]
     [TestCase("what are visuals")]
     [TestCase("lesson mode")]

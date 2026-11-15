@@ -4,6 +4,22 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~03:40 PT — Claude Code (for Canady): non-visual mode, part 2 (spoken guidance, choosing it by voice)
+- New `AI/NonVisualGuide.cs` (Main_2, non-visual only, engine events only): before a run of new bars or a new hand, the
+  notes and fingers are added to the coach's line via the new `AICoach.LineSuffix` ("Right hand: E, finger five; ...", the
+  lesson waits for it); a wrong key → "No, E: two keys to the right." (one per 2 s); no right key for 2.5 s →
+  "E, finger five: a white key, right hand, ..." (`CoachFacts.Where`). `AIConfig`: `nonVisualStuckSeconds` 2.5,
+  `nonVisualWrongCooldownSeconds` 2, `nonVisualReadoutMaxNotes` 16.
+- Choosing it without sight (AppFlow, approved by Canady): the intro adds `audioOnlyIntroHint` ("If you'd rather use voice
+  only, say audio only."); an intro answer containing "audio only / voice only / no visuals" switches to non-visual and
+  skips calibration; "hey teacher, visuals off" now also works during the first calibration (`QuestionRouter.CanListen`),
+  which cancels it and asks for the mode by voice. "Visuals off." is not spoken during setup (AppFlow speaks next).
+- **Verified (Editor, Main_2 via MCP, real STT/TTS/coach):** non-visual start → "Say lesson mode or free play." → "lesson
+  mode" (voice clip) → coach line + readout → demo → wrong key D → "No, E: two keys to the right." → silence →
+  "E, finger five: a white key, right hand."; intro answer "Yes, audio only." → no calibration; "Visuals off." during
+  calibration → cancelled → spoken mode choice, nothing drawn. EditMode 143/143.
+- **Issue:** a one-measure readout plus the coach line took 26 s to speak (Orpheus, 8 notes with fingers). Shorten next.
+
 ## 2026-11-15 ~03:15 PT — Claude Code (for Canady): non-visual mode, part 1 (visuals switch)
 - New `AI/VisualsMode.cs` (state, `Changed`, voice command parser) and `AI/VisualsGate.cs` (main camera culling mask 0 while
   non-visual: nothing of ours draws, every module keeps its state). `AIConfig` "Non-visual" section (`nonVisualDefault` off).

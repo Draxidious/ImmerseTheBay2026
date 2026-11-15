@@ -44,7 +44,8 @@ public class VisualsGate : MonoBehaviour
             var menu = FindAnyObjectByType<RadialMenu>();
             if (menu) menu.Close();
             Hide();
-            Say(cfg.visualsOffLine);
+            // During setup (the intro answer, or skipping calibration) AppFlow speaks next ("Say lesson mode or free play").
+            if (calibrated || AppModeSwitch.Current.HasValue) Say(cfg.visualsOffLine);
             return;
         }
         Unhide();

@@ -398,7 +398,9 @@ was never calibrated runs calibration first (`visualsCalibrateFirstLine`). `Mode
 | `VisualsMode.TryParseCommand(text, out bool visualsOn)` | "visuals off", "turn on the visuals", "audio only", ... (EditMode tests). |
 | `AIConfig` "Non-visual" section | `nonVisualDefault`, `nonVisualChooseModeLine`, `visualsCalibrateFirstLine`, `visualsOffLine`. |
 A non-visual start (`nonVisualDefault`) skips calibration: `AppFlow` goes from the intro to the mode choice by voice
-(`nonVisualChooseModeLine`). **Not done:** spoken note guidance in the lesson.
+(`nonVisualChooseModeLine`). Without sight: the intro answer "audio only" (`VisualsMode.AsksForNonVisual`, hint
+`audioOnlyIntroHint`), or "hey teacher, visuals off" during the first calibration (cancels it). `NonVisualGuide` speaks the
+next run's notes (`AICoach.LineSuffix`), "No, E: ..." on a wrong key and the note + where it is after 2.5 s stuck (Main_2).
 Known gap: the blue offsets dot (Ari's) still opens its unseen slider panel while non-visual.
 
 ### Free Play — Canady (`Assets/Scripts/FreePlay/`)

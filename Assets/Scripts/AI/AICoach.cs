@@ -21,6 +21,10 @@ public class AICoach : MonoBehaviour
     // The full reply (line + action), also raised for fallbacks.
     public event Action<CoachResult> OnResponse;
 
+    // Added to the spoken line (not to result.say): NonVisualGuide reads out the next run's notes here, so the lesson,
+    // which waits for the coach to finish speaking, counts in after them.
+    public Func<CoachResult, string> LineSuffix;
+
     public CoachResult LastResult { get; private set; }
     public CoachContext LastContext { get; private set; }
     public bool IsThinking { get; private set; }
@@ -126,7 +130,10 @@ public class AICoach : MonoBehaviour
         if (fromModel) LastResult = result;
         OnCoachAction?.Invoke(result.action);
         OnResponse?.Invoke(result);
-        if (speakReplies && voiceOutput != null && !string.IsNullOrWhiteSpace(result.say)) _ = voiceOutput.Speak(result.say);
+        string say = result.say;
+        string extra = LineSuffix?.Invoke(result); // non-visual: the notes of the next run, spoken in the same breath
+        if (!string.IsNullOrWhiteSpace(extra)) say = string.IsNullOrWhiteSpace(say) ? extra : say.TrimEnd() + " " + extra;
+        if (speakReplies && voiceOutput != null && !string.IsNullOrWhiteSpace(say)) _ = voiceOutput.Speak(say);
         return result;
     }
 

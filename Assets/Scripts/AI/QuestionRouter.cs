@@ -226,9 +226,11 @@ public class QuestionRouter : MonoBehaviour
     }
 
     // In the lesson, or anywhere after the first calibration (choosing a mode, free play; AppFlow sets AfterCalibration).
+    // Also during the first calibration, so "visuals off" can skip it (it needs sight).
     bool CanListen(AIConfig cfg, bool speaking) =>
         cfg.wakeWordEnabled
-        && appFlow && (appFlow.CurrentStep == AppFlow.Step.Lesson || AppModeSwitch.AfterCalibration)
+        && appFlow && (appFlow.CurrentStep == AppFlow.Step.Lesson || appFlow.CurrentStep == AppFlow.Step.Calibrating
+                       || AppModeSwitch.AfterCalibration)
         && !(voiceInput && voiceInput.IsListening)
         && !(coach && coach.IsThinking)
         && !speaking

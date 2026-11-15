@@ -49,6 +49,17 @@ public static class VisualsMode
         @"^(?:(?:turn|switch)\s+)?(?:the\s+)?visuals?\s+(?:mode\s+)?(?:(?<on>on)|off)$" +
         @"|^(?:turn|switch)\s+(?:(?<on>on)|off)\s+(?:the\s+)?visuals?$" +
         @"|^(?:(?<on>show)|hide)\s+(?:the\s+|me\s+the\s+)?visuals?$" +
-        @"|^(?:non|no)\s+visuals?(?:\s+mode)?$|^audio\s+only(?:\s+mode)?$" +
+        @"|^(?:non|no)\s+visuals?(?:\s+mode)?$|^(?:audio|voice)\s+only(?:\s+mode)?$" +
         @"|^(?<on>visuals?\s+mode)$");
+
+    // The answer to the intro asks for voice only, anywhere in it: "yes, audio only", "no visuals please", "voice only".
+    public static bool AsksForNonVisual(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        string t = Regex.Replace(text.ToLowerInvariant(), @"[^a-z\s]", " ");
+        return OffAnywhere.IsMatch(Regex.Replace(t, @"\s+", " "));
+    }
+
+    static readonly Regex OffAnywhere = new Regex(
+        @"\b(?:(?:audio|voice|sound)\s+only|no\s+visuals?|visuals?\s+off|non\s+visual|without\s+(?:the\s+)?visuals?)\b");
 }
