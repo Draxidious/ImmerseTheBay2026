@@ -19,6 +19,9 @@ public static class MusicXmlExporter
 {
     const int Div = 48; // divisions per quarter note: exact for 64ths, 32nds and triplets
 
+    /// <summary>Print finger numbers (from the song database) above the notes. Set from Tools ▸ Songs ▸ Sheet Music: Show Fingering.</summary>
+    public static bool IncludeFingering = true;
+
     static readonly string[] SharpNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
     static readonly string[] FlatNames = { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
     static readonly string SharpOrder = "FCGDAEB";
@@ -219,7 +222,7 @@ public static class MusicXmlExporter
                             if (k == 0)
                                 for (int lvl = 0; lvl < 4; lvl++)
                                     if (ev.beams[lvl] != null) sb.Append($"<beam number=\"{lvl + 1}\">{ev.beams[lvl]}</beam>");
-                            bool finger = ev.firstPiece && s.piece == 0 && s.finger > 0;
+                            bool finger = IncludeFingering && ev.firstPiece && s.piece == 0 && s.finger > 0;
                             if (tieStop || tieStart || finger)
                             {
                                 sb.Append("<notations>");

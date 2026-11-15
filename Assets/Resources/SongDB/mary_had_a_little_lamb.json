@@ -1,0 +1,38 @@
+{
+    "id": "mary_had_a_little_lamb",
+    "name": "Mary Had a Little Lamb",
+    "composer": "Traditional (American, 1830s)",
+    "license": "Public domain",
+    "source": "Typed by hand (Claude Code for Nehemiah, 2026-11-15) from the well-known public-domain melody. Not yet checked against printed sheet music.",
+    "verified": false,
+    "fingering": "RH: standard C five-finger position (C=1 D=2 E=3 F=4 G=5). Melody only, no LH part.",
+    "arrangement": "melody only",
+    "difficulty": 1,
+    "order": 2,
+    "tempoBpm": 100,
+    "beatsPerBar": 4,
+    "beatUnit": "quarter",
+    "keyFifths": 0,
+    "keyMode": "major",
+    "sections": [
+        {
+            "name": "Whole tune (bars 1–8)",
+            "firstBar": 1,
+            "lastBar": 8
+        }
+    ],
+    "pickupRH": "",
+    "pickupLH": "",
+    "rh": [
+        "E4@3 D4@2 C4@1 D4@2",
+        "E4@3 E4@3 E4@3:2",
+        "D4@2 D4@2 D4@2:2",
+        "E4@3 G4@5 G4@5:2",
+        "E4@3 D4@2 C4@1 D4@2",
+        "E4@3 E4@3 E4@3 E4@3",
+        "D4@2 D4@2 E4@3 D4@2",
+        "C4@1:4"
+    ],
+    "lh": [],
+    "notes": []
+}

@@ -29,8 +29,8 @@ public class PianoOverlay : MonoBehaviour
     [Tooltip("Calibration keeps the keyboard's tilt along its length up to this angle; steeper is treated as noise (level).")]
     public float maxTiltDegrees = 5f;
 
-    [Tooltip("Fraction of each key's front left undrawn so the overlay doesn't sit on the player's fingers.")]
-    [Range(0f, 0.8f)] public float frontClearFraction = 0.35f;
+    [Tooltip("Fraction of each key's front left undrawn. 0 = lit keys fill the whole key (hands occlude the overlay anyway).")]
+    [Range(0f, 0.8f)] public float frontClearFraction = 0f;
 
     [Tooltip("How far black keys stand above the white key tops (standard ≈ 12 mm).")]
     public float blackKeyRaise = 0.012f;

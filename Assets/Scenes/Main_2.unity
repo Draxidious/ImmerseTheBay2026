@@ -432,7 +432,7 @@ MonoBehaviour:
   evaluator: {fileID: 1900000003}
   sheetDisplay: {fileID: 0}
   engine: {fileID: 1472991808}
-  sheetOffset: {x: 0, y: 0.45, z: 0.2}
+  sheetOffset: {x: 0, y: 0.15, z: 0.4}
   orbPanelGap: 0.04
   introLine: "Hi, I'm your piano coach. Today we'll play the opening of F\xFCr Elise. Are you ready to learn?"
   calibrateLine: Great. First show me where your piano is. Follow the steps in front of you.

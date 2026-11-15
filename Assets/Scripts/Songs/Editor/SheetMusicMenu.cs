@@ -33,6 +33,26 @@ public static class SheetMusicMenu
     [MenuItem("Tools/Songs/Generate Sheet Music")]
     public static void GenerateAll() => Generate(null);
 
+    // Show/hide finger numbers on the generated sheets (per machine, EditorPrefs; on by default). Regenerates right away.
+    const string FingeringMenu = "Tools/Songs/Sheet Music: Show Fingering";
+    const string FingeringPref = "SheetMusic.ShowFingering";
+    public static bool ShowFingering => EditorPrefs.GetBool(FingeringPref, true);
+
+    [MenuItem(FingeringMenu, priority = 100)]
+    static void ToggleFingering()
+    {
+        EditorPrefs.SetBool(FingeringPref, !ShowFingering);
+        Debug.Log($"[Sheets] Fingering {(ShowFingering ? "shown" : "hidden")} on the sheets; regenerating.");
+        GenerateAll();
+    }
+
+    [MenuItem(FingeringMenu, true)]
+    static bool ToggleFingeringValidate()
+    {
+        Menu.SetChecked(FingeringMenu, ShowFingering);
+        return true;
+    }
+
     /// <summary>Generate sheets for the given song ids (null = all). Returns a summary (also logged).</summary>
     public static string Generate(string[] onlyIds)
     {
@@ -70,6 +90,7 @@ public static class SheetMusicMenu
             if (!SongDatabase.IsSongEntry(entry, json, out string why)) { Debug.LogWarning($"[Sheets] Skipping {path}: {why}"); continue; }
             if (onlyIds != null && !onlyIds.Contains(entry.id)) continue;
             bool local = path.Replace('\\', '/').Contains("/Local/");
+            MusicXmlExporter.IncludeFingering = ShowFingering;
             var result = MusicXmlExporter.Export(entry);
             File.WriteAllText(Path.Combine(xmlDir, (local ? "Local__" : "") + entry.id + ".musicxml"), result.xml, new UTF8Encoding(false));
             exported[entry.id] = (entry, result, local);

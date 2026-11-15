@@ -17,6 +17,34 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   "Now bar 2." -> demo m2 RH 50% -> count-in 1333 ms; no demo for tempo steps, hand changes or play-throughs. Replay via a spoken WAV
   through Whisper. EditMode 91/91. **Untested:** device; the prompt tweak after "clean all the way" was copied twice (not re-run).
 
+## 2026-11-15 ~00:10 — Claude Code (for Ari): corner markers take over calibration (Dev_Ari)
+- New `MarkerCalibration` (UI folder), ported from the AuraMarkerTest prototype: two 33 mm ArUco markers on the P71's rear
+  corners replace the four pinch steps. Hands, occlusion, the orange recalibrate dot and all XRI interaction are unchanged.
+- `PianoCalibrator`: `CalibrateFromMarkers` / `ApplyMarkerAdjustment` (fit from the back outer corners of A0/C8, real keyboard
+  width), `CalibrationStarted`, `ShowInfo`, `markersAvailable` (pinches off while markers run), and a blue second dot below the
+  orange one (`OffsetsDotPressed`) that opens the offset sliders.
+- Setup tool `Tools/Piano/Add Marker Calibration To Open Scene` (applied to Dev_Ari; idempotent, for Main later) and
+  `Enable Marker Tracking (OpenXR Android)`: **project-wide**, Google `XRSessionFeature` + `XRMarkerTrackingFeature` are now on.
+- Editor-verified (play mode, simulated lock): `Calibrated` fires once, scale 1.000, A0–C8 span = 1.1985 m, Height +10 mm raises
+  the keys 10.0 mm, arrows step 1 mm, Sideways moves the keyboard, recalibrate closes the panel, fallback restores pinches.
+- **Verified on the Aura (Dev_Ari, 00:11–00:13):** extensions 1.5.0 track the markers; permission dialog OK; two scans locked
+  (spans 1.249 / 1.256 m), calibrated at scale 1.000; blue dot opened the panel; saved offsets left (-0.005, 0.012, 0.091),
+  right (0.015, 0.012, 0.090). Rescans differ by 8–16 mm (mostly height at the C8 end). **Not yet in Main.**
+  History and evidence: `docs/marker-tracking/PIANO_CORNERS_HANDOFF.md` and `PIANO_CORNERS_ITERATIONS.md`.
+
+## 2026-11-14 ~23:40 PT — Claude Code (for Nehemiah): 4 beginner songs + fingering
+- **New songs** (Assets/Resources/SongDB, RH melody, C five-finger position, typed from memory, `verified: false`): Mary Had a Little Lamb,
+  Au Clair de la Lune (A phrase ×2), Jingle Bells (chorus), When the Saints Go Marching In (opening). Curriculum `order` renumbered so
+  beginner songs come first (11 songs total).
+- **Fingering:** new `SongEntry.fingering` field (where the fingers come from / what needs review; empty in older files = fine).
+  Für Elise bars 1–8 both hands copied from the team's Resources/Songs/fur_elise.json (pitch-checked, 53 notes). The 4 new songs and the
+  RH of Hot Cross Buns / Ode to Joy use standard C five-finger fingering. **Needs review (no fingering):** Twinkle, Chopsticks,
+  The Entertainer, Clair de Lune, all LH parts except Für Elise 1–8, Für Elise 9–22.
+- **Show/hide:** Tools ▸ Songs ▸ Sheet Music: Show Fingering (checkable, on by default, regenerates). It changes the generated PNGs;
+  there is no in-app runtime toggle (that would need an overlay in Jordan's SongNoteDisplay).
+- **Checked (Unity via MCP):** 11 songs, 0 duplicate ids/titles, 0 errors/warnings, fingers 1–5 on the right notes; all sheets generated
+  with every bar/note placed; free play's matchable list builds with all 11; Main still gets 35 lesson/coach notes.
+
 ## 2026-11-15 early — Claude Code (for Canady): quieter coach
 - New `CoachPolicy` (AI folder): passed measures, tempo steps and hand changes no longer call the model. They get a code cue
   ("Now bar 2.", "Now the left hand.", "Both hands now.", "Now bars 1 to 3.") or silence when only the speed changes.

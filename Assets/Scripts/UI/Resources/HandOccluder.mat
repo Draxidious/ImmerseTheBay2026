@@ -26,7 +26,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _EdgeWidth: 0.45
-    - _Inflate: 0.004
+    - _Inflate: 0.001
     - _Strength: 1
     m_Colors: []
   m_BuildTextureStacks: []

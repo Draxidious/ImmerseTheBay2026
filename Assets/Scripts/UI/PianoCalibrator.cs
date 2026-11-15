@@ -50,6 +50,11 @@ public class PianoCalibrator : MonoBehaviour
     public float handDotTouchRadius = 0.03f;
     public float handDotHoldSeconds = 0.6f;
     public Color handDotColor = new Color(1f, 0.55f, 0.1f);
+    [Tooltip("Second dot just below the orange one (toward the wrist). Touch and hold it to raise OffsetsDotPressed " +
+             "(MarkerCalibration opens its offset sliders). Only shown while something listens to that event.")]
+    public bool handOffsetsDot = true;
+    public float offsetsDotSpacing = 0.045f;  // from the orange dot toward the wrist (m)
+    public Color offsetsDotColor = new Color(0.25f, 0.8f, 1f);
 
     [Header("Pinch detection (meters between thumb tip and index tip)")]
     public float pinchStartDistance = 0.02f;
@@ -109,8 +114,17 @@ public class PianoCalibrator : MonoBehaviour
     public bool previewKeys = true;
     public float previewSecondsAfterCalibration = 5f;
 
-    /// <summary>Raised after a successful two-point calibration.</summary>
+    /// <summary>Raised after a successful calibration (pinches or markers).</summary>
     public event Action Calibrated;
+    /// <summary>Raised whenever calibration (re)starts, so other calibration sources (e.g. MarkerCalibration) can begin.</summary>
+    public event Action CalibrationStarted;
+    /// <summary>Raised when the second (blue) dot on the back of the left hand is touched and held.</summary>
+    public event Action OffsetsDotPressed;
+    /// <summary>
+    /// Set by MarkerCalibration: the corner markers take over the four pinch steps (pinches are ignored and the
+    /// prompt asks for the markers). MarkerCalibration clears it again if marker tracking can't run on the device.
+    /// </summary>
+    [NonSerialized] public bool markersAvailable;
 
     public Phase CurrentPhase => _phase;
     public bool IsCalibrating => _phase != Phase.Idle;
@@ -135,8 +149,8 @@ public class PianoCalibrator : MonoBehaviour
     int _step;
     int _stepHand = -1;              // four-point flow: hand (0 = left, 1 = right) that made the current key's front pinch
     GameObject _backLowMarker, _backHighMarker;
-    GameObject _handDot;
-    float _handDotHeld, _handDotCooldownUntil;
+    GameObject _handDot, _offsetsDot;
+    float _handDotHeld, _handDotCooldownUntil, _offsetsDotHeld;
     float _leftPinchTime = -10f, _rightPinchTime = -10f;
     Vector3 _leftPinchPoint, _rightPinchPoint;
     float _trackedSince = -1f;       // when the head pose became valid
@@ -160,6 +174,8 @@ public class PianoCalibrator : MonoBehaviour
         _backHighMarker = CreateMarker("CalibMarker_BackHigh", Color.Lerp(highMarkerColor, Color.white, 0.5f));
         _handDot = CreateMarker("LeftHandRecalibrateDot", handDotColor);
         _handDot.transform.localScale = Vector3.one * handDotSize;
+        _offsetsDot = CreateMarker("LeftHandOffsetsDot", offsetsDotColor);
+        _offsetsDot.transform.localScale = Vector3.one * handDotSize;
     }
 
     void OnEnable()
@@ -220,6 +236,62 @@ public class PianoCalibrator : MonoBehaviour
         _stepHand = -1;
         SetPhase(Phase.WaitingForLow);
         ShowCalibrationPreview();
+        CalibrationStarted?.Invoke();
+    }
+
+    /// <summary>
+    /// Calibrate from the BACK OUTER corners of the lowest and highest key (where they meet the panel), e.g. from the
+    /// corner markers. Each corner is moved half a white key inward to the key centre, and the front points are one
+    /// <see cref="PianoOverlay.whiteKeyLength"/> toward the player. With <paramref name="useKnownWidth"/> only the
+    /// centre and direction come from the corners; the span is the real keyboard width (removes marker scale error).
+    /// Ends calibration like a successful pinch calibration (raises <see cref="Calibrated"/>). Returns null on success.
+    /// </summary>
+    public string CalibrateFromMarkers(Vector3 backLowOuter, Vector3 backHighOuter, bool useKnownWidth = true)
+    {
+        string reason = FitFromBackCorners(backLowOuter, backHighOuter, useKnownWidth);
+        if (reason != null)
+        {
+            Debug.Log($"[PianoCalibrator] Marker fit rejected: {reason}. Corners {backLowOuter:F3} → {backHighOuter:F3}.");
+            return reason;
+        }
+        Debug.Log($"[PianoCalibrator] Calibrated (markers): corners {backLowOuter:F3} → {backHighOuter:F3}, " +
+                  $"measured span {Vector3.Distance(backLowOuter, backHighOuter) * 100f:F1} cm, knownWidth={useKnownWidth}, " +
+                  $"scale {overlay.transform.localScale.x:F3}.");
+        _overlayPlaced = true;
+        _lowMarker.SetActive(false);
+        _highMarker.SetActive(false);
+        _backLowMarker.SetActive(false);
+        _backHighMarker.SetActive(false);
+        SetPhase(Phase.Idle);
+        ShowAlignmentPreview();
+        ShowMessage("<b>Calibrated from the markers!</b>\nThe blue bars should sit on every C key.\n" +
+                    "Fine-tune: touch the BLUE dot on the back of your left hand.\nRedo: touch the ORANGE dot.",
+                    previewSecondsAfterCalibration);
+        Calibrated?.Invoke();
+        return null;
+    }
+
+    /// <summary>Re-fit from adjusted back corners without ending/raising anything (offset sliders). Null on success.</summary>
+    public string ApplyMarkerAdjustment(Vector3 backLowOuter, Vector3 backHighOuter, bool useKnownWidth = true) =>
+        FitFromBackCorners(backLowOuter, backHighOuter, useKnownWidth);
+
+    /// <summary>Show a temporary message on the calibration prompt (e.g. marker progress).</summary>
+    public void ShowInfo(string text, float seconds) => ShowMessage(text, seconds);
+
+    string FitFromBackCorners(Vector3 lowOuter, Vector3 highOuter, bool useKnownWidth)
+    {
+        if (!overlay) return "no overlay";
+        Vector3 along = highOuter - lowOuter;
+        if (along.magnitude < 0.3f) return "corners too close together";
+        Vector3 right = along.normalized;
+        Vector3 toPanel = Vector3.Cross(right, Vector3.up).normalized; // same convention as the overlay fit
+        float keyWidth = overlay.whiteKeyWidth;
+        float outerSpan = useKnownWidth ? ExpectedSpanMeters() + keyWidth : along.magnitude; // A0 left edge → C8 right edge
+        Vector3 mid = (lowOuter + highOuter) * 0.5f;
+        Vector3 backLow = mid - right * (outerSpan * 0.5f - keyWidth * 0.5f);
+        Vector3 backHigh = mid + right * (outerSpan * 0.5f - keyWidth * 0.5f);
+        Vector3 toPlayer = -toPanel * overlay.whiteKeyLength;
+        return overlay.CalibrateFromFourPoints(backLow + toPlayer, backLow, backHigh + toPlayer, backHigh);
     }
 
     /// <summary>Four-point flow: validate one pinch against the previous ones; a bad pinch only repeats that step.</summary>
@@ -415,7 +487,9 @@ public class PianoCalibrator : MonoBehaviour
         return Mathf.Max(0.1f, (whites - 1) * overlay.whiteKeyWidth);
     }
 
-    string PromptFor(Phase p) => fourPointCalibration && p != Phase.Idle
+    string PromptFor(Phase p) => markersAvailable && p != Phase.Idle
+        ? "<b>Calibrate</b>\nLook at the LEFT corner marker (behind the lowest key),\nthen at the RIGHT one. Hold each still for a second."
+        : fourPointCalibration && p != Phase.Idle
         ? _step switch
         {
             0 => "<b>Step 1 of 4</b>\nFar-LEFT key: pinch its FAR end,\nwhere it goes under the panel (palm down).",
@@ -542,7 +616,7 @@ public class PianoCalibrator : MonoBehaviour
         if (!pinching && d < pinchStartDistance)
         {
             pinching = true; // rising edge = one pinch (also latched for system/palm-up pinches so they never count)
-            if (IsCalibrating && Time.time >= _ignoreUntil && !IsSystemGesture(aim) && PalmFacesDown(hand))
+            if (IsCalibrating && !markersAvailable && Time.time >= _ignoreUntil && !IsSystemGesture(aim) && PalmFacesDown(hand))
             {
                 Vector3 p = ToWorld((thumb.position + index.position) * 0.5f);
                 if (twoHandCalibration && !fourPointCalibration) SubmitHandPinch(isLeft, p);
@@ -566,28 +640,51 @@ public class PianoCalibrator : MonoBehaviour
         if (!_handDot) return;
         var left = _hands.leftHand;
         var head = HeadTransform();
+        bool showOffsets = handOffsetsDot && OffsetsDotPressed != null && _offsetsDot;
         if (!handRecalibrateDot || !left.isTracked || !head ||
             !left.GetJoint(XRHandJointID.Palm).TryGetPose(out var palm))
-        { _handDot.SetActive(false); _handDotHeld = 0f; return; }
+        { HideHandDots(); return; }
 
         var space = TrackingSpace();
         Vector3 palmPos = ToWorld(palm.position);
         Vector3 back = palm.rotation * Vector3.up; // XR Hands: +Y = back of the hand
         if (space) back = space.TransformDirection(back);
         bool facingUser = Vector3.Dot(back, (head.position - palmPos).normalized) > 0.2f;
-        _handDot.SetActive(facingUser);
-        if (!facingUser) { _handDotHeld = 0f; return; }
+        if (!facingUser) { HideHandDots(); return; }
+        _handDot.SetActive(true);
 
         Vector3 dotPos = palmPos + back * handDotHeight;
         _handDot.transform.position = dotPos;
 
-        bool touching = false;
+        // Second dot: same height above the hand, one spacing further toward the wrist.
+        Vector3 offsetsPos = dotPos;
+        if (showOffsets && left.GetJoint(XRHandJointID.Wrist).TryGetPose(out var wrist))
+        {
+            Vector3 toWrist = Vector3.ProjectOnPlane(ToWorld(wrist.position) - palmPos, back);
+            if (toWrist.sqrMagnitude > 1e-6f) offsetsPos = dotPos + toWrist.normalized * offsetsDotSpacing;
+            else showOffsets = false;
+        }
+        else showOffsets = false;
+        _offsetsDot.SetActive(showOffsets);
+        if (showOffsets) _offsetsDot.transform.position = offsetsPos;
+
+        Vector3 tipPos = Vector3.zero;
+        bool hasTip = false;
         var right = _hands.rightHand;
         if (right.isTracked && right.GetJoint(XRHandJointID.IndexTip).TryGetPose(out var tip))
-            touching = Vector3.Distance(ToWorld(tip.position), dotPos) < handDotTouchRadius;
+        { tipPos = ToWorld(tip.position); hasTip = true; }
 
-        _handDotHeld = touching && Time.time >= _handDotCooldownUntil ? _handDotHeld + Time.deltaTime : 0f;
+        // The fingertip counts for the nearer dot only, so the two dots can't both fill up.
+        float dRecal = hasTip ? Vector3.Distance(tipPos, dotPos) : float.MaxValue;
+        float dOffsets = hasTip && showOffsets ? Vector3.Distance(tipPos, offsetsPos) : float.MaxValue;
+        bool ready = Time.time >= _handDotCooldownUntil;
+        bool touchRecal = ready && dRecal < handDotTouchRadius && dRecal <= dOffsets;
+        bool touchOffsets = ready && dOffsets < handDotTouchRadius && dOffsets < dRecal;
+
+        _handDotHeld = touchRecal ? _handDotHeld + Time.deltaTime : 0f;
+        _offsetsDotHeld = touchOffsets ? _offsetsDotHeld + Time.deltaTime : 0f;
         _handDot.transform.localScale = Vector3.one * handDotSize * (1f + Mathf.Clamp01(_handDotHeld / handDotHoldSeconds));
+        _offsetsDot.transform.localScale = Vector3.one * handDotSize * (1f + Mathf.Clamp01(_offsetsDotHeld / handDotHoldSeconds));
         if (_handDotHeld >= handDotHoldSeconds)
         {
             _handDotHeld = 0f;
@@ -595,6 +692,20 @@ public class PianoCalibrator : MonoBehaviour
             Debug.Log("[PianoCalibrator] Recalibrate from the left-hand dot.");
             Recalibrate();
         }
+        else if (_offsetsDotHeld >= handDotHoldSeconds)
+        {
+            _offsetsDotHeld = 0f;
+            _handDotCooldownUntil = Time.time + 2f;
+            Debug.Log("[PianoCalibrator] Offsets dot pressed.");
+            OffsetsDotPressed?.Invoke();
+        }
+    }
+
+    void HideHandDots()
+    {
+        _handDot.SetActive(false);
+        if (_offsetsDot) _offsetsDot.SetActive(false);
+        _handDotHeld = _offsetsDotHeld = 0f;
     }
 
     bool PalmFacesDown(XRHand hand)
