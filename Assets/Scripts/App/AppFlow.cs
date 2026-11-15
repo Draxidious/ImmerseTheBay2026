@@ -107,6 +107,7 @@ public class AppFlow : MonoBehaviour
         if (calibrator) calibrator.Calibrated += OnCalibrated;
         if (voiceInput) voiceInput.OnCommand += OnAnswer;
         AppModeSwitch.Requested += OnModeRequested;
+        VisualsMode.Changed += OnVisualsChanged;
         if (engine)
         {
             engine.OnRunStarted += OnRunStarted;
@@ -129,6 +130,7 @@ public class AppFlow : MonoBehaviour
         if (calibrator) calibrator.Calibrated -= OnCalibrated;
         if (voiceInput) voiceInput.OnCommand -= OnAnswer;
         AppModeSwitch.Requested -= OnModeRequested;
+        VisualsMode.Changed -= OnVisualsChanged;
         if (engine)
         {
             engine.OnRunStarted -= OnRunStarted;
@@ -156,7 +158,9 @@ public class AppFlow : MonoBehaviour
         yield return RequestMicrophonePermission();
         CurrentStep = Step.Intro;
         yield return Wait(startDelay);
-        yield return Say(introLine);
+        // Visual start: say how to choose voice only. The answer below can ask for it ("audio only").
+        string hint = AIConfig.Get().audioOnlyIntroHint;
+        yield return Say(VisualsMode.NonVisual || string.IsNullOrWhiteSpace(hint) ? introLine : introLine + " " + hint);
 
         CurrentStep = Step.Listening;
         if (voiceInput && HasMicrophonePermission())
@@ -221,6 +225,18 @@ public class AppFlow : MonoBehaviour
     {
         _answered = true;
         Debug.Log($"[AppFlow] Player answered: \"{transcript}\"");
+        if (CurrentStep == Step.Listening && VisualsMode.AsksForNonVisual(transcript)) VisualsMode.Set(true, "intro");
+    }
+
+    // "Visuals off" during the first calibration: it needs sight, so skip it and ask for the mode by voice, as a
+    // non-visual start does. "Visuals on" later calibrates (VisualsGate).
+    void OnVisualsChanged(bool nonVisual, string source)
+    {
+        if (!nonVisual || CurrentStep != Step.Calibrating || AppModeSwitch.AfterCalibration) return;
+        Debug.Log("[AppFlow] Non-visual during calibration: calibration skipped.");
+        if (calibrator) calibrator.CancelCalibration();
+        AppModeSwitch.AfterCalibration = true;
+        StartAfterSetup(AIConfig.Get().nonVisualChooseModeLine);
     }
 
     // Also raised after a later recalibration; the lesson is only started the first time.
