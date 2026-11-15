@@ -289,9 +289,10 @@ public class SongNoteDisplay : MonoBehaviour
 
     private void OnDemoNoteDown(ExpectedNote note)
     {
-        if (!_built || !_resultShown) return;
-        ShowUpcoming(); // a demo only starts once the result has been held long enough
-        ShowCue("<size=60%>Listen first</size>");
+        if (!_built) return;
+        if (_resultShown) ShowUpcoming(); // a demo only starts once the result has been held long enough
+        _demoHandoff = true;
+        ShowCue("<size=60%>Watch the demo</size>");
     }
 
     // What is about to be played, before its run starts: header, and the sheet line with the box on the first bar.
@@ -324,6 +325,7 @@ public class SongNoteDisplay : MonoBehaviour
 
     private string _cue;      // what the big line shows now
     private string _runLine;  // what it shows once the student is playing: hand and speed
+    private bool _demoHandoff;
 
     private void ShowCue(string text)
     {
@@ -335,27 +337,36 @@ public class SongNoteDisplay : MonoBehaviour
     // The big line counts the student in with the metronome: 4, 3, 2, 1, then "Play!" on the beat the music starts.
     private void UpdateCue()
     {
+        if (engine.IsDemoPlaying) return;
         if (engine.Pause == LessonPause.WaitingForStudent)
         {
             ShowCue("<size=60%>Press any key when you're ready</size>");
             return;
         }
         var run = engine.CurrentRun;
-        if (!_runActive || run == null) return;
+        if (!_runActive || run == null)
+        {
+            if (_demoHandoff) ShowCue("<size=60%>Your turn</size>");
+            return;
+        }
 
         double now = Time.unscaledTimeAsDouble;
         if (now < run.goTime)
         {
             int clicked = 0;
             foreach (double t in run.countIn) if (t <= now) clicked++;
-            ShowCue(clicked == 0 ? "<size=60%>Get ready</size>" : (run.countIn.Count - clicked + 1).ToString());
+            ShowCue(clicked == 0 ? ReadyCue() : (run.countIn.Count - clicked + 1).ToString());
+            if (clicked > 0) _demoHandoff = false;
         }
         else if (now < run.goTime + 1.2)
         {
+            _demoHandoff = false;
             ShowCue($"<color=#{ColorUtility.ToHtmlStringRGB(perfectColor)}>Play!</color>");
         }
         else ShowCue(_runLine);
     }
+
+    private string ReadyCue() => _demoHandoff ? "<size=60%>Your turn</size>" : "<size=60%>Get ready</size>";
 
     private void OnRunStarted(RunInfo run)
     {
@@ -370,7 +381,7 @@ public class SongNoteDisplay : MonoBehaviour
         _runLine = HandName(run.hand);
         ShowTempo(run.song, run.tempoPct);
         _cue = null;
-        ShowCue("<size=60%>Get ready</size>");
+        ShowCue(ReadyCue());
         _feedback.text = "Start playing when it says Play";
         _feedback.color = textColor;
         SetChips(false);
