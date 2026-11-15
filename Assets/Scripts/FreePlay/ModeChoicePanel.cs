@@ -60,8 +60,7 @@ public class ModeChoicePanel : MonoBehaviour
 
     public void ShowChoice()
     {
-        if (_usesRadialControls) FindAnyObjectByType<RadialMenu>()?.Open();
-        else Show(View.Choice);
+        if (!_usesRadialControls) Show(View.Choice);
     }
 
     public void ShowSwitchButton()

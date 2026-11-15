@@ -83,7 +83,7 @@ public static class FingeringGuideSmokeTests
                 _wait = _checks.Current as CustomYieldInstruction;
                 return;
             }
-            Debug.Log("[Fingering smoke] PASS: one radial UI, all five controls, coach replay/fallback, fingertip cues, and sheet handoff.");
+            Debug.Log("[Fingering smoke] PASS: tracked wrist menu, six controls, fine tuning, coach replay/fallback, and sheet handoff.");
         }
         catch (Exception error)
         {
@@ -115,23 +115,30 @@ public static class FingeringGuideSmokeTests
         var menus = UnityEngine.Object.FindObjectsByType<RadialMenu>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         Require(menus.Length == 1, "Expected one radial menu.");
         var menu = menus[0];
-        var root = menu.transform.Find("RadialMenuRoot");
-        Require(root.GetComponentsInChildren<XRSimpleInteractable>(true).Length == 5, "Expected five radial controls.");
+        var anchor = menu.transform.Find("Left Hand Menu");
+        var root = anchor.Find("RadialMenuRoot");
+        Require(anchor.GetComponentsInChildren<XRSimpleInteractable>(true).Length == 6, "Expected six hand menu controls.");
         var allObjects = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         Require(!allObjects.Any(t => t.name == "SwitchModeButton" || t.name == "LessonButton" ||
             t.name == "FreePlayButton" || t.name == "Fingering Toggle"), "A duplicate mode or fingering button was built.");
-        Require(!flow.calibrator.recalibrateButton, "A duplicate recalibrate button is bound.");
-        AssertDistinctPokeTargets(root);
-        AssertMenuInViewLookingDown(menu, root);
+        Require(!flow.calibrator.recalibrateButton && !flow.calibrator.overlayGrab &&
+            !flow.calibrator.handRecalibrateDot && !flow.calibrator.handOffsetsDot &&
+            !flow.overlay.transform.Find("GrabHandle"), "The former dots or drag handle are still enabled.");
+        AssertDistinctPokeTargets(anchor);
+        var menuHand = menu.GetType().GetField("_simulateMenuHand", BindingFlags.Instance | BindingFlags.NonPublic);
+        var menuHandOffset = menu.GetType().GetField("_simulatedHandOffset", BindingFlags.Instance | BindingFlags.NonPublic);
+        menuHand.SetValue(menu, true);
 
         var start = PokeControl(root, RadialMenu.Choice.RestartLesson);
         var freePlay = PokeControl(root, RadialMenu.Choice.FreePlay);
         var recalibrate = PokeControl(root, RadialMenu.Choice.Recalibrate);
         var toggle = PokeControl(root, RadialMenu.Choice.Fingering);
-        var close = PokeControl(root, RadialMenu.Choice.Close);
+        var fineTune = PokeControl(root, RadialMenu.Choice.FineTune);
+        var close = PokeControl(anchor, RadialMenu.Choice.Close);
         menu.Open();
         Require(!menu.Choose(RadialMenu.Choice.RestartLesson) && !menu.Choose(RadialMenu.Choice.FreePlay) &&
-            !menu.Choose(RadialMenu.Choice.Recalibrate) && !menu.Choose(RadialMenu.Choice.Fingering),
+            !menu.Choose(RadialMenu.Choice.Recalibrate) && !menu.Choose(RadialMenu.Choice.Fingering) &&
+            !menu.Choose(RadialMenu.Choice.FineTune),
             "An action was available before calibration.");
         menu.Close();
 
@@ -144,10 +151,20 @@ public static class FingeringGuideSmokeTests
         }
         finally { config.defaultMode = startup; }
         Require(!flow.calibrator.IsCalibrating, "Simulated marker calibration did not finish.");
-        Require(flow.CurrentStep == AppFlow.Step.ChooseMode && menu.IsOpen, "Startup choice did not open the radial menu.");
+        Require(flow.CurrentStep == AppFlow.Step.ChooseMode && !menu.IsOpen, "Startup should wait for the hand button.");
+        yield return WaitFor(() => close.isActiveAndEnabled, "left-hand Menu button");
+        Require(close.transform.parent.Find("Label").GetComponent<TextMeshPro>().text == "Menu", "Closed hand button is unlabeled.");
+        Poke(close);
+        Require(menu.IsOpen, "The hand button did not open the menu.");
         Poke(start);
         Require(flow.CurrentStep == AppFlow.Step.ChooseMode, "Startup poke bypassed the opening debounce.");
         yield return WaitFor(() => start.isActiveAndEnabled, "startup Start Lesson poke");
+        Vector3 previousCenter = close.transform.position;
+        menuHandOffset.SetValue(menu, new Vector3(0.07f, 0.01f, 0f));
+        yield return WaitFor(() => Vector3.Distance(previousCenter, close.transform.position) > 0.05f, "the open menu to follow the hand");
+        Require(root.parent == anchor && Vector3.Distance(root.position, close.transform.position) < 0.001f,
+            "The ring detached from the hand button.");
+        menuHandOffset.SetValue(menu, Vector3.zero);
         Require(!toggle.enabled, "Fingering was interactive before Lesson.");
         Poke(start);
         Require(flow.CurrentStep == AppFlow.Step.Lesson && !menu.IsOpen, "The radial Start Lesson did not start the lesson.");
@@ -210,6 +227,17 @@ public static class FingeringGuideSmokeTests
         Poke(close);
         Require(!menu.IsOpen && flow.engine.State == lessonBeforeClose, "Close changed the lesson.");
 
+        Poke(close);
+        yield return WaitFor(() => fineTune.isActiveAndEnabled, "radial Fine Tune");
+        Poke(fineTune);
+        Require(!menu.IsOpen && GameObject.Find("MarkerOffsetsPanel"), "Fine Tune did not open the marker offsets.");
+        Poke(close);
+        yield return WaitFor(() => !GameObject.Find("MarkerOffsetsPanel"), "reopening the hand menu to dismiss fine tuning");
+        menuHand.SetValue(menu, false);
+        yield return WaitFor(() => !anchor.gameObject.activeSelf && !menu.IsOpen, "hand tracking loss to hide and close the menu");
+        menuHand.SetValue(menu, true);
+        yield return WaitFor(() => close.isActiveAndEnabled, "hand tracking to restore the Menu button");
+
         Vector3 oldPosition = flow.overlay.transform.position;
         menu.Open();
         yield return WaitFor(() => recalibrate.isActiveAndEnabled, "radial Recalibrate");
@@ -219,7 +247,7 @@ public static class FingeringGuideSmokeTests
             "fingering to hide while recalibrating");
         menu.Open();
         yield return WaitFor(() => recalibrate.isActiveAndEnabled, "radial Cancel Recalibrate");
-        Require(!toggle.enabled && !start.enabled && !freePlay.enabled, "Another action was interactive during recalibration.");
+        Require(!toggle.enabled && !start.enabled && !freePlay.enabled && !fineTune.enabled, "Another action was interactive during recalibration.");
         Require(recalibrate.transform.parent.Find("Label").GetComponent<TextMeshPro>().text == "Cancel\nRecalibrate",
             "Cancel Recalibrate label was missing.");
         Poke(recalibrate);
@@ -258,40 +286,18 @@ public static class FingeringGuideSmokeTests
     static void AssertDistinctPokeTargets(Transform root)
     {
         var boxes = root.GetComponentsInChildren<BoxCollider>(true);
-        Require(boxes.Length == 5, "Expected one collider per radial control.");
+        Require(boxes.Length == 6, "Expected one collider per radial control.");
         for (int i = 0; i < boxes.Length; i++)
         for (int j = i + 1; j < boxes.Length; j++)
         {
-            Vector3 delta = boxes[i].transform.localPosition - boxes[j].transform.localPosition;
+            Vector3 delta = root.InverseTransformPoint(boxes[i].transform.position) -
+                root.InverseTransformPoint(boxes[j].transform.position);
             Vector3 halfSize = (boxes[i].size + boxes[j].size) * 0.5f;
             Require(Mathf.Abs(delta.x) >= halfSize.x || Mathf.Abs(delta.y) >= halfSize.y,
                 $"Overlapping poke controls: {boxes[i].transform.parent.name} and {boxes[j].transform.parent.name}.");
         }
     }
 
-    static void AssertMenuInViewLookingDown(RadialMenu menu, Transform root)
-    {
-        var camera = Camera.main;
-        Require(camera, "Main_2 is missing its camera.");
-        var pose = camera.transform;
-        var original = pose.rotation;
-        try
-        {
-            pose.rotation = Quaternion.Euler(40f, pose.eulerAngles.y, 0f);
-            menu.Open();
-            foreach (var label in root.GetComponentsInChildren<TextMeshPro>())
-            {
-                Vector3 view = camera.WorldToViewportPoint(label.transform.position);
-                Require(view.z > 0f && view.x > 0.05f && view.x < 0.95f && view.y > 0.05f && view.y < 0.95f,
-                    $"'{label.text.Replace('\n', ' ')}' is outside view when looking down to open the menu.");
-            }
-        }
-        finally
-        {
-            menu.Close();
-            pose.rotation = original;
-        }
-    }
 
     static void RestoreEditorSettings()
     {
@@ -384,8 +390,11 @@ public static class FingeringGuideSmokeTests
         string savedCalibration = PlayerPrefs.GetString(CalibrationPref);
         try
         {
-            string error = calibrator.CalibrateFromMarkers(center - right * 0.62f, center + right * 0.62f);
-            Require(error == null, error);
+            var marker = UnityEngine.Object.FindAnyObjectByType<MarkerCalibration>();
+            Require(marker, "Main_2 is missing marker calibration.");
+            var lockMarker = marker.GetType().GetMethod("OnMarkerLocked", BindingFlags.Instance | BindingFlags.NonPublic);
+            lockMarker.Invoke(marker, new object[] { center - right * 0.62f });
+            lockMarker.Invoke(marker, new object[] { center + right * 0.62f });
         }
         finally
         {

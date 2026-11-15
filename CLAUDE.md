@@ -16,12 +16,12 @@ and an AI coach gives short spoken feedback between phrases.
   up the tempo ladder, then play-throughs and repairs. Whole piece, both hands (`Assets/Resources/Songs/fur_elise.json`,
   105 bars). Left-hand keys are amber. Editor keys F5–F8 end a run as clean / shaky / problem / too slow; Enter skips waits.
 - **Calibration = corner markers** (ArUco 4x4_50, ID 0 behind A0, ID 1 behind C8, 33 mm) instead of the four pinches; the
-  pinches come back if markers can't run. Blue left-hand dot = offset sliders, orange = recalibrate. Editor: **M** simulates a
-  marker lock. See `docs/HANDOVER_MARKER_CALIBRATION.md`.
+  pinches come back if markers can't run. After calibration, tap **Menu** on the back of the left hand for **Fine Tune**
+  or **Recalibrate**. Editor: **M** simulates a marker lock. See `docs/HANDOVER_MARKER_CALIBRATION.md`.
 - **Old `Main.unity` (disabled):** freeplay of the 35-note right-hand Für Elise opening (8 bars), wait mode, four-pinch calibration.
 - **Core loop ("wait mode"):** highlight the next key → wait for the correct press → advance → AI comments after the completed excerpt.
-- **Pitch:** see-through glasses show your real keys and fingers sharply (passthrough headsets can't), plus a coach that talks to you,
-  plus linking each written note on the sheet to its physical key.
+- **Pitch:** the optical view keeps the real keys and fingers directly visible while the app links written notes to
+  physical keys and provides spoken coaching.
 
 ## Hard deadline and submission rules
 - **Pens down: Sunday Nov 15, 9:00 AM PT.** Submissions are downloaded at exactly 9:00.
@@ -94,19 +94,19 @@ add a request to `docs/INTERFACES.md` under "Requested".
   FAR then NEAR end of A0, then of C8. Sheet placement is 0.45 m above / 0.20 m behind the drawn keyboard center; it updates
   after recalibration without restarting the lesson.
 - Lesson: the curriculum demos each measure, then the player plays it; runs pass/fail and the coach speaks between runs.
+- Tap the amber **Menu** button on the back of the left hand to choose a mode or adjust the piano. The ring follows the hand.
+  Tap the center again to close it. **Fine Tune** opens the offset controls after marker calibration.
 - Editor keys: **Enter** skips speech/listen waits; **M** simulates a marker lock, **C** simulates the pinch calibration,
-  **R** recalibrates, **O** toggles the offsets panel; **F5–F8** end a lesson run (clean / shaky / problem / too slow).
+  **F1** toggles the hand menu; **F5–F8** end a lesson run (clean / shaky / problem / too slow).
+  **Tools → Piano → Run Fingering Smoke Test** checks the hand menu and lesson flow.
 - Missing API keys: canned coach feedback + native TTS on Android (silent in Editor); transcription requires a Groq key.
   Native TTS needs a working voice on the puck. Never share an APK containing real keys.
-- Full device checklist and adb commands: `docs/AURA_MAIN_TEST.md` (written for old `Main`; the main scene adds the markers). Editor tests do not validate the Android dialog,
+- Full device checklist and adb commands: `docs/AURA_MAIN_TEST.md`. Editor tests do not validate the Android dialog,
   real MIDI, alignment, hand gestures, or optical-display readability.
 
 ## Designing for the Aura (optical see-through)
-- The display is **additive**: it only adds light. **Black = invisible.** There are no dark glass panels.
-  Use bright rims, glow and high contrast.
-- Sheet music should be **light notes on a transparent background**, or raise the lens dimming while the panel is visible.
-- Black is invisible **in the lenses**, but it still writes alpha 1: screen captures and recordings (the demo video) show it as
-  solid black. Don't draw black fills; disable the renderer instead.
+- [Aura display and sheet music](docs/AURA_DISPLAY.md) is the reference for optics, recording, and the project's Unity setup.
+  Main_2 displays black notation on white sheet-music strips in Lesson and Free Play.
 - Any material override on the template hand meshes must replace **every** slot: they carry `DepthOnly` plus a grey glove
   material (`Unity_Hand_Medium`), and leaving the glove draws an outline around the hands.
 - Test on the real glasses early. Colors that look good in the Editor often wash out.
@@ -115,8 +115,8 @@ add a request to `docs/INTERFACES.md` under "Requested".
 - Deploy target is the **puck** (the Android device), over USB/adb. Build Profiles → Android → Run Device = puck → Build And Run.
 - OpenXR **Android** tab: **Android XR Support** on, **Meta Quest Support** off, **Hand Tracking Subsystem** + **Meta Hand Tracking Aim**
   + **Hand Interaction Profile** on, **Android XR: Session** + **Android XR: Camera (Passthrough)** on.
-- **Passthrough:** without an `ARSession` in the scene and an enabled `ARCameraManager` on the Main Camera, Android XR runs in
-  **OPAQUE** blend mode = 100% lens dimming = the room is blacked out. Camera background must be Solid Color (0,0,0,0).
+- **Runtime passthrough setup:** keep the `ARSession`, enabled Main Camera `ARCameraManager`, and Solid Color `(0,0,0,0)`
+  clear in Main_2. See [Aura display and sheet music](docs/AURA_DISPLAY.md) for the device-specific troubleshooting history.
 - **Seated AR:** disable the template rig's `Locomotion` child and its `CharacterController`. With `GravityProvider` on and no floor
   collider the whole rig falls and world-placed UI drifts away.
 - Head-relative UI must wait for a tracked head pose: the XR session can start long after `Start()` and the runtime re-centers.
@@ -132,22 +132,21 @@ add a request to `docs/INTERFACES.md` under "Requested".
   (this replaces e.g. Meta Horizon/Quest Link as the PC runtime). On laptops, set `Unity.exe` to the discrete GPU (Vulkan video encode).
 - Then press Play in Unity; the stream starts on the glasses. Audio plays on the PC, not the glasses.
 
-## Known Aura / Unity gotchas (from the June Aura hackathon)
-- Streaming to the device crashes → switch the Editor graphics API from Vulkan to DX11. **(Outdated?)** Google's current Direct Preview
-  guide requires Vulkan for Windows; we follow that now. If Play-mode streaming crashes, revisit this.
+## Known Aura / Unity gotchas
+- Windows Direct Preview uses Vulkan video encoding. See [Google's Unity Direct Preview setup](https://developer.android.com/develop/xr/unity/direct-preview).
 - Direct Preview is flaky → restart Unity, the hub and the device, or use the XR Simulator for in-editor testing.
 - Play mode crashes with the Android XR Extensions package installed → remove it if it's not needed.
 - Prerelease and retail firmware images aren't interchangeable. Don't reflash without checking.
 
 ## Device tooling (puck)
-- **See what the glasses show:** `adb shell screencap -d 4626964206039778834 -p /sdcard/x.png` then `adb pull /sdcard/x.png`
-  (display "XREAL 1 Ultra" = camera image + app content). Plain `adb exec-out screencap` fails: the puck has two displays.
+- **Capture the glasses display:** on the team's puck, use `adb shell screencap -d 4626964206039778834 -p /sdcard/x.png` then
+  `adb pull /sdcard/x.png`. That display ID and camera composition are from the tested puck. See [Aura display and sheet music](docs/AURA_DISPLAY.md).
 - **Wireless adb:** put the PC and puck on a private network (phone hotspot, not the open venue Wi-Fi), then with USB plugged in
   `adb tcpip 5555`, unplug, `adb connect <puck-ip>:5555`. Reverts to USB-only on reboot or `adb usb`.
 - **Logs:** `adb logcat -s Unity`; calibration lines are tagged `[PianoCalibrator]`. App files (e.g. logs written by a script)
   are under `/sdcard/Android/data/com.DefaultCompany.VRTemplate/files/`.
-- **Aura runtime facts (Android XR 1.0, probed 2026-11-14):** marker / QR / planar-image tracking, depth texture, raycast,
-  scene meshing and `XR_ANDROID_hand_mesh` / `XR_FB_hand_tracking_mesh` are listed; Unity scripts get **no camera CPU frames**.
+- **Aura runtime probe (Android XR 1.0, 2026-11-14):** the tested puck listed marker / QR / planar-image tracking, depth texture,
+  raycast, scene meshing, and `XR_ANDROID_hand_mesh` / `XR_FB_hand_tracking_mesh`. The configured Unity camera provider returned no CPU frames in that probe.
 
 ## Unity MCP setup (lets agents read/drive the Unity Editor)
 - **Package:** `com.coplaydev.unity-mcp` pinned in `Packages/manifest.json` to

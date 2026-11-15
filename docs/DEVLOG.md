@@ -4,6 +4,16 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 — Codex (for Ari): track the radial menu to the left hand
+- Main_2 uses a raised amber Menu button with a piano-key icon. Warm circular action buttons expand around it and
+  follow the hand. The center becomes Close. An action, a center tap, or sustained tracking loss collapses the ring.
+- Fine Tune and Recalibrate replace the separate blue and orange dots. Removed Main_2's overlay drag handle and
+  its grab interaction. A fresh marker scan is needed for Fine Tune after a pinch calibration.
+- The Play Mode smoke test passed for the hand anchor, tracking loss, fine-tune panel, and six distinct poke targets.
+- Built, installed, and cold-launched the wrist-menu APK on the Aura puck at 03:22 PT.
+- Audited the Aura guidance against XREAL and Android XR docs. [Aura display and sheet music](AURA_DISPLAY.md) records
+  the black-on-white renderer, optical and capture differences, and which passthrough observations came from the tested build.
+
 ## 2026-11-15 — Codex (for Ari): integrate fingering with Main_2's radial menu
 - Merged the ARI component wiring into Main_2 and kept main's audio-clock demo and Free Play sheet changes.
 - The radial menu owns startup mode choice, mode changes, and the persistent fingering toggle. Main_2 does not build the old
@@ -351,7 +361,8 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   AssetPostprocessor made Unity reimport every texture (one-time) → replaced by per-file import settings; uncompressed pages were
   ~24 MB each → ASTC 4x4 on Android (~6 MB).
 - **Known limits:** Clair de Lune's automatic simplification puts high LH notes on ledger lines in bars ~15–24 (needs a hand edit);
-  Verovio prints the first system's bar number "1" above the Für Elise pickup. Images are black on white (asked for) — invert for the Aura.
+  Verovio prints the first system's bar number "1" above the Für Elise pickup. The images are black on white.
+  The current app displays them in those colors. See [Aura display and sheet music](AURA_DISPLAY.md).
 
 ## 2026-11-14 ~20:55 — Claude Code (for Nehemiah): Für Elise bars 9–22 + Clair de Lune from public-domain MIDI
 - **Sources:** Mutopia Project, both "Public Domain / CC: No rights reserved": Für Elise WoO 59 (piece 931, Breitkopf & Härtel 1888) and
@@ -678,9 +689,10 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - Note: Unity 6.6 isn't writing `%LOCALAPPDATA%/Unity/Editor/Editor.log` here (stale since 13:16); use the Console / MCP `read_console`.
 
 ## 2026-11-14 ~14:15 — Claude Code (for Ari): first on-device runs (Aura), passthrough + calibration fixes
-- **World was blacked out:** logcat showed `XR_ENVIRONMENT_BLEND_MODE_OPAQUE` (100% lens dimming). Fix per the Android XR package docs:
+- **World looked blacked out in this build:** logcat showed `XR_ENVIRONMENT_BLEND_MODE_OPAQUE`. The fix used the Android XR package setup:
   enabled OpenXR **Android XR: Session** + **Android XR: Camera (Passthrough)**, added an `AR Session` and an `ARCameraManager` on the
-  Main Camera (background already solid (0,0,0,0)). Verified on device: `OPAQUE → ALPHA_BLEND`, dimming 0.9 → 0.1. The scene builder adds these too.
+  Main Camera (background already solid (0,0,0,0)). On that device and build, the logs moved from `OPAQUE` to `ALPHA_BLEND` and
+  reported dimming values of 0.9 and 0.1 respectively. The scene builder adds the same components. [Aura display and sheet music](AURA_DISPLAY.md)
 - **Prompt/overlay not visible:** placed in `Start()`, but the XR session became visible ~2 min later and the runtime re-centers
   (`ReferenceSpaceChangePending`). Now: wait for a tracked, settled head pose, place the overlay ~45 cm ahead / 35 cm down, re-place
   on `XRInputSubsystem.trackingOriginUpdated`. Prompt stays still while in view and only re-centers after being out of view (no jitter).

@@ -7,20 +7,12 @@ using UnityEngine.XR.Interaction.Toolkit.Filtering;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 /// <summary>
-/// Left-hand radial menu: lesson, Free Play, recalibration, and optional fingering around a center Close button.
-///
-/// Open / close: touch and hold the ORANGE dot on the back of the left hand (PianoCalibrator.MenuDotPressed; while this
-/// menu exists, the dot opens it instead of restarting calibration straight away). Editor: F1 toggles, F2/F3/F4 choose.
-/// Select: poke a segment (XRI poke, same as ModeChoicePanel). Pokes are ignored for a moment after opening, and one
-/// action runs per opening; the menu closes after it.
-///
-/// Uses only public APIs: AppFlow (CurrentStep, evaluator, engine, overlay), AppModeSwitch.Request, PianoCalibrator
-/// (Recalibrate, CancelCalibration). Built at runtime, adds itself to scenes with an AppFlow + PianoCalibrator.
-/// Additive display: bright rims and text only, no fills.
+/// Main_2 renders a tracked left-hand button and a ring that expands around it. Other scenes use the legacy dot menu.
+/// Tap the center to open or close. Selecting an action collapses the ring to the center button.
 /// </summary>
 public class RadialMenu : MonoBehaviour
 {
-    public enum Choice { RestartLesson, FreePlay, Recalibrate, Close, Fingering }
+    public enum Choice { RestartLesson, FreePlay, Recalibrate, Close, Fingering, FineTune }
 
     [Header("Found automatically when empty")]
     public AppFlow app;
@@ -63,6 +55,17 @@ public class RadialMenu : MonoBehaviour
     TextMeshPro _title;
     Segment _focused;
     FingeringGuide _fingeringGuide;
+    MarkerCalibration _markerCalibration;
+    Transform _handAnchor;
+    Segment _handButton;
+    GameObject _menuIcon, _closeIcon;
+    Material _buttonEdge, _iconMaterial;
+    float _lastHandPoseAt;
+    bool _wearable => _fingeringGuide;
+#if UNITY_EDITOR
+    bool _simulateMenuHand;
+    Vector3 _simulatedHandOffset;
+#endif
     float _openedAt;
     bool _acted;
     bool _pausedEvaluator; // Main: the wait-mode evaluator is switched off while recalibrating
@@ -83,12 +86,18 @@ public class RadialMenu : MonoBehaviour
 
     public void Open()
     {
-        if (!_root) return;
+        if (!_root || (_wearable && !_handAnchor.gameObject.activeSelf)) return;
         _openedAt = Time.time;
         _acted = false;
         SetFocus(null);
-        PlaceInFrontOfHead();
+        if (_wearable)
+        {
+            if (_markerCalibration) _markerCalibration.CloseFineTune();
+            _root.localScale = Vector3.one * 0.72f;
+        }
+        else PlaceInFrontOfHead();
         _root.gameObject.SetActive(true);
+        UpdateHandButton();
         Refresh();
         Debug.Log("[RadialMenu] Opened.");
     }
@@ -98,6 +107,7 @@ public class RadialMenu : MonoBehaviour
         if (!_root || !_root.gameObject.activeSelf) return;
         _root.gameObject.SetActive(false);
         SetFocus(null);
+        UpdateHandButton();
         Debug.Log("[RadialMenu] Closed.");
     }
 
@@ -115,6 +125,7 @@ public class RadialMenu : MonoBehaviour
             case Choice.RestartLesson: RestartLesson(); break;
             case Choice.FreePlay: AppModeSwitch.Request(AppMode.FreePlay, "menu"); break;
             case Choice.Fingering: _fingeringGuide.ToggleOverlay(); break;
+            case Choice.FineTune: _markerCalibration.OpenFineTune(); break;
             case Choice.Recalibrate:
                 if (calibrator.IsCalibrating) calibrator.CancelCalibration();
                 else StartRecalibration();
@@ -150,6 +161,10 @@ public class RadialMenu : MonoBehaviour
                 bool enabled = _fingeringGuide && _fingeringGuide.OverlayEnabled;
                 label = enabled ? "Fingering\nOn" : "Fingering\nOff";
                 return _fingeringGuide && Calibrated && !calibrating && InLesson;
+            case Choice.FineTune:
+                bool canFineTune = _markerCalibration && _markerCalibration.CanFineTune;
+                label = canFineTune ? "Fine\nTune" : "Fine Tune\nScan first";
+                return Calibrated && canFineTune;
             default:
                 label = "Close";
                 return true;
@@ -195,7 +210,12 @@ public class RadialMenu : MonoBehaviour
         if (!app) app = FindAnyObjectByType<AppFlow>();
         if (!calibrator) calibrator = FindAnyObjectByType<PianoCalibrator>();
         if (app) _fingeringGuide = app.GetComponent<FingeringGuide>();
-        Build();
+        if (_wearable)
+        {
+            _markerCalibration = FindAnyObjectByType<MarkerCalibration>();
+            BuildWearable();
+        }
+        else Build();
         _root.gameObject.SetActive(false);
     }
 
@@ -203,7 +223,8 @@ public class RadialMenu : MonoBehaviour
     {
         if (calibrator)
         {
-            calibrator.MenuDotPressed += Toggle;
+            if (_wearable) calibrator.UsesHandMenu = true;
+            else calibrator.MenuDotPressed += Toggle;
             calibrator.Calibrated += ResumeAfterCalibration;
             calibrator.CalibrationCancelled += ResumeAfterCalibration;
         }
@@ -214,22 +235,31 @@ public class RadialMenu : MonoBehaviour
         if (calibrator)
         {
             calibrator.MenuDotPressed -= Toggle;
+            if (_wearable) calibrator.UsesHandMenu = false;
             calibrator.Calibrated -= ResumeAfterCalibration;
             calibrator.CalibrationCancelled -= ResumeAfterCalibration;
         }
+        if (_handAnchor) _handAnchor.gameObject.SetActive(false);
+        Close();
         ResumeAfterCalibration();
     }
 
     void OnDestroy()
     {
         foreach (var s in _segments) if (s.material) Destroy(s.material);
+        if (_handButton != null) Destroy(_handButton.material);
+        Destroy(_buttonEdge);
+        Destroy(_iconMaterial);
     }
 
     void Update()
     {
+        if (_wearable) UpdateHandTracking();
         DebugKeys();
         if (!IsOpen) return;
-        if (autoCloseSeconds > 0f && Time.time > _openedAt + autoCloseSeconds &&
+        if (_wearable)
+            _root.localScale = Vector3.one * Mathf.SmoothStep(0.72f, 1f, (Time.time - _openedAt) / 0.18f);
+        else if (autoCloseSeconds > 0f && Time.time > _openedAt + autoCloseSeconds &&
             (!app || app.CurrentStep != AppFlow.Step.ChooseMode)) { Close(); return; }
         Refresh();
     }
@@ -246,8 +276,11 @@ public class RadialMenu : MonoBehaviour
             bool live = usable && s.enabled;
             if (s.interactable.enabled != live) s.interactable.enabled = live;
             if (!live && _focused == s) SetFocus(null);
-            if (!_acted) SetColor(s, !s.enabled ? disabledColor : _focused == s ? focusColor : rimColor);
-            s.label.color = s.enabled ? Color.white : disabledColor;
+            if (!_acted)
+                SetColor(s, _wearable
+                    ? !s.enabled ? MutedClay : _focused == s ? Apricot : Clay
+                    : !s.enabled ? disabledColor : _focused == s ? focusColor : rimColor);
+            s.label.color = s.enabled ? Color.white : _wearable ? SoftIvory : disabledColor;
         }
         if (_title)
             _title.text = app && app.CurrentStep == AppFlow.Step.ChooseMode ? "Choose a mode" :
@@ -264,13 +297,6 @@ public class RadialMenu : MonoBehaviour
     {
         var cam = Camera.main ? Camera.main.transform : null;
         if (!cam) return;
-        if (_fingeringGuide)
-        {
-            // Opening from the hand usually means the player is looking down at it.
-            Vector3 center = cam.position + cam.forward * distance - cam.up * below;
-            _root.SetPositionAndRotation(center, Quaternion.LookRotation(center - cam.position, cam.up));
-            return;
-        }
         Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up);
         if (forward.sqrMagnitude < 1e-4f) forward = Vector3.forward;
         forward.Normalize();
@@ -283,7 +309,15 @@ public class RadialMenu : MonoBehaviour
 #if UNITY_EDITOR
         var kb = UnityEngine.InputSystem.Keyboard.current;
         if (kb == null) return;
-        if (kb.f1Key.wasPressedThisFrame) Toggle();
+        if (kb.f1Key.wasPressedThisFrame)
+        {
+            if (_wearable && !_handAnchor.gameObject.activeSelf)
+            {
+                _simulateMenuHand = true;
+                UpdateHandTracking();
+            }
+            Toggle();
+        }
         if (!IsOpen) return;
         if (kb.f2Key.wasPressedThisFrame) Choose(Choice.RestartLesson);
         if (kb.f3Key.wasPressedThisFrame) Choose(Choice.FreePlay);
@@ -293,6 +327,128 @@ public class RadialMenu : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ Build
+
+    static readonly Color Clay = new Color(0.64f, 0.25f, 0.13f);
+    static readonly Color Apricot = new Color(0.84f, 0.36f, 0.16f);
+    static readonly Color MutedClay = new Color(0.31f, 0.22f, 0.23f);
+    static readonly Color SoftIvory = new Color(0.94f, 0.78f, 0.65f);
+    static readonly Color Amber = new Color(0.72f, 0.39f, 0.12f);
+
+    void UpdateHandTracking()
+    {
+        bool tracked = Calibrated && calibrator && calibrator.TryGetMenuHandPose(out _handPose);
+#if UNITY_EDITOR
+        if (_simulateMenuHand && Calibrated && Camera.main)
+        {
+            var head = Camera.main.transform;
+            _handPose = new Pose(head.TransformPoint(new Vector3(-0.045f, -0.04f, 0.40f) + _simulatedHandOffset), head.rotation);
+            tracked = true;
+        }
+#endif
+        _handAnchor.gameObject.SetActive(tracked);
+        if (tracked)
+        {
+            _lastHandPoseAt = Time.unscaledTime;
+            _handAnchor.SetPositionAndRotation(_handPose.position, _handPose.rotation);
+        }
+        else if (IsOpen && Time.unscaledTime - _lastHandPoseAt > 0.35f)
+        {
+            Close();
+        }
+    }
+
+    Pose _handPose;
+
+    void BuildWearable()
+    {
+        _handAnchor = new GameObject("Left Hand Menu").transform;
+        _handAnchor.SetParent(transform, false);
+        _handAnchor.gameObject.SetActive(false);
+        _root = new GameObject("RadialMenuRoot").transform;
+        _root.SetParent(_handAnchor, false);
+        _root.gameObject.SetActive(false);
+
+        var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
+        _buttonEdge = new Material(shader);
+        PaintMaterial(_buttonEdge, new Color(0.43f, 0.19f, 0.12f));
+        _iconMaterial = new Material(shader);
+        PaintMaterial(_iconMaterial, new Color(1f, 0.89f, 0.67f));
+
+        const float orbit = 0.065f;
+        AddWearableAction(Choice.RestartLesson, 90f, orbit);
+        AddWearableAction(Choice.Recalibrate, 18f, orbit);
+        AddWearableAction(Choice.FineTune, -54f, orbit);
+        AddWearableAction(Choice.Fingering, -126f, orbit);
+        AddWearableAction(Choice.FreePlay, 162f, orbit);
+
+        _handButton = NewSegment(Choice.Close, "Close", _handAnchor, addToRing: false);
+        MakeButtonBody(_handButton, 0.019f);
+        _handButton.label = Label(_handButton.go.transform, "Label", "Menu", 0.108f,
+            new Vector3(0f, -0.006f, -0.006f), new Vector2(0.032f, 0.014f));
+        _menuIcon = new GameObject("Piano keys icon");
+        _menuIcon.transform.SetParent(_handButton.go.transform, false);
+        for (int i = -1; i <= 1; i++)
+            MakeShape(_menuIcon.transform, PrimitiveType.Cube, new Vector3(i * 0.005f, 0.005f, -0.006f),
+                new Vector3(0.0036f, 0.009f, 0.0015f), Quaternion.identity, _iconMaterial);
+        _closeIcon = new GameObject("Close icon");
+        _closeIcon.transform.SetParent(_handButton.go.transform, false);
+        foreach (float tilt in new[] { -45f, 45f })
+            MakeShape(_closeIcon.transform, PrimitiveType.Cube, new Vector3(0f, 0.005f, -0.006f),
+                new Vector3(0.002f, 0.011f, 0.0015f), Quaternion.Euler(0f, 0f, tilt), _iconMaterial);
+
+        AddPoke(_handButton, Vector3.zero, new Vector3(0.035f, 0.035f, 0.016f), () =>
+        {
+            if (!_handAnchor.gameObject.activeInHierarchy) return;
+            if (!IsOpen) Open();
+            else Close();
+        });
+        UpdateHandButton();
+    }
+
+    void UpdateHandButton()
+    {
+        if (_handButton == null) return;
+        _menuIcon.SetActive(!IsOpen);
+        _closeIcon.SetActive(IsOpen);
+        _handButton.label.text = IsOpen ? "Close" : "Menu";
+        SetColor(_handButton, IsOpen ? Clay : Amber);
+    }
+
+    void AddWearableAction(Choice choice, float angle, float orbit)
+    {
+        var segment = NewSegment(choice, choice.ToString());
+        segment.go.transform.localPosition = Polar(orbit, angle);
+        MakeButtonBody(segment, 0.024f);
+        segment.label = Label(segment.go.transform, "Label", "", 0.118f,
+            new Vector3(0f, 0f, -0.006f), new Vector2(0.045f, 0.031f));
+        AddPoke(segment, Vector3.zero, new Vector3(0.044f, 0.044f, 0.016f));
+    }
+
+    void MakeButtonBody(Segment segment, float buttonRadius)
+    {
+        var parent = segment.go.transform;
+        var rotation = Quaternion.Euler(90f, 0f, 0f);
+        MakeShape(parent, PrimitiveType.Cylinder, Vector3.zero,
+            new Vector3(buttonRadius * 2f, 0.003f, buttonRadius * 2f), rotation, _buttonEdge);
+        MakeShape(parent, PrimitiveType.Cylinder, new Vector3(0f, 0f, -0.003f),
+            new Vector3(buttonRadius * 1.87f, 0.002f, buttonRadius * 1.87f), rotation, segment.material);
+    }
+
+    static void MakeShape(Transform parent, PrimitiveType type, Vector3 position, Vector3 scale,
+        Quaternion rotation, Material material)
+    {
+        var shape = GameObject.CreatePrimitive(type);
+        var collider = shape.GetComponent<Collider>();
+        collider.enabled = false;
+        Destroy(collider);
+        shape.transform.SetParent(parent, false);
+        shape.transform.SetLocalPositionAndRotation(position, rotation);
+        shape.transform.localScale = scale;
+        var renderer = shape.GetComponent<MeshRenderer>();
+        renderer.sharedMaterial = material;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+    }
 
     void Build()
     {
@@ -361,17 +517,17 @@ public class RadialMenu : MonoBehaviour
         AddPoke(s, Vector3.zero, new Vector3(r * 1.6f, r * 1.6f, 0.02f));
     }
 
-    Segment NewSegment(Choice choice, string name)
+    Segment NewSegment(Choice choice, string name, Transform parent = null, bool addToRing = true)
     {
         var go = new GameObject(name + "Segment");
-        go.transform.SetParent(_root, false);
+        go.transform.SetParent(parent ? parent : _root, false);
         var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
         var s = new Segment { choice = choice, go = go, material = new Material(shader) { name = "RadialMenuRim (runtime)" } };
-        _segments.Add(s);
+        if (addToRing) _segments.Add(s);
         return s;
     }
 
-    void AddPoke(Segment s, Vector3 center, Vector3 size)
+    void AddPoke(Segment s, Vector3 center, Vector3 size, Action onTap = null)
     {
         // Collider first: the interactable collects its colliders on Awake. Local +Z points away from the player,
         // so a poke from the player's side moves along +Z (XRPokeFilter's default axis).
@@ -386,7 +542,11 @@ public class RadialMenu : MonoBehaviour
         filter.pokeCollider = box;
         s.interactable.hoverEntered.AddListener(_ => { if (Usable && s.enabled) SetFocus(s); });
         s.interactable.hoverExited.AddListener(_ => { if (_focused == s) SetFocus(null); });
-        s.interactable.selectEntered.AddListener(_ => { if (Usable && s.enabled) Choose(s.choice); });
+        s.interactable.selectEntered.AddListener(_ =>
+        {
+            if (onTap != null) onTap();
+            else if (Usable && s.enabled) Choose(s.choice);
+        });
     }
 
     void Line(Segment s, List<Vector3> points, bool loop)
@@ -425,9 +585,11 @@ public class RadialMenu : MonoBehaviour
     static Vector3 Polar(float r, float deg) =>
         new Vector3(Mathf.Cos(deg * Mathf.Deg2Rad) * r, Mathf.Sin(deg * Mathf.Deg2Rad) * r, 0f);
 
-    static void SetColor(Segment s, Color c)
+    static void SetColor(Segment s, Color c) => PaintMaterial(s.material, c);
+
+    static void PaintMaterial(Material material, Color c)
     {
-        if (s.material.HasProperty("_BaseColor")) s.material.SetColor("_BaseColor", c);
-        if (s.material.HasProperty("_Color")) s.material.SetColor("_Color", c);
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", c);
+        if (material.HasProperty("_Color")) material.SetColor("_Color", c);
     }
 }

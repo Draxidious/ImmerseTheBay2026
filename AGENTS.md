@@ -7,10 +7,10 @@ An AR piano teacher on **XREAL Aura** (Android XR, optical see-through glasses).
 **Yamaha P71** digital piano. The glasses overlay which key to press, show the sheet music on a floating panel,
 and an AI coach gives short spoken feedback between phrases.
 
-- **Main demo:** Freeplay of the 35-note right-hand Für Elise opening (8 bars). A separate CurriculumEngine exists but is not in Main.
-- **Core loop ("wait mode"):** highlight the next key → wait for the correct press → advance → AI comments after the completed excerpt.
-- **Pitch:** see-through glasses show your real keys and fingers sharply (passthrough headsets can't), plus a coach that talks to you,
-  plus linking each written note on the sheet to its physical key.
+- **Main demo:** `Assets/Scenes/Main_2.unity` runs the guided Für Elise curriculum and Free Play after marker calibration.
+- **Guided lesson:** show the target keys and fingerings, judge timed runs, and play coach feedback between runs.
+- **Pitch:** the optical view keeps the real keys and fingers directly visible while the app links written notes to
+  physical keys and provides spoken coaching.
 
 ## Hard deadline and submission rules
 - **Pens down: Sunday Nov 15, 9:00 AM PT.** Submissions are downloaded at exactly 9:00.
@@ -32,7 +32,7 @@ and an AI coach gives short spoken feedback between phrases.
 Yamaha P71 ──USB MIDI──► Aura puck ──► Unity app
                                         ├─ MidiPianoReader   (native Android MidiManager bridge → C# events)
                                         ├─ AppFlow          (startup, calibration, overlay and coach wiring)
-                                        ├─ PerformanceEvaluator (wait mode, scoring, RunStats — no AI)
+                                        ├─ CurriculumEngine (timed lesson runs and scoring — no AI)
                                         ├─ UI
                                         │   ├─ PianoOverlay  (88-key highlight overlay + calibration)
                                         │   ├─ SongNoteDisplay (sheet music lines + current-measure highlight)
@@ -43,8 +43,8 @@ Yamaha P71 ──USB MIDI──► Aura puck ──► Unity app
 **Rule: the AI is never in the real-time loop.** Note matching, highlighting and advancing must work instantly
 even if the AI is slow or offline. The AI only receives a short JSON summary of performance and speaks between phrases.
 
-**Rule: the AI does not generate notes.** Main's notes come from `SongLibrary.FurElise`; the separate curriculum uses
-JSON song resources. `Assets/Music/` holds the sheet images. Main allows spoken feedback only, not demo/fingering actions.
+**Rule: the AI does not generate notes or fingerings.** The curriculum reads authored JSON song resources.
+`Assets/Music/` holds sheet images. Demo and fingering help use the score's data.
 
 **Lesson progression** (measure by measure, tempo ladder, full play-throughs, repairing weak measures) follows
 `docs/COACH_PLAYBOOK.md`. Read it before working on the LessonEngine or the coach's actions.
@@ -61,9 +61,9 @@ Don't edit another owner's folder without telling them. If you need something fr
 add a request to `docs/INTERFACES.md` under "Requested".
 
 ## Conventions
-- **One scene per person** for development (`Assets/Scenes/Dev_<Name>.unity`). Only `Assets/Scenes/Main.unity`
+- **One scene per person** for development (`Assets/Scenes/Dev_<Name>.unity`). Only `Assets/Scenes/Main_2.unity`
   is shared, and only one person edits it at a time, announced in chat. Unity scene merges are painful.
-  `Main` exists and is the only enabled build scene (index 0). Dev scenes: `Dev_Ari` (overlay + calibration),
+  `Main_2` is the only enabled build scene (index 0). Dev scenes: `Dev_Ari` (overlay + calibration),
   `JordanScene` / `JordanPianoReading` (MIDI), `AITest` (AI coach). Keep AIDebugPanel out of Main: its keys clash with the evaluator.
 - Communicate between modules through the public methods and events listed in `docs/INTERFACES.md`, not by
   reaching into another module's internals.
@@ -72,29 +72,25 @@ add a request to `docs/INTERFACES.md` under "Requested".
 - Every module gets an Editor-only debug driver (keyboard shortcuts) so it can be tested without the piano or headset.
 
 ## Main demo flow and verification
-- Open `Assets/Scenes/Main.unity`. `AppFlow` finds its references automatically; the evaluator starts inactive,
-  and `PianoCalibrator.calibrateOnStart` is off.
+- Open `Assets/Scenes/Main_2.unity`. `AppFlow` finds its references automatically, and `PianoCalibrator.calibrateOnStart` is off.
 - Android: request microphone permission **before the intro** and wait for grant, denial, or dismissal. With permission
   already granted there is no dialog. Denial/dismissal skips recording without asking again during the intro flow;
   calibration and the piano lesson still work. The Editor skips this Android permission step.
-- Intro speech → listen for 4 seconds (when permitted) → four-point calibration → lesson. Any answer or silence continues.
-  Pinch FAR then NEAR end of A0, then FAR then NEAR end of C8. Sheet placement is 0.45 m above / 0.20 m behind the drawn
-  keyboard center; it updates after recalibration without restarting the lesson.
-- Next key lights up; correct/wrong presses flash. At the end of all 35 notes, the coach receives `RunStats` and speaks
-  feedback via the orb. After the restart delay (1.5 s), play the first E5 again for a new attempt.
-- Editor keys: **Enter** skips speech/listen waits; **C** simulates calibration, **R** recalibrates;
-  **Space** correct note, **X** wrong note, **P** toggles autoplay, **Backspace** restarts. Use P to verify completed-run coaching.
+- Intro → listen when permitted → look at the left then right piano marker. The pinch fallback is FAR then NEAR on A0,
+  then FAR then NEAR on C8.
+- After calibration, face the back of your left hand toward the glasses. Tap the raised amber **Menu** button with
+  your right index finger. The ring follows the hand and collapses when you tap its center or choose an action.
+  **Fine Tune** opens the marker offsets. **Recalibrate** starts a fresh scan. **Fingering** toggles the lesson overlay.
+- Editor keys: **Enter** skips waits, **M** simulates marker locks, **C** simulates pinch calibration, and **F1** opens/closes
+  the hand menu with a simulated hand if needed. **Tools → Piano → Run Fingering Smoke Test** exercises the integrated flow.
 - Missing API keys: canned coach feedback + native TTS on Android (silent in Editor); transcription requires a Groq key.
   Native TTS needs a working voice on the puck. Never share an APK containing real keys.
 - Full device checklist and adb commands: `docs/AURA_MAIN_TEST.md`. Editor tests do not validate the Android dialog,
   real MIDI, alignment, hand gestures, or optical-display readability.
 
 ## Designing for the Aura (optical see-through)
-- The display is **additive**: it only adds light. **Black = invisible.** There are no dark glass panels.
-  Use bright rims, glow and high contrast.
-- Sheet music should be **light notes on a transparent background**, or raise the lens dimming while the panel is visible.
-- Black is invisible **in the lenses**, but it still writes alpha 1: screen captures and recordings (the demo video) show it as
-  solid black. Don't draw black fills; disable the renderer instead.
+- [Aura display and sheet music](docs/AURA_DISPLAY.md) is the reference for optics, recording, and the project's Unity setup.
+  Main_2 displays black notation on white sheet-music strips in Lesson and Free Play.
 - Any material override on the template hand meshes must replace **every** slot: they carry `DepthOnly` plus a grey glove
   material (`Unity_Hand_Medium`), and leaving the glove draws an outline around the hands.
 - Test on the real glasses early. Colors that look good in the Editor often wash out.
@@ -103,8 +99,8 @@ add a request to `docs/INTERFACES.md` under "Requested".
 - Deploy target is the **puck** (the Android device), over USB/adb. Build Profiles → Android → Run Device = puck → Build And Run.
 - OpenXR **Android** tab: **Android XR Support** on, **Meta Quest Support** off, **Hand Tracking Subsystem** + **Meta Hand Tracking Aim**
   + **Hand Interaction Profile** on, **Android XR: Session** + **Android XR: Camera (Passthrough)** on.
-- **Passthrough:** without an `ARSession` in the scene and an enabled `ARCameraManager` on the Main Camera, Android XR runs in
-  **OPAQUE** blend mode = 100% lens dimming = the room is blacked out. Camera background must be Solid Color (0,0,0,0).
+- **Runtime passthrough setup:** keep the `ARSession`, enabled Main Camera `ARCameraManager`, and Solid Color `(0,0,0,0)`
+  clear in Main_2. See [Aura display and sheet music](docs/AURA_DISPLAY.md) for the device-specific troubleshooting history.
 - **Seated AR:** disable the template rig's `Locomotion` child and its `CharacterController`. With `GravityProvider` on and no floor
   collider the whole rig falls and world-placed UI drifts away.
 - Head-relative UI must wait for a tracked head pose: the XR session can start long after `Start()` and the runtime re-centers.
@@ -120,22 +116,21 @@ add a request to `docs/INTERFACES.md` under "Requested".
   (this replaces e.g. Meta Horizon/Quest Link as the PC runtime). On laptops, set `Unity.exe` to the discrete GPU (Vulkan video encode).
 - Then press Play in Unity; the stream starts on the glasses. Audio plays on the PC, not the glasses.
 
-## Known Aura / Unity gotchas (from the June Aura hackathon)
-- Streaming to the device crashes → switch the Editor graphics API from Vulkan to DX11. **(Outdated?)** Google's current Direct Preview
-  guide requires Vulkan for Windows; we follow that now. If Play-mode streaming crashes, revisit this.
+## Known Aura / Unity gotchas
+- Windows Direct Preview uses Vulkan video encoding. See [Google's Unity Direct Preview setup](https://developer.android.com/develop/xr/unity/direct-preview).
 - Direct Preview is flaky → restart Unity, the hub and the device, or use the XR Simulator for in-editor testing.
 - Play mode crashes with the Android XR Extensions package installed → remove it if it's not needed.
 - Prerelease and retail firmware images aren't interchangeable. Don't reflash without checking.
 
 ## Device tooling (puck)
-- **See what the glasses show:** `adb shell screencap -d 4626964206039778834 -p /sdcard/x.png` then `adb pull /sdcard/x.png`
-  (display "XREAL 1 Ultra" = camera image + app content). Plain `adb exec-out screencap` fails: the puck has two displays.
+- **Capture the glasses display:** on the team's puck, use `adb shell screencap -d 4626964206039778834 -p /sdcard/x.png` then
+  `adb pull /sdcard/x.png`. That display ID and camera composition are from the tested puck. See [Aura display and sheet music](docs/AURA_DISPLAY.md).
 - **Wireless adb:** put the PC and puck on a private network (phone hotspot, not the open venue Wi-Fi), then with USB plugged in
   `adb tcpip 5555`, unplug, `adb connect <puck-ip>:5555`. Reverts to USB-only on reboot or `adb usb`.
 - **Logs:** `adb logcat -s Unity`; calibration lines are tagged `[PianoCalibrator]`. App files (e.g. logs written by a script)
   are under `/sdcard/Android/data/com.DefaultCompany.VRTemplate/files/`.
-- **Aura runtime facts (Android XR 1.0, probed 2026-11-14):** marker / QR / planar-image tracking, depth texture, raycast,
-  scene meshing and `XR_ANDROID_hand_mesh` / `XR_FB_hand_tracking_mesh` are listed; Unity scripts get **no camera CPU frames**.
+- **Aura runtime probe (Android XR 1.0, 2026-11-14):** the tested puck listed marker / QR / planar-image tracking, depth texture,
+  raycast, scene meshing, and `XR_ANDROID_hand_mesh` / `XR_FB_hand_tracking_mesh`. The configured Unity camera provider returned no CPU frames in that probe.
 
 ## Unity MCP setup (lets agents read/drive the Unity Editor)
 - **Package:** `com.coplaydev.unity-mcp` pinned in `Packages/manifest.json` to

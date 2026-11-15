@@ -32,7 +32,8 @@ holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophoneP
    Permission is rechecked before listening. Any answer, silence, or unavailable recording moves on.
 3. `Calibrating`: shows the overlay, calls `PianoCalibrator.Recalibrate()` (the scene has `calibrateOnStart` off), speaks `calibrateLine`.
 4. `ChooseMode`: on the first `PianoCalibrator.Calibrated`, sets `AppModeSwitch.AfterCalibration`, shows `ModeChoicePanel.ShowChoice()`
-   and speaks `chooseModeLine`. In Main_2, that API opens the radial menu. `AIConfig.defaultMode` = `Lesson` / `FreePlay` skips the choice.
+   and speaks `chooseModeLine`. In Main_2 the player taps **Menu** on their left hand to choose a mode.
+   `AIConfig.defaultMode` = `Lesson` / `FreePlay` skips the choice.
 5. `Lesson` (`EnterLesson`): ends free play, `PianoOverlay.ClearAll()`, activates the `PerformanceEvaluator` object, `Restart()`s it
    (always from the first note) and speaks `lessonLine`. `FreePlay` (`EnterFreePlay`): deactivates the evaluator object (stops judging
    and hides its sheet panel), `ClearAll()`, `FreePlayController.Begin()`, speaks `freePlayLine`. In Main_2 both modes use the
@@ -101,7 +102,7 @@ Key geometry uses standard sizes (octave 164.5 mm); black keys follow the standa
 F#/G#/A# split F–B into 7) and stand `blackKeyRaise` (12 mm) above the white keys.
 The calibrator's post-calibration preview only clears keys it lit itself, so lesson highlights set meanwhile are kept.
 
-Keys never have colliders. The only grabbable part is the `GrabHandle` child (an `XRGrabInteractable` on the overlay root, position-only).
+Keys have no colliders. In Main_2 the hand menu provides recalibration and fine-tuning. Dev scenes can still use a grab handle.
 
 ### PianoCalibrator (`Assets/Scripts/UI/PianoCalibrator.cs`) ✅
 Hand-tracking calibration (XR Hands thumb-tip/index-tip distance). Default is four pinches (`fourPointCalibration`):
@@ -253,10 +254,9 @@ Imported as sprites, ASTC 4x4 on Android (~6 MB per page in memory).
 | `SheetLayout.NotesAt(int bar, float beat)` | Notehead rectangles struck at that bar/beat (both hands; `hand`, `midi`). |
 | `SheetLayout.NotesOf(int noteIndex)` | All noteheads of one DB note (index into `SongDatabase.Get(id).notes`), incl. tied continuations (`tied = true`). |
 
-Note: the images are black on white as requested. On the Aura (additive display) a white page glows; for in-headset use
-invert the colors in the shader/material or regenerate with light-on-transparent. Main's sheet panel (`SongNoteDisplay`) shows
-these strips (via `LessonSongSource.ApplySheets`, called by AppFlow); Jordan's per-line images (`Assets/Music/fur_elise/`) stay
-in the scene as the fallback.
+Lesson and Free Play display black-on-white strips as-is with a white `RawImage` tint. The guided lesson uses the sheet
+assigned in Main_2. The older wait-mode scene can apply database strips through `LessonSongSource.ApplySheets`, with its
+assigned per-line images as a fallback. [Aura display and sheet music](AURA_DISPLAY.md)
 
 #### Connecting the DB to Main: `LessonSongSource` (`Assets/Scripts/Songs/LessonSongSource.cs`) ✅
 Every method returns null/false when the data isn't there, so callers keep their old behaviour.
@@ -401,7 +401,7 @@ questions. Code computes every musical fact (`FreePlayAnalyzer`, pure C#, EditMo
 | `enum AppMode { Lesson, FreePlay }`, `enum StartMode { Ask, Lesson, FreePlay }` | Modes; `AIConfig.defaultMode` (Ask = show the panel). |
 | `AppModeSwitch.Request(mode, source)` / `event Requested` / `Current` / `AfterCalibration` | Panel and voice ask, AppFlow switches. |
 | `FreePlayController.Begin()` / `End()` / `IsActive` / `Feed(midi, vel, on)` / `FactsJson(forQuestion)` / `event PhraseFinished` | Runs free play from `MidiPianoReader.NoteOn/NoteOff`. `End()` clears every key it lit. |
-| `ModeChoicePanel.ShowChoice()` / `ShowSwitchButton()` / `Hide()` / `event Chosen` | Legacy scenes build the world-space mode buttons. Main_2 forwards the choice to the radial menu and closes it when the mode changes. |
+| `ModeChoicePanel.ShowChoice()` / `ShowSwitchButton()` / `Hide()` / `event Chosen` | Legacy scenes build the world-space mode buttons. Main_2 uses the tracked hand menu and closes it when the mode changes. |
 | `FreePlayAnalyzer` (`NoteOn`, `NoteOff`, `Poll(now)`, `Peek(now)`, static `IdentifyChord`, `EstimateKey`, `RateSteadiness`, `MatchSong`, `RomanNumeral`) | Phrases (2 s gap), chords within 80 ms (inversions), Krumhansl-Schmuckler key + confidence, tempo steadiness (CV), song match vs `SongDatabase` openings (top voice, transposition-invariant, ≥ 6 notes + distinctiveness guard), range, likely hands. |
 | `FreePlayFacts.Build(...)` / `IsNotable(...)` | Facts JSON for the coach; `can_learn_in_lesson` only for the evaluator's `songId` (today Für Elise). |
 | `CoachTrigger.PhraseEnded`, `CoachContext.freePlayJson`, mode `"free_play"` | Unprompted comment only on a recognized song or a new key; 40 s cooldown (`AIConfig.freePlayCommentCooldownSeconds`). One sentence, never praise. |
@@ -419,18 +419,17 @@ Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C
 ---
 
 ## Radial menu — built by Nehemiah (`Assets/Scripts/Menu/RadialMenu.cs`) ✅ (Editor) / untested on the Aura
-Main_2 has **Start/Restart Lesson** (top), **Free Play** (left), **Recalibrate Piano** (right),
-**Fingering On/Off** (bottom), and **Close** in the center. The same menu handles the first mode choice and later switches.
-Fingering is interactive in Lesson after calibration. Scenes without the guide use the original three outer segments.
-Adds itself after scene load to any scene with an `AppFlow` and a `PianoCalibrator` (no scene edit). Opens/closes by touch-and-holding the
-orange dot on the back of the left hand (`PianoCalibrator.MenuDotPressed`). Main_2 places it 0.42 m along the player's view and
-0.06 m below the center of view when opened, then fixes it in the world. Segments use `XRSimpleInteractable` and `XRPokeFilter`; pokes are ignored for
-0.6 s after opening. One action runs per opening. The menu closes after an action or 20 s, with the first mode choice held open
-until an action or Close. Editor: **F1** toggle, **F2/F3/F4** choose, **Esc** close.
+Main_2 exposes **Menu** on the back of the tracked left hand once calibrated. A tap expands **Start/Restart Lesson**, **Free Play**,
+**Recalibrate Piano**, **Fine Tune**, and **Fingering On/Off** around the center, which becomes **Close**. The ring follows the hand
+while open. An action, a center tap, or sustained tracking loss closes the ring. Fine Tune opens the existing offsets panel after a
+marker calibration. Fingering is interactive in Lesson. Both the first mode choice and later switches use the hand menu.
+Scenes without the guide use the original three-segment menu and orange-dot shortcut. The runtime menu adds itself to scenes with
+`AppFlow` and `PianoCalibrator`. Buttons use `XRSimpleInteractable` and `XRPokeFilter`; actions become usable 0.6 s after opening.
+Editor: **F1** toggles the menu and simulates a hand when necessary, **F2/F3/F4** choose, and **Esc** closes.
 
 | Member | Purpose |
 |---|---|
-| `enum Choice { RestartLesson, FreePlay, Recalibrate, Close, Fingering }` | Fingering uses the guide's device-local preference. |
+| `enum Choice { RestartLesson, FreePlay, Recalibrate, Close, Fingering, FineTune }` | Fingering uses the guide's device-local preference. Fine Tune opens the marker offsets. |
 | `void Open()` / `Close()` / `Toggle()`, `bool IsOpen` | Show/hide. Opening never changes the session. |
 | `bool Choose(Choice)` | Run an action (what a poke does). False if unavailable or an action already ran this opening. |
 | `event Action<Choice> Chosen` | After an action runs. |

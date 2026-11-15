@@ -64,7 +64,7 @@ public class MarkerCalibration : MonoBehaviour
     TrackableId _sampleId;
     float _firstSampleTime;
     Vector3? _left;
-    bool _scanning, _hasMarkerPose, _waitingForPermission;
+    bool _scanning, _hasMarkerPose, _waitingForPermission, _applyingMarkerPose;
     volatile bool _permissionGranted, _permissionDenied;
     float _trackerStartedAt = -1f;
     Vector3 _markerLeft, _markerRight, _axis, _toPlayer;
@@ -93,6 +93,7 @@ public class MarkerCalibration : MonoBehaviour
     {
         if (!calibrator) return;
         calibrator.CalibrationStarted += BeginScan;
+        calibrator.Calibrated += OnCalibrationCompleted;
         calibrator.OffsetsDotPressed += TogglePanel;
         calibrator.markersAvailable = imageManager;
         if (imageManager) imageManager.trackablesChanged.AddListener(OnTrackablesChanged);
@@ -103,6 +104,7 @@ public class MarkerCalibration : MonoBehaviour
         if (calibrator)
         {
             calibrator.CalibrationStarted -= BeginScan;
+            calibrator.Calibrated -= OnCalibrationCompleted;
             calibrator.OffsetsDotPressed -= TogglePanel;
             calibrator.markersAvailable = false;
         }
@@ -133,6 +135,12 @@ public class MarkerCalibration : MonoBehaviour
     }
 
     // ---------- Scan ----------
+
+    void OnCalibrationCompleted()
+    {
+        // A four-pinch fit uses different corners. Applying offsets from an older marker fit would move it back.
+        if (!_applyingMarkerPose) _hasMarkerPose = false;
+    }
 
     void BeginScan()
     {
@@ -277,7 +285,10 @@ public class MarkerCalibration : MonoBehaviour
 
         Corners(out var low, out var high);
         SetKeyboardVisible(true); // both scans done: the keyboard appears where the markers put it
-        string reason = calibrator.CalibrateFromMarkers(low, high, useKnownWidth);
+        _applyingMarkerPose = true;
+        string reason;
+        try { reason = calibrator.CalibrateFromMarkers(low, high, useKnownWidth); }
+        finally { _applyingMarkerPose = false; }
         if (reason != null)
         {
             _hasMarkerPose = false;
@@ -361,6 +372,18 @@ public class MarkerCalibration : MonoBehaviour
 
     // ---------- Offsets panel (standard world-space UGUI, driven by the rig's XRI interactors) ----------
 
+    internal bool CanFineTune => isActiveAndEnabled && _hasMarkerPose && calibrator && !calibrator.IsCalibrating;
+
+    internal void OpenFineTune()
+    {
+        if (CanFineTune && !_panel) OpenPanel();
+    }
+
+    internal void CloseFineTune()
+    {
+        if (_panel) ClosePanel();
+    }
+
     void TogglePanel()
     {
         if (_panel) { ClosePanel(); return; }
@@ -374,7 +397,11 @@ public class MarkerCalibration : MonoBehaviour
 
     void ClosePanel()
     {
-        if (_panel) Destroy(_panel.gameObject);
+        if (_panel)
+        {
+            _panel.gameObject.SetActive(false);
+            Destroy(_panel.gameObject);
+        }
         _panel = null;
     }
 

@@ -125,6 +125,7 @@ public class PianoCalibrator : MonoBehaviour
     /// RadialMenu), the dot opens that menu instead of calling <see cref="Recalibrate"/> directly.
     /// </summary>
     public event Action MenuDotPressed;
+    internal bool UsesHandMenu { get; set; }
     /// <summary>Raised by <see cref="CancelCalibration"/>: calibration stopped, the previous overlay pose is kept.</summary>
     public event Action CalibrationCancelled;
     /// <summary>
@@ -290,8 +291,9 @@ public class PianoCalibrator : MonoBehaviour
         SetPhase(Phase.Idle);
         ShowAlignmentPreview();
         ShowMessage("<b>Calibrated from the markers!</b>\nThe blue bars should sit on every C key.\n" +
-                    "Fine-tune: touch the BLUE dot on the back of your left hand.\n" +
-                    (MenuDotPressed != null ? "Menu (redo): touch the ORANGE dot." : "Redo: touch the ORANGE dot."),
+                    (UsesHandMenu ? "Tap Menu on your left hand for options and fine-tuning."
+                        : "Fine-tune: touch the BLUE dot on the back of your left hand.\n" +
+                          (MenuDotPressed != null ? "Menu (redo): touch the ORANGE dot." : "Redo: touch the ORANGE dot.")),
                     previewSecondsAfterCalibration);
         Calibrated?.Invoke();
         return null;
@@ -423,7 +425,8 @@ public class PianoCalibrator : MonoBehaviour
         SetPhase(Phase.Idle);
         ShowAlignmentPreview();
         ShowMessage("<b>Calibrated!</b>\nThe blue bars should sit on every C key.\n" +
-                    (MenuDotPressed != null ? "Menu (restart, free play, redo): touch the\norange dot on the back of your LEFT hand."
+                    (UsesHandMenu ? "Tap Menu on the back of your left hand."
+                      : MenuDotPressed != null ? "Menu (restart, free play, redo): touch the\norange dot on the back of your LEFT hand."
                                             : "To redo: touch the orange dot on the\nback of your LEFT hand for a moment."),
                     previewSecondsAfterCalibration);
         Calibrated?.Invoke();
@@ -499,7 +502,8 @@ public class PianoCalibrator : MonoBehaviour
                 SetPhase(Phase.Idle);
                 ShowAlignmentPreview();
                 ShowMessage("<b>Calibrated!</b>\nThe blue bars should sit on every C key.\n" +
-                            "Pinch and drag the blue ball to nudge. Tap the orange tile to redo.", previewSecondsAfterCalibration);
+                            (UsesHandMenu ? "Tap Menu on the back of your left hand."
+                                : "Pinch and drag the blue ball to nudge. Tap the orange tile to redo."), previewSecondsAfterCalibration);
                 Calibrated?.Invoke();
                 break;
             }
@@ -668,6 +672,29 @@ public class PianoCalibrator : MonoBehaviour
     Transform TrackingSpace() =>
         xrOrigin ? (xrOrigin.CameraFloorOffsetObject ? xrOrigin.CameraFloorOffsetObject.transform : xrOrigin.transform) : null;
 
+    internal bool TryGetMenuHandPose(out Pose pose)
+    {
+        pose = default;
+        var head = HeadTransform();
+        if (!head || !EnsureHandSubsystem() || !_hands.leftHand.isTracked ||
+            IsSystemGesture(MetaAimHand.left) || !_hands.leftHand.GetJoint(XRHandJointID.Palm).TryGetPose(out var palm))
+            return false;
+
+        var space = TrackingSpace();
+        Vector3 position = ToWorld(palm.position);
+        Vector3 back = palm.rotation * Vector3.up;
+        if (space) back = space.TransformDirection(back);
+        Vector3 towardHead = (head.position - position).normalized;
+        if (Vector3.Dot(back, towardHead) < 0.25f) return false;
+
+        // Keep the watch face near the back of the hand and angle it slightly toward the viewer.
+        Vector3 normal = Vector3.Slerp(back, towardHead, 0.35f);
+        Vector3 up = Vector3.ProjectOnPlane(head.up, normal);
+        if (up.sqrMagnitude < 0.01f) up = Vector3.ProjectOnPlane(head.forward, normal);
+        pose = new Pose(position + back * handDotHeight, Quaternion.LookRotation(-normal, up));
+        return true;
+    }
+
     /// <summary>Orange dot on the back of the left hand; right index finger touch-and-hold → Recalibrate().</summary>
     void UpdateHandDot()
     {
@@ -675,7 +702,7 @@ public class PianoCalibrator : MonoBehaviour
         var left = _hands.leftHand;
         var head = HeadTransform();
         bool showOffsets = handOffsetsDot && OffsetsDotPressed != null && _offsetsDot;
-        if (!handRecalibrateDot || !left.isTracked || !head ||
+        if (UsesHandMenu || !handRecalibrateDot || !left.isTracked || !head ||
             !left.GetJoint(XRHandJointID.Palm).TryGetPose(out var palm))
         { HideHandDots(); return; }
 

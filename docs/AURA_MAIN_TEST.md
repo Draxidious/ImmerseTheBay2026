@@ -9,24 +9,25 @@ Für Elise demo, four-pinch calibration) is disabled; its checks are kept at the
 |---|---|
 | Startup | `[MarkerCalibration] Loaded offsets …` (if saved before), MIDI backend starts, intro speech. |
 | Marker calibration | Prompt asks for the corner markers; first launch asks scene-understanding permission. Look at the LEFT marker (A0 end) then the RIGHT (C8 end), ~1 s each: `Left marker locked`, `Right marker locked; span ~1.25 m`, `Calibrated (markers) … scale 1.000`. Every C lights for 5 s; sheet moves above the keyboard. ✅ |
-| Choose mode | After marker lock, the radial menu opens for **Start Lesson** or **Free Play**. Check that there is a single menu. |
+| Choose mode | After marker lock, tap the raised **Menu** button on your left hand. Check that the ring follows the hand, offers **Start Lesson** and **Free Play**, and collapses on selection. |
 | Keyboard during scan | `Keyboard hidden while scanning` at the calibrate line; keys appear only with `Keyboard shown` after the right marker locks. ✅ (01:48) |
 | Lesson + MIDI | `[Lesson] Starting …`, demo of measure 1, then runs pass/fail from real P71 notes (`[MIDI] Note ON …`), tempo steps 50 → 75 → 100 %. ✅ |
-| Offsets | Blue dot on the back of the LEFT hand opens the slider panel; Save writes `marker-offsets.json`. |
-| Recalibrate | Hold the orange dot to open the radial menu, then select **Recalibrate Piano**. Reopen the menu to cancel and check that the keyboard returns to its previous pose. |
+| Sheet readability | In Lesson and Free Play, check the dark notes and staff lines on the white page and the current-bar highlight while wearing the glasses. Check the video capture separately. See [Aura display and sheet music](AURA_DISPLAY.md). |
+| Offsets | Select **Fine Tune** in the hand menu. Adjust the offsets, then **Save** to write `marker-offsets.json`. |
+| Recalibrate | Select **Recalibrate Piano** in the hand menu. Tap **Menu** again to choose **Cancel Recalibrate** and check that the keyboard returns to its previous pose. |
 | Fallback | Deny scene permission or hide the markers 45 s: pinch steps come back. |
 | No exception flood | No XRI `IndexOutOfRangeException` (`MaterialHelperBase.GetSharedMaterialForTarget`) in the log. Was ~80k lines per run; fixed 2026-11-15 (hand occluder keeps both material slots). ✅ (01:48: 0 exceptions) |
 
 ### Run the Editor smoke test before Build and Run
 
 In Unity, choose **Tools → Piano → Run Fingering Smoke Test**. It enters Play mode, opens Main_2,
-simulates marker calibration and the radial poke events, and checks that all five hit targets are distinct and the legacy buttons
-are absent. It checks the demo, count-in, overlay toggle, coach replay or sheet fallback, recalibration cancellation, and both
+simulates marker calibration, hand movement, and poke events. It checks that all six hit targets are distinct, the ring follows
+the button, and the old dots and drag handle are absent. It checks fine-tuning, the overlay toggle, coach replay or sheet fallback, recalibration cancellation, and both
 mode switches. Check the Console for `[Fingering smoke] PASS` or the failed step. It exits Play mode automatically.
 
 For the on-glasses pass, choose Lesson after calibration and check the opening E5 → D♯5 demo. Look for small lilac
 `R5` → `R4` circles on the keys and cyan `5` → `4` directly on the right fingertips. Check the proximity glow and
-touch the orange dot on the left hand to open the radial menu. Select **Fingering On/Off** at the bottom to hide and bring back the cues.
+tap **Menu** on the left hand and choose **Fingering On/Off** to hide and bring back the cues.
 
 ---
 
@@ -49,7 +50,7 @@ touch the orange dot on the left hand to open the radial menu. Select **Fingerin
 | Already granted | Relaunch: no mic dialog, intro then recording work normally. |
 | Denial / dismissal | Deny or dismiss the dialog: intro still runs, no recording and no second mic prompt, then calibration. |
 | Permanent denial | After repeated denial / disabled permission, relaunch still reaches calibration without getting stuck waiting for permission. |
-| Passthrough | Room and real keys remain visible; the glasses do not black out. |
+| Optical view | The real room and keys are visible through the lenses. |
 | Calibration | Pinch FAR then NEAR ends of lowest key A0, then FAR then NEAR ends of highest key C8. Overlay aligns with real keys. |
 | Panel and orb | Sheet sits above the keyboard, readable from the seated position. Orb and text remain visible. |
 | MIDI | First expected note E5 (MIDI 76) lights. Press a wrong key: red flash, no advance. Press E5: correct flash and D#5 becomes next. |
