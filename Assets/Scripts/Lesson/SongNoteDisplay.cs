@@ -31,6 +31,13 @@ public class SheetSystem
 public class SongNoteDisplay : MonoBehaviour
 {
     public PerformanceEvaluator evaluator;
+    [Tooltip("The guided lesson. When there is one in the scene the panel follows its runs instead of the evaluator: " +
+             "the measures being played, which hand, the tempo step, and each measure's rating after a run.")]
+    public CurriculumEngine engine;
+
+    [Header("Hands (guided lesson)")]
+    public Color rightHandColor = new Color(0.3f, 0.85f, 1f, 1f);
+    public Color leftHandColor = new Color(1f, 0.72f, 0.10f, 1f);
 
     [Header("Sheet music (one entry per line of music, in order)")]
     public List<SheetSystem> sheet = new List<SheetSystem>();
@@ -79,6 +86,17 @@ public class SongNoteDisplay : MonoBehaviour
 
     private void OnEnable()
     {
+        if (engine == null) engine = FindAnyObjectByType<CurriculumEngine>();
+        if (engine != null)
+        {
+            engine.OnRunStarted += OnRunStarted;
+            engine.OnNextNote += OnNoteDue;
+            engine.OnNotePlayed += OnNotePlayed;
+            engine.OnRunRated += OnRunRated;
+            engine.OnStateChanged += OnLessonState;
+            engine.OnShowFingering += OnShowFingering;
+            return;
+        }
         if (evaluator == null) evaluator = GetComponent<PerformanceEvaluator>();
         if (evaluator == null) evaluator = FindAnyObjectByType<PerformanceEvaluator>();
         if (evaluator == null) return;
@@ -90,6 +108,16 @@ public class SongNoteDisplay : MonoBehaviour
 
     private void OnDisable()
     {
+        if (engine != null)
+        {
+            engine.OnRunStarted -= OnRunStarted;
+            engine.OnNextNote -= OnNoteDue;
+            engine.OnNotePlayed -= OnNotePlayed;
+            engine.OnRunRated -= OnRunRated;
+            engine.OnStateChanged -= OnLessonState;
+            engine.OnShowFingering -= OnShowFingering;
+            return;
+        }
         if (evaluator == null) return;
         evaluator.Restarted -= OnRestarted;
         evaluator.NoteJudged -= OnNoteJudged;
@@ -100,8 +128,18 @@ public class SongNoteDisplay : MonoBehaviour
     private void Update()
     {
         // Pulse what to play next so it stands out.
-        if (!_built || evaluator == null || evaluator.IsFinished) return;
+        if (!_built) return;
         float pulse = 0.65f + 0.35f * Mathf.Sin(Time.unscaledTime * 6f);
+        if (engine != null)
+        {
+            UpdateCue();
+            if (!UseSheet || !_runActive) return;
+            Color c = frameColor;
+            c.a = pulse;
+            foreach (var side in _frame) side.color = c;
+            return;
+        }
+        if (evaluator == null || evaluator.IsFinished) return;
         if (UseSheet)
         {
             Color c = frameColor;
@@ -182,15 +220,180 @@ public class SongNoteDisplay : MonoBehaviour
             $"Perfect {evaluator.CountTiming(TimingJudgement.Perfect)} / Good {evaluator.CountTiming(TimingJudgement.Good)} / " +
             $"Off {evaluator.CountTiming(TimingJudgement.Early) + evaluator.CountTiming(TimingJudgement.Late)}";
 
-        if (UseSheet) RefreshSheet();
+        if (UseSheet)
+        {
+            // Stay on the last line once the song is finished, so its result is visible.
+            int bar = evaluator.IsFinished ? evaluator.Song.notes[evaluator.Song.notes.Count - 1].bar : evaluator.CurrentNote.bar;
+            RefreshSheet(bar, !evaluator.IsFinished, BarColor);
+        }
+    }
+
+    // ------------------------------------------------------------------ Guided lesson (CurriculumEngine)
+
+    private bool _runActive;
+    private int _lessonBar = 1;                 // the bar the frame is on
+    private readonly Dictionary<int, string> _ratings = new Dictionary<int, string>(); // bars of the last rated run
+
+    private string HandName(HandMode hand)
+    {
+        string hex = ColorUtility.ToHtmlStringRGB(hand == HandMode.Left ? leftHandColor : hand == HandMode.Right ? rightHandColor : currentColor);
+        string name = hand == HandMode.Left ? "Left hand" : hand == HandMode.Right ? "Right hand" : "Both hands";
+        return $"<color=#{hex}>{name}</color>";
+    }
+
+    private static string Bars(BarRange r) => r.First == r.Last ? $"measure {r.First}" : $"measures {r.First}-{r.Last}";
+
+    // "Measure 3 of 8", "Play-through, measures 1-4", "Repair measure 5 (lead-in from 3)".
+    private string LessonHeader()
+    {
+        switch (engine.State)
+        {
+            case CurriculumState.WarmupDemo:
+            case CurriculumState.WarmupPlay: return "Warm-up: C major scale";
+            case CurriculumState.SongLearn: return $"Measure {engine.Measure} of {engine.MeasureCount}";
+            case CurriculumState.SongPlayThrough: return $"Play-through, {Bars(engine.CurrentRange)}";
+            case CurriculumState.SongRepair:
+                return $"Repair {Bars(engine.CurrentBlock)}" + (engine.LeadInFirstBar > 0 ? $" (lead-in from {engine.LeadInFirstBar})" : "");
+            case CurriculumState.SongComplete: return "Piece complete";
+            default: return engine.Song != null ? engine.Song.name : "";
+        }
+    }
+
+    private void OnLessonState(CurriculumState state)
+    {
+        if (!_built) Build();
+        _title.text = LessonHeader();
+        if (state == CurriculumState.SongComplete)
+        {
+            _runActive = false;
+            _next.text = "Well done!";
+            if (UseSheet) RefreshSheet(_lessonBar, false, RatingColor);
+        }
+    }
+
+    private string _cue;      // what the big line shows now
+    private string _runLine;  // what it shows once the student is playing: hand and speed
+
+    private void ShowCue(string text)
+    {
+        if (text == _cue) return;
+        _cue = text;
+        _next.text = text;
+    }
+
+    // The big line counts the student in with the metronome: 4, 3, 2, 1, then "Play!" on the beat the music starts.
+    private void UpdateCue()
+    {
+        if (engine.Pause == LessonPause.WaitingForStudent)
+        {
+            ShowCue("<size=60%>Press any key when you're ready</size>");
+            return;
+        }
+        var run = engine.CurrentRun;
+        if (!_runActive || run == null) return;
+
+        double now = Time.unscaledTimeAsDouble;
+        if (now < run.goTime)
+        {
+            int clicked = 0;
+            foreach (double t in run.countIn) if (t <= now) clicked++;
+            ShowCue(clicked == 0 ? "<size=60%>Get ready</size>" : (run.countIn.Count - clicked + 1).ToString());
+        }
+        else if (now < run.goTime + 1.2)
+        {
+            ShowCue($"<color=#{ColorUtility.ToHtmlStringRGB(perfectColor)}>Play!</color>");
+        }
+        else ShowCue(_runLine);
+    }
+
+    private void OnRunStarted(RunInfo run)
+    {
+        if (!_built) Build();
+        _runActive = true;
+        _ratings.Clear();
+        _lessonBar = run.notes.Count > 0 ? run.notes[0].bar : run.bars.First;
+        _title.text = $"{LessonHeader()}  ·  {HandName(run.hand)}  ·  {run.tempoPct}%";
+        _runLine = $"{HandName(run.hand)}   <size=70%>{run.tempoPct}% speed</size>";
+        _cue = null;
+        ShowCue("<size=60%>Get ready</size>");
+        _feedback.text = "Start playing when it says Play";
+        _feedback.color = textColor;
+        _stats.text = "";
+        bool sheetSong = engine.State != CurriculumState.WarmupPlay && engine.State != CurriculumState.WarmupDemo;
+        if (UseSheet) RefreshSheet(_lessonBar, sheetSong, RatingColor);
+    }
+
+    private void OnNoteDue(ExpectedNote note)
+    {
+        if (!_built) return;
+        if (note == null) // the run is over
+        {
+            _runActive = false;
+            if (UseSheet) RefreshSheet(_lessonBar, false, RatingColor);
+            return;
+        }
+        if (note.bar == _lessonBar || !UseSheet) return;
+        _lessonBar = note.bar;
+        if (engine.State != CurriculumState.WarmupPlay) RefreshSheet(_lessonBar, true, RatingColor);
+    }
+
+    private void OnNotePlayed(ExpectedNote note, int key, bool correct)
+    {
+        if (!_built) return;
+        _feedback.text = correct ? LessonNote.NameOf(key) : $"Wrong: {LessonNote.NameOf(key)}   (need {LessonNote.NameOf(note.midi)})";
+        _feedback.color = correct ? perfectColor : wrongColor;
+    }
+
+    private void OnShowFingering(int bar, int[] fingers)
+    {
+        if (!_built || fingers == null || fingers.Length == 0) return;
+        _stats.text = $"Fingering, measure {bar}: {string.Join(" ", fingers)}   (1 = thumb)";
+    }
+
+    // The run has been judged: tint every judged measure by its rating and say how the run went.
+    private void OnRunRated(BarRange judged)
+    {
+        if (!_built) return;
+        _ratings.Clear();
+        foreach (var kv in engine.LastRatings) _ratings[kv.Key] = kv.Value;
+
+        string tempo = engine.LastTempoRating == TempoRating.TooSlow ? "a little faster next time"
+                     : engine.LastTempoRating == TempoRating.TooFast ? "slow down a little" : "on tempo";
+        _feedback.text = (engine.LastPassed ? "Passed" : "Try again") + $"   <size=75%>{tempo}</size>";
+        _feedback.color = engine.LastPassed ? perfectColor : offTempoColor;
+        if (engine.LastRunSilent)
+        {
+            _feedback.text = "I didn't hear any notes. Start when it says Play.";
+            _feedback.color = offTempoColor;
+        }
+
+        var lines = new List<string>();
+        lines.Add($"Notes right first try {engine.LastAccuracy * 100f:0}%");
+        foreach (var kv in engine.LastRatings)
+        {
+            if (kv.Value == "clean") continue;
+            bool right = engine.LastRightRatings.TryGetValue(kv.Key, out string r) && r != "clean";
+            bool left = engine.LastLeftRatings.TryGetValue(kv.Key, out string l) && l != "clean";
+            string hands = right && left ? "both hands" : left ? "left hand" : "right hand";
+            lines.Add($"Measure {kv.Key}: {kv.Value}, {hands}");
+            if (lines.Count >= 4) break;
+        }
+        _stats.text = string.Join("\n", lines);
+        if (UseSheet && engine.State != CurriculumState.WarmupPlay) RefreshSheet(_lessonBar, false, RatingColor);
+    }
+
+    // Clean = green, Shaky = orange, Problem = red; nothing for a bar that was not judged.
+    private Color RatingColor(int bar)
+    {
+        if (!_ratings.TryGetValue(bar, out string rating)) return Color.clear;
+        return rating == "problem" ? wrongColor : rating == "shaky" ? offTempoColor : perfectColor;
     }
 
     // ------------------------------------------------------------------ Sheet music
 
-    private void RefreshSheet()
+    // bar: the bar to show (and to frame when active). colorOf: the tint of every other bar on the line.
+    private void RefreshSheet(int bar, bool active, Func<int, Color> colorOf)
     {
-        // Stay on the last line once the song is finished, so its result is visible.
-        int bar = evaluator.IsFinished ? evaluator.Song.notes[evaluator.Song.notes.Count - 1].bar : evaluator.CurrentNote.bar;
         int index = sheet.FindIndex(s => s.Contains(bar));
         if (index < 0) index = Mathf.Clamp(_shownSystem, 0, sheet.Count - 1);
         if (index != _shownSystem) ShowSystem(index);
@@ -199,13 +402,13 @@ public class SongNoteDisplay : MonoBehaviour
         for (int i = 0; i < _barFills.Count; i++)
         {
             int b = system.firstBar + i;
-            bool current = !evaluator.IsFinished && b == bar;
-            Color c = current ? frameColor : BarColor(b);
+            bool current = active && b == bar;
+            Color c = current ? frameColor : colorOf(b);
             c.a = current ? barFillAlpha * 0.4f : c.a * barFillAlpha;
             _barFills[i].color = c;
             if (current) MoveFrame((RectTransform)_barFills[i].transform);
         }
-        foreach (var side in _frame) side.gameObject.SetActive(!evaluator.IsFinished);
+        foreach (var side in _frame) side.gameObject.SetActive(active);
     }
 
     /// <summary>Colour for a bar that has been played; transparent if no note of it has been played yet.</summary>
@@ -269,7 +472,8 @@ public class SongNoteDisplay : MonoBehaviour
         _root.localScale = Vector3.one * metersPerUnit;
 
         _title = Text("Title", 0f, 0f, panelSize.x, 50f, 34f, TextAlignmentOptions.Center);
-        float areaHeight = UseSheet ? BuildSheet() : BuildPianoRoll();
+        // The piano roll needs the evaluator's song; the guided lesson shows sheet music or text only.
+        float areaHeight = UseSheet ? BuildSheet() : engine != null ? 0f : BuildPianoRoll();
 
         float below = AreaTop + areaHeight + 15f;
         _next = Text("Next", 0f, below, panelSize.x, 70f, 56f, TextAlignmentOptions.Center);

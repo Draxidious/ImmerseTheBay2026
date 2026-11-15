@@ -5,6 +5,9 @@ using System.Collections.Generic;
 // Notes are MIDI note numbers (middle C = 60). Bars are 1-based. Field names follow Jordan's SongNote / NoteResult
 // (midi, bar, beat, duration) so his evaluator can be adapted with little code.
 
+// Which hand(s) a run is played with (COACH_PLAYBOOK.md: right hand alone, left hand alone, both together).
+public enum HandMode { Right, Left, Both }
+
 // One key press, as it came from the piano.
 [Serializable]
 public class PlayedNote
@@ -24,7 +27,8 @@ public class ExpectedNote
     public float beat;     // when the note starts, in beats from the start of the song
     public float duration; // in beats
     public int finger;     // 1 = thumb ... 5 = little finger, 0 = not specified
-    public string hint;    // optional, e.g. "tuck your thumb under to reach F"
+    public PianoHand hand; // the hand that plays it
+    public string hint;   // optional, e.g. "tuck your thumb under to reach F"
     public float time;    // seconds from the first note of the run at the current practice tempo: when it is due
 }
 
@@ -37,6 +41,9 @@ public class BarResult
     public float timingScore;  // 0-1, informational: how close the hit notes landed to where the student's own tempo put them
     public float tempoRatio = 1f; // played speed / asked speed over the note pairs whose later note is in this bar (1 = none measured)
     public int firstTryMisses;    // the bar's notes not right on the first try: missed, or a wrong key pressed while it was next
+    public int missed;            // of firstTryMisses, the notes that were never played at all (no press matched them)
+    public int rightMisses;       // firstTryMisses split by the hand of the note; they add up to firstTryMisses
+    public int leftMisses;
     public bool passed;        // the evaluator's own view (score >= passAccuracy); the curriculum decides for itself
     public List<WrongNote> wrongNotes = new List<WrongNote>();   // WrongNote and Hesitation are the coach's types (CoachContext.cs)
     public List<Hesitation> hesitations = new List<Hesitation>();

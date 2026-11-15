@@ -5,12 +5,12 @@ using UnityEngine;
 
 // The pieces the curriculum teaches, loaded from Assets/Resources/Songs/<id>.json, plus the conversion to ExpectedNote.
 // The files hold every note with its finger and an optional hint, so fingerings can be corrected without code.
-// No MIDI file or parser is in the repo; Für Elise uses the same notes, timing and bar numbering as
-// SongLibrary.FurElise on jordan-branch (the E-D# pickup counts as bar 1).
+// There is no MIDI parser in the app: fur_elise.json was converted once from a MIDI file (both hands, all 105 bars).
+// Bar numbering follows the sheet images: the E-D# pickup counts as bar 1, the first and second endings are bars 8 and 9.
 public static class CurriculumSongs
 {
     public const string ScaleId = "c_major_scale";
-    public const string FurEliseId = "fur_elise_rh";
+    public const string FurEliseId = "fur_elise";
 
     [Serializable]
     class SongFile
@@ -32,6 +32,7 @@ public static class CurriculumSongs
         public float beats = 1f;
         public int finger;
         public string hint;
+        public string hand;      // "L" or "left" = left hand; anything else (or nothing) = right hand
     }
 
     static readonly string[] Names = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
@@ -44,7 +45,7 @@ public static class CurriculumSongs
         return song;
     }
 
-    // Opening of Beethoven's "Für Elise", right hand only, up to the given number of bars.
+    // Beethoven's "Für Elise", both hands, up to the given number of bars (the file has 105).
     public static SongData FurElise(int bars = 8)
     {
         var song = Load(FurEliseId);
@@ -81,7 +82,8 @@ public static class CurriculumSongs
                 song.notes.Add(new SongNote
                 {
                     midi = midi, bar = line.bar, beat = line.beat, beats = line.beats,
-                    hand = PianoHand.Right, finger = line.finger, hint = string.IsNullOrWhiteSpace(line.hint) ? null : line.hint,
+                    hand = !string.IsNullOrEmpty(line.hand) && char.ToLowerInvariant(line.hand.Trim()[0]) == 'l' ? PianoHand.Left : PianoHand.Right,
+                    finger = line.finger, hint = string.IsNullOrWhiteSpace(line.hint) ? null : line.hint,
                 });
             }
         }
@@ -106,13 +108,21 @@ public static class CurriculumSongs
         return (octave + 1) * 12 + pc;
     }
 
-    // The right-hand notes of bars first..last in playing order. time is seconds from the first note at tempoPct.
-    public static List<ExpectedNote> Expected(SongData song, int firstBar, int lastBar, int tempoPct)
+    // Does this hand have anything to play in bars first..last?
+    public static bool HasNotes(SongData song, int firstBar, int lastBar, PianoHand hand) =>
+        song != null && song.notes.Any(n => n.hand == hand && n.bar >= firstBar && n.bar <= lastBar);
+
+    static bool Plays(HandMode mode, PianoHand hand) =>
+        mode == HandMode.Both || (mode == HandMode.Left) == (hand == PianoHand.Left);
+
+    // The notes of bars first..last for the given hand(s), in playing order (notes struck together: lowest first).
+    // time is seconds from the first of those notes at tempoPct.
+    public static List<ExpectedNote> Expected(SongData song, int firstBar, int lastBar, int tempoPct, HandMode hands = HandMode.Right)
     {
         var barStart = BarStarts(song);
         var notes = song.notes
-            .Where(n => n.hand == PianoHand.Right && n.bar >= firstBar && n.bar <= lastBar)
-            .OrderBy(n => n.bar).ThenBy(n => n.beat).ThenBy(n => n.midi)
+            .Where(n => Plays(hands, n.hand) && n.bar >= firstBar && n.bar <= lastBar)
+            .OrderBy(n => barStart[n.bar] + n.beat).ThenBy(n => n.midi)
             .ToList();
 
         float secondsPerBeat = SecondsPerBeat(song, tempoPct);
@@ -124,7 +134,7 @@ public static class CurriculumSongs
             list.Add(new ExpectedNote
             {
                 index = list.Count, midi = n.midi, bar = n.bar, beat = beat, duration = n.beats,
-                finger = n.finger, hint = n.hint, time = (beat - first) * secondsPerBeat,
+                finger = n.finger, hand = n.hand, hint = n.hint, time = (beat - first) * secondsPerBeat,
             });
         }
         return list;

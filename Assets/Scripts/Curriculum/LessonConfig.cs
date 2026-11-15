@@ -48,6 +48,8 @@ public class LessonConfig : ScriptableObject
     [Tooltip("The click plays during runs only at steps at or below this tempo (50 = the slow step only).")]
     public int metronomeMaxTempoPct = 50;
     [Range(0f, 1f)] public float metronomeVolume = 0.6f;
+    [Tooltip("Clicks during the run, as a share of the count-in's volume: quieter, so the drop tells the student to play.")]
+    [Range(0f, 1f)] public float metronomeRunVolume = 0.3f;
 
     [Header("Song")]
     [Tooltip("How many measures of the song to teach (clamped to the measures the song has).")]
@@ -67,7 +69,7 @@ public class LessonConfig : ScriptableObject
 
     [Header("Pacing")]
     [Tooltip("Before a run, a demo or the song, wait for the coach to finish speaking, at most this long.")]
-    public float coachMaxWaitSeconds = 15f;
+    public float coachMaxWaitSeconds = 45f;
     [Tooltip("A stuck hint (no correct key within the pause limit) is spoken at most this often.")]
     public float stuckHintMinIntervalSeconds = 10f;
 

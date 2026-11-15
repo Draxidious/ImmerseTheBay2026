@@ -34,6 +34,14 @@ holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophoneP
 During `Lesson` it drives `PianoOverlay.SetKey` from the evaluator: `Restarted` / `NoteJudged` → `Next` on the note to play,
 `NoteJudged` → `Correct` flash, `WrongNotePlayed` → `Wrong` flash on the pressed key.
 
+**With a `CurriculumEngine` in the scene (`Main_2`)** AppFlow runs the guided lesson instead: it disables the
+`PerformanceEvaluator`, activates the sheet panel and calls `engine.StartLesson()` after calibration (the coach's own
+lesson-start line replaces `lessonLine`), and sends nothing to the coach itself. Keys come from the engine's events:
+`OnRunStarted` → the first note `Upcoming`, `OnNextNote` → `Next` until the note is over plus the following note
+`Upcoming`, `OnNotePlayed` → `Correct` / `Wrong` flash, demo notes → `Next`. All with the note's hand, so left-hand keys
+are amber. Editor keys in the lesson: Enter = skip waits, F5 clean run, F6 one wrong note, F7 two wrong notes in the
+last measure, F8 30% too slow.
+
 `SongFinished` sends `RunStats` to `AICoach.Coach` in a `CoachContext` (`RunFinished`, `freeplay`).
 The context's song comes from the song database: `LessonSongSource.ForCoach(evaluator.songId, evaluator.songSection)`,
 i.e. the right-hand section the evaluator judged (including the pickup) (fallback: built from the evaluator's own notes),
@@ -61,6 +69,7 @@ The three lines are fixed text on the component (no model call). Editor debug: `
 | Member | Purpose |
 |---|---|
 | `void SetKey(int midiNote, KeyState state)` | Set one key's state. `Correct`/`Wrong` auto-revert to `Off` after `flashSeconds`. |
+| `void SetKey(int midiNote, KeyState state, PianoHand hand)` | Same, with the hand that plays it: `Upcoming` / `Next` are amber for `PianoHand.Left` (`leftUpcomingColor`, `leftNextColor`), cyan for the right. `Correct` / `Wrong` look the same for both. Added by Jordan's agent, 2026-11-14. |
 | `void ClearAll()` | All keys `Off`. |
 | `void SetRange(int low, int high)` | Rebuild for a different keyboard range. Default 21 to 108. |
 | `Vector3 GetKeyWorldCenter(int midiNote)` | World position of a key's drawn area (for sheet-to-key lines, effects). |
@@ -252,6 +261,28 @@ measure). Agreed design, not implemented yet. It needs per-measure ratings and a
   "wrongNotes": [{"expected": 64, "played": 65, "measure": 6}],
   "avgHesitationMs": 820, "slowestNote": {"note": 69, "measure": 7, "ms": 2100} }
 ```
+
+### CurriculumEngine (`Assets/Scripts/Curriculum/CurriculumEngine.cs`) ✅ — the guided lesson, in `Main_2`
+Applies `docs/COACH_PLAYBOOK.md` (rules 1–22) in timed runs and tells the coach what happened. Contract with the judge:
+`EVALUATOR_CONTRACT.md`. Song: `Assets/Resources/Songs/fur_elise.json` (both hands, 105 bars, converted from a MIDI file;
+`LessonConfig.songBarCount` says how many are taught).
+
+| Member | Purpose |
+|---|---|
+| `void StartLesson()` / `StopLesson()` | Start from the warm-up (or the song when `skipWarmup` is on) / stop. |
+| `HandMode Hand` | `Right`, `Left` or `Both`: the hand(s) of the current or next run. `Stages` / `StageIndex`: the hand stages of the measure or repair block. |
+| `event Action<RunInfo> OnRunStarted` | A run begins (count-in first). `RunInfo.hand`, `bars`, `tempoPct`, `notes` (only that hand's notes, each with `hand`). |
+| `RunInfo.countIn`, `RunInfo.goTime` | The count-in click times and the beat the music starts (`Time.unscaledTimeAsDouble`): show 4, 3, 2, 1, then "Play!". |
+| `LessonPause Pause`, `bool LastRunSilent` | `WaitingForStudent`: nothing was played for `silentRunsBeforeWaiting` (2) runs; any key (or `FastForward`) starts the run again. A silent run is rated but is not an attempt. |
+| `bool hintsDuringRuns` | Off by default: no spoken stuck hints in the middle of a run; the coach talks between runs only. |
+| `event Action<ExpectedNote> OnNextNote` | This note is due now; `null` when the run is over. |
+| `event Action<ExpectedNote, int, bool> OnNotePlayed` | Live feedback: the matched (or nearest) note, the key, correct. |
+| `event Action<BarRange> OnRunRated` | The run is judged. Read `LastRatings` (bar → clean / shaky / problem), `LastRightRatings`, `LastLeftRatings`, `LastTempoRating`, `LastPassed`, `LastAccuracy`. |
+| `State`, `Measure`, `MeasureCount`, `CurrentRange`, `CurrentBlock`, `LeadInFirstBar`, `TempoPct` | Where the lesson is. |
+| `bool SimulateRun(IDictionary<int,int> wrongNotesPerBar, float tempoRatio = 1)` | Editor testing: end the run with made-up presses. |
+
+The coach is sent at most 16 measures of the song around the current section (the whole 105 bars would be sent with
+every request otherwise).
 
 ### PerformanceEvaluator (`Assets/Scripts/Lesson/PerformanceEvaluator.cs`) ✅ — Jordan
 Wait-mode judge for one right-hand section from the song database: `songId` (default `"fur_elise"`) and `songSection`

@@ -48,6 +48,9 @@ public class PianoOverlay : MonoBehaviour
     public Color idleBlackColor = new Color(0.03f, 0.03f, 0.05f);
     public Color upcomingColor = new Color(0.25f, 0.55f, 1f);
     public Color nextColor = new Color(0.3f, 0.85f, 1f);
+    [Tooltip("Left-hand keys (SetKey with PianoHand.Left). Amber, so they can't be mistaken for the green/red flashes.")]
+    public Color leftUpcomingColor = new Color(0.85f, 0.50f, 0.05f);
+    public Color leftNextColor = new Color(1f, 0.72f, 0.10f);
     public Color correctColor = new Color(0.3f, 1f, 0.45f);
     public Color wrongColor = new Color(1f, 0.25f, 0.25f);
     public float flashSeconds = 0.35f;
@@ -63,6 +66,7 @@ public class PianoOverlay : MonoBehaviour
     readonly Dictionary<int, Vector3> _keyCenters = new Dictionary<int, Vector3>();
     readonly Dictionary<int, KeyState> _states = new Dictionary<int, KeyState>();
     readonly Dictionary<int, float> _flashUntil = new Dictionary<int, float>();
+    readonly Dictionary<int, bool> _leftHand = new Dictionary<int, bool>(); // keys lit for the left hand
     MaterialPropertyBlock _mpb;
 
     const string PrefsKey = "PianoOverlayCalibration";
@@ -85,10 +89,14 @@ public class PianoOverlay : MonoBehaviour
         Build();
     }
 
-    public void SetKey(int midiNote, KeyState state)
+    public void SetKey(int midiNote, KeyState state) => SetKey(midiNote, state, PianoHand.Right);
+
+    /// <summary>Same, saying which hand plays the key: Upcoming and Next are drawn in that hand's colour.</summary>
+    public void SetKey(int midiNote, KeyState state, PianoHand hand)
     {
         if (!_keys.ContainsKey(midiNote)) return;
         _states[midiNote] = state;
+        _leftHand[midiNote] = hand == PianoHand.Left;
         if (state == KeyState.Correct || state == KeyState.Wrong)
             _flashUntil[midiNote] = Time.time + flashSeconds;
         Paint(midiNote, 1f);
@@ -326,10 +334,11 @@ public class PianoOverlay : MonoBehaviour
     void Paint(int n, float intensity)
     {
         var state = _states[n];
+        bool left = _leftHand.TryGetValue(n, out bool isLeft) && isLeft;
         Color c = state switch
         {
-            KeyState.Upcoming => upcomingColor,
-            KeyState.Next => nextColor * intensity,
+            KeyState.Upcoming => left ? leftUpcomingColor : upcomingColor,
+            KeyState.Next => (left ? leftNextColor : nextColor) * intensity,
             KeyState.Correct => correctColor,
             KeyState.Wrong => wrongColor,
             _ => !showIdleKeys || outlineKeys ? Color.black // additive display: black = invisible

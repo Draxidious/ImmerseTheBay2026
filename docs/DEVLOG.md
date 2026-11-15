@@ -4,6 +4,72 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 early — Claude Code (for Jordan): metronome and demo steady at low frame rates
+- **Metronome jitter below 60 fps:** every click converted its time from the game clock (start of frame) to the audio
+  clock at the moment it was scheduled, only 0.1 s ahead, so each click carried a different error and slow frames made
+  clicks late. Now `Metronome.Anchor()` fixes one game-to-audio offset per run (tracked over many frames, so one slow
+  frame can't skew it) and the engine hands clicks over 0.5 s ahead.
+- `DemoPlayer` played each note with `PlayOneShot` on the frame it fell due: same unevenness. It now schedules the
+  sound on the audio clock 0.3 s ahead (12 sources in turn); the keys still light on the frame clock.
+- **Measured in Editor Play mode at 10 fps:** the anchor used for a run and an independent estimate differed by 0.9 ms.
+  Not listened to by a person yet, and not tried on the puck.
+
+## 2026-11-15 early — Claude Code (for Jordan): silent runs, count-in cue, no hints during runs
+- **Coach praised a run where nothing was played.** The judge was right (measure red, accuracy 0); nothing auto-fills
+  notes. The coach was only told about wrong keys and pauses, so a run with every note *missed* had no wrong notes and
+  `CoachFacts.WentWell` called every bar clean. Now `BarResult.missed`, `RunStats.notesExpected / notesMissed /
+  missedBars / nothingPlayed` (AI folder, Canady's), bars with missed notes are not "clean", and `CoachPrompt.txt`
+  explains the new fields.
+- **Silent runs** (no key pressed) are rated and shown red but are not attempts: no step-down, help or set-aside. The
+  coach says it heard nothing; after 2 in a row the engine stops and waits for any key (`Pause`, `LastRunSilent`).
+- **Count-in:** the sheet panel counts 4, 3, 2, 1 with the clicks and shows "Play!" on the beat the music starts
+  (`RunInfo.countIn`, `goTime`). Clicks during the run are at 30% of the count-in volume
+  (`LessonConfig.metronomeRunVolume`). "Play" is shown, not spoken: online speech can't be timed to the beat.
+- **No hints during runs:** the stuck hint ("Next is E...") spoke in the middle of a run, just before it failed.
+  `CurriculumEngine.hintsDuringRuns` is off by default; the coach talks between runs only.
+- **Verified in Editor Play mode, nothing played:** countdown and Play!, no speech during the run, coach said "I didn't
+  hear any notes that time...", failed-run count stayed 0, second silent run → "Press any key when you're ready", a key
+  press started the run again. **Not tested:** a run with only some notes missed, and all of it with a real piano.
+
+## 2026-11-14 late — Claude Code (for Jordan): coach voice in the Editor, lesson waits for it, orb clear of the sheet
+- **Root cause of "the coach doesn't say the words" and "the lesson doesn't wait":** Groq TTS was over its daily limit
+  (429, 3,600 tokens per day on the free tier), so every line fell back to `NativeTts`, which in the Windows Editor only
+  logged the line and returned in ~50 ms. No sound, and `VoiceOutput.IsSpeaking` was false at once, so the engine and
+  coach-requested demos started straight away.
+- `NativeTts` (Canady's folder): the Windows Editor now speaks with the system voice (System.Speech through PowerShell,
+  text on stdin); platforms with no voice wait about as long as the line would take. Android is unchanged.
+- `LessonConfig.coachMaxWaitSeconds` 15 → 45: the longest the lesson waits for the coach before a run.
+- `AppFlow.PlaceSheetPanel` moves the orb right (`CoachOrb.rightOfKeyboardCenter`, about 0.84 m) so its words start
+  past the sheet panel's right edge (`orbPanelGap`). Applies to `Main` too.
+- **Verified in Editor Play mode:** the intro line took 9.5 s instead of 50 ms; after calibration the first run did not
+  start while the coach's lesson-start line was speaking; the orb text was clear of the panel.
+- **Still open:** the orb is now ~50° to the right of straight ahead, a real head turn (text under the orb instead of
+  beside it would bring it closer; that is a change to the orb itself). The Groq daily limit also applies on the
+  glasses, where the fallback is Android's own voice. F5–F8 and Enter skip the wait by design.
+
+## 2026-11-14 night — Claude Code (for Jordan): playbook now distinguishes hands (doc only)
+- `docs/COACH_PLAYBOOK.md`: each new measure is learned in three stages (right hand, left hand, both hands), each up the
+  tempo ladder. Play-throughs are both hands. Repairs fix each weak hand alone (slow, then song tempo), then replay the
+  block both hands at song tempo. A hand with no notes in a measure is skipped. **Rules are renumbered (now 1–22).**
+- **Implemented the same night, in `Main_2`** (a copy of `Main` with a `Lesson` object: `CurriculumEngine`, `skipWarmup` on):
+  - Engine: hand stages per measure and per repair block, per-hand measure ratings, `Hand` / `Stages` / `OnRunRated` /
+    `LastRightRatings` / `LastLeftRatings`. Judge (`StubEvaluator`): misses split by hand; a wrong key in a chord is charged
+    to the nearest note. `ExpectedNote.hand`, `BarResult.rightMisses` / `leftMisses`, `HandMode`.
+  - Song: `fur_elise_rh.json` → `fur_elise.json`, converted from a MIDI file Jordan supplied: both hands, 905 notes,
+    105 bars matching the sheet images (first/second endings = bars 8/9; the MIDI's short first-ending bar was put back on
+    the bar grid). Existing fingerings kept (bars 1–8); none for the rest. `LessonConfig.songBarCount` 8 → 105.
+    The `.mid` itself is not in the repo (its source and licence are unknown).
+  - `AppFlow` starts and follows the engine when one is in the scene (`Main` is unchanged: no engine there).
+    `PianoOverlay.SetKey(..., PianoHand)`: left-hand keys amber. `SongNoteDisplay` shows the run's measures, hand, tempo
+    step and each measure's rating. The coach gets at most 16 measures of song text per request.
+  - **Verified in Editor Play mode (scripted, coach off):** measure 1 right hand only (the left rests) 50/75/100 → measure 2
+    right, left (a Shaky run and a too-slow run both repeat), both → play-through 1–2 both hands → 3 wrong notes in bar 2
+    (right Shaky, left Problem) → repair right 50/100, left 50/100, both 100 → play-through → measure 3. No Console errors.
+  - **Not tested:** real key presses in timed runs, the coach's spoken lines for the new hand steps, demo sound, the full
+    intro → calibration → lesson path in `Main_2`, and anything on the glasses (amber on the real keys, panel readability).
+    A full lesson is long: at least 9 passed runs per two-hand measure. For a short demo set `LessonConfig.demoMode`
+    (first 4 measures, two tempo steps) or lower `songBarCount`.
+
 ## 2026-11-14 late — Claude Code (for Canady): "hey teacher" wake word, step B (full pipeline)
 - Step A spike confirmed on the puck by a teammate (detection works).
 - `WakeWordBridge.java`: 20 ms frames, energy VAD with adaptive noise floor, KWS fed only while speech is present (0.5 s pre-roll),
