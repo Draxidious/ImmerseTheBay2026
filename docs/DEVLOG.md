@@ -4,6 +4,29 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Claude Code (for Jordan): playbook now distinguishes hands (doc only)
+- `docs/COACH_PLAYBOOK.md`: each new measure is learned in three stages (right hand, left hand, both hands), each up the
+  tempo ladder. Play-throughs are both hands. Repairs fix each weak hand alone (slow, then song tempo), then replay the
+  block both hands at song tempo. A hand with no notes in a measure is skipped. **Rules are renumbered (now 1–22).**
+- **Implemented the same night, in `Main_2`** (a copy of `Main` with a `Lesson` object: `CurriculumEngine`, `skipWarmup` on):
+  - Engine: hand stages per measure and per repair block, per-hand measure ratings, `Hand` / `Stages` / `OnRunRated` /
+    `LastRightRatings` / `LastLeftRatings`. Judge (`StubEvaluator`): misses split by hand; a wrong key in a chord is charged
+    to the nearest note. `ExpectedNote.hand`, `BarResult.rightMisses` / `leftMisses`, `HandMode`.
+  - Song: `fur_elise_rh.json` → `fur_elise.json`, converted from a MIDI file Jordan supplied: both hands, 905 notes,
+    105 bars matching the sheet images (first/second endings = bars 8/9; the MIDI's short first-ending bar was put back on
+    the bar grid). Existing fingerings kept (bars 1–8); none for the rest. `LessonConfig.songBarCount` 8 → 105.
+    The `.mid` itself is not in the repo (its source and licence are unknown).
+  - `AppFlow` starts and follows the engine when one is in the scene (`Main` is unchanged: no engine there).
+    `PianoOverlay.SetKey(..., PianoHand)`: left-hand keys amber. `SongNoteDisplay` shows the run's measures, hand, tempo
+    step and each measure's rating. The coach gets at most 16 measures of song text per request.
+  - **Verified in Editor Play mode (scripted, coach off):** measure 1 right hand only (the left rests) 50/75/100 → measure 2
+    right, left (a Shaky run and a too-slow run both repeat), both → play-through 1–2 both hands → 3 wrong notes in bar 2
+    (right Shaky, left Problem) → repair right 50/100, left 50/100, both 100 → play-through → measure 3. No Console errors.
+  - **Not tested:** real key presses in timed runs, the coach's spoken lines for the new hand steps, demo sound, the full
+    intro → calibration → lesson path in `Main_2`, and anything on the glasses (amber on the real keys, panel readability).
+    A full lesson is long: at least 9 passed runs per two-hand measure. For a short demo set `LessonConfig.demoMode`
+    (first 4 measures, two tempo steps) or lower `songBarCount`.
+
 ## 2026-11-14 night — Codex (for Ari): startup mic permission and Main device checklist (handoff commit 9)
 - `AppFlow` requests Android microphone permission before the intro and waits for the system response. An existing
   grant skips the dialog. Denial or dismissal skips recording and continues to calibration without a second request.

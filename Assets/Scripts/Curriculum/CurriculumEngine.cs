@@ -1304,6 +1304,26 @@ public class CurriculumEngine : MonoBehaviour
         info.blockCount = blocks.Count;
     }
 
+    // The coach is sent the song as text with every request. For a long piece that is only the measures around the
+    // section (at most 16, ending at the later of the section and measure N), with their real bar numbers.
+    SongData coachSong;
+
+    SongData ForCoach(SongData song, BarRange section)
+    {
+        if (Song == null || !ReferenceEquals(song, Song)) return song;
+        int last = Mathf.Max(section.Last, Measure);
+        int first = Mathf.Max(1, Mathf.Min(section.First, Measure - 7), last - 15);
+        if (first <= 1 && last >= Song.BarCount) return song;
+        string id = $"{Song.id}_{first}-{last}";
+        if (coachSong != null && coachSong.id == id) return coachSong;
+        coachSong = new SongData
+        {
+            id = id, name = Song.name, tempoBpm = Song.tempoBpm, beatsPerBar = Song.beatsPerBar, timeSignature = Song.timeSignature,
+        };
+        coachSong.notes.AddRange(Song.notes.Where(n => n.bar >= first && n.bar <= last));
+        return coachSong;
+    }
+
     // Trend key of the run that just ended: its bars and hand.
     string RunKey() => runBars + ":" + runHand;
 
@@ -1366,7 +1386,7 @@ public class CurriculumEngine : MonoBehaviour
         {
             trigger = trigger,
             mode = "curriculum",
-            song = song,
+            song = ForCoach(song, section),
             currentSection = new SectionInfo { firstBar = section.First, lastBar = section.Last, tempoPct = TempoPct },
             curriculum = info,
             allowedActions = CoachMayAsk,

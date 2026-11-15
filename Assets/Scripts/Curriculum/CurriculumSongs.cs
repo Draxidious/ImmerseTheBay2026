@@ -5,12 +5,12 @@ using UnityEngine;
 
 // The pieces the curriculum teaches, loaded from Assets/Resources/Songs/<id>.json, plus the conversion to ExpectedNote.
 // The files hold every note with its finger and an optional hint, so fingerings can be corrected without code.
-// No MIDI file or parser is in the repo; Für Elise uses the same notes, timing and bar numbering as
-// SongLibrary.FurElise on jordan-branch (the E-D# pickup counts as bar 1).
+// There is no MIDI parser in the app: fur_elise.json was converted once from a MIDI file (both hands, all 105 bars).
+// Bar numbering follows the sheet images: the E-D# pickup counts as bar 1, the first and second endings are bars 8 and 9.
 public static class CurriculumSongs
 {
     public const string ScaleId = "c_major_scale";
-    public const string FurEliseId = "fur_elise_rh";
+    public const string FurEliseId = "fur_elise";
 
     [Serializable]
     class SongFile
@@ -45,7 +45,7 @@ public static class CurriculumSongs
         return song;
     }
 
-    // Opening of Beethoven's "Für Elise", right hand only, up to the given number of bars.
+    // Beethoven's "Für Elise", both hands, up to the given number of bars (the file has 105).
     public static SongData FurElise(int bars = 8)
     {
         var song = Load(FurEliseId);

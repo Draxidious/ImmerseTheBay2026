@@ -425,10 +425,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AppFlow
   voiceOutput: {fileID: 2007848033}
   voiceInput: {fileID: 2007848031}
+  coach: {fileID: 0}
   orb: {fileID: 1967619544}
   calibrator: {fileID: 60259111}
   overlay: {fileID: 923844200}
   evaluator: {fileID: 1900000003}
+  sheetDisplay: {fileID: 0}
+  engine: {fileID: 1472991808}
+  sheetOffset: {x: 0, y: 0.45, z: 0.2}
   introLine: "Hi, I'm your piano coach. Today we'll play the opening of F\xFCr Elise. Are you ready to learn?"
   calibrateLine: Great. First show me where your piano is. Follow the steps in front of you.
   lessonLine: Got it. Play the first note whenever you're ready.
@@ -886,6 +890,8 @@ MonoBehaviour:
   idleBlackColor: {r: 0.03, g: 0.03, b: 0.05, a: 1}
   upcomingColor: {r: 0.25, g: 0.55, b: 1, a: 1}
   nextColor: {r: 0.3, g: 0.85, b: 1, a: 1}
+  leftUpcomingColor: {r: 0.85, g: 0.5, b: 0.05, a: 1}
+  leftNextColor: {r: 1, g: 0.72, b: 0.1, a: 1}
   correctColor: {r: 0.3, g: 1, b: 0.45, a: 1}
   wrongColor: {r: 1, g: 0.25, b: 0.25, a: 1}
   flashSeconds: 0.35
@@ -984,7 +990,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2243020122175513880, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 28
+      value: 67.07
       objectReference: {fileID: 0}
     - target: {fileID: 2243020122175513880, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1052,7 +1058,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2243020122894124685, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 14
+      value: 33.535
       objectReference: {fileID: 0}
     - target: {fileID: 2243020122894124685, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -1096,7 +1102,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4750419573999888530, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 28
+      value: 62.8
       objectReference: {fileID: 0}
     - target: {fileID: 4750419573999888530, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1124,7 +1130,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4750419574852684551, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 14
+      value: 31.4
       objectReference: {fileID: 0}
     - target: {fileID: 4750419574852684551, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -1132,7 +1138,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4750419575037781530, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 28
+      value: 63.73
       objectReference: {fileID: 0}
     - target: {fileID: 4750419575037781530, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1152,7 +1158,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4750419575382347206, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 14
+      value: 44.7
       objectReference: {fileID: 0}
     - target: {fileID: 4750419575382347206, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -1160,7 +1166,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4750419575634488915, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 28
+      value: 89.4
       objectReference: {fileID: 0}
     - target: {fileID: 4750419575634488915, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1180,7 +1186,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4750419575962273167, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 14
+      value: 31.865
       objectReference: {fileID: 0}
     - target: {fileID: 4750419575962273167, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -1309,6 +1315,57 @@ SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: 6281536608356757770, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
   m_PrefabInstance: {fileID: 1330585020}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1472991807
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1472991809}
+  - component: {fileID: 1472991808}
+  m_Layer: 0
+  m_Name: Lesson
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1472991808
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1472991807}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c56d84d94ee145bebd5d56425101670, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CurriculumEngine
+  config: {fileID: 0}
+  coach: {fileID: 2007848032}
+  demoPlayer: {fileID: 0}
+  reader: {fileID: 2091476553}
+  skipWarmup: 1
+  autoStart: 0
+  sendToCoach: 1
+--- !u!4 &1472991809
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1472991807}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1549598673
 GameObject:
   m_ObjectHideFlags: 0
@@ -1666,6 +1723,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SongNoteDisplay
   evaluator: {fileID: 1900000003}
+  engine: {fileID: 0}
+  rightHandColor: {r: 0.3, g: 0.85, b: 1, a: 1}
+  leftHandColor: {r: 1, g: 0.72, b: 0.1, a: 1}
   sheet:
   - image: {fileID: 2800000, guid: 429e21cf852347bcbb357083c79ad3fc, type: 3}
     firstBar: 1
@@ -2272,3 +2332,4 @@ SceneRoots:
   - {fileID: 2091476554}
   - {fileID: 1900000002}
   - {fileID: 95358647}
+  - {fileID: 1472991809}
