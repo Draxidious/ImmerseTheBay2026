@@ -14,14 +14,16 @@ using UnityEngine.InputSystem;
 ///   1. The coach speaks an introduction and asks if the player is ready.
 ///   2. The microphone opens for a few seconds. Any answer (or none) moves on.
 ///   3. Calibration starts (PianoCalibrator.Recalibrate).
-///   4. Once calibrated, the evaluator and its sheet panel are switched on.
-///   5. During the lesson the key to press next is lit on the overlay; right and wrong presses flash.
+///   4. Once calibrated, the player picks Lesson or Free Play (ModeChoicePanel or "hey teacher, free play" / "lesson mode";
+///      AIConfig.defaultMode can skip the choice). Either mode can be switched to at any time after that.
+///   5. Lesson: the evaluator and its sheet panel are switched on, the key to press next is lit, right and wrong presses flash.
+///      Free Play: the evaluator and sheet are off; FreePlayController lights pressed keys and the coach comments now and then.
 /// The lines here are fixed text: no model call, so the start of the app never waits on the network.
 /// Editor debug key: Enter = skip the current wait (speech or listening). Calibrate with the calibrator's own C key.
 /// </summary>
 public class AppFlow : MonoBehaviour
 {
-    public enum Step { Intro, Listening, Calibrating, Lesson, MicrophonePermission }
+    public enum Step { Intro, Listening, Calibrating, Lesson, MicrophonePermission, ChooseMode, FreePlay }
 
     [Header("Found automatically when empty")]
     public VoiceOutput voiceOutput;
@@ -42,6 +44,8 @@ public class AppFlow : MonoBehaviour
     [TextArea] public string introLine = "Hi, I'm your piano coach. Today we'll play the opening of Für Elise. Are you ready to learn?";
     [TextArea] public string calibrateLine = "Great. First show me where your piano is. Follow the steps in front of you.";
     [TextArea] public string lessonLine = "Got it. Play the first note whenever you're ready.";
+    [TextArea] public string chooseModeLine = "Would you like a lesson, or free play? Tap one, or say hey teacher, free play.";
+    [TextArea] public string freePlayLine = "Free play. Play anything you like, and I'll listen.";
 
     [Header("Timing (seconds)")]
     [Tooltip("Wait before the introduction, so tracking and the orb have settled.")]
@@ -76,6 +80,7 @@ public class AppFlow : MonoBehaviour
     {
         if (calibrator) calibrator.Calibrated += OnCalibrated;
         if (voiceInput) voiceInput.OnCommand += OnAnswer;
+        AppModeSwitch.Requested += OnModeRequested;
         if (evaluator)
         {
             evaluator.Restarted += ShowNextKey;
@@ -89,6 +94,7 @@ public class AppFlow : MonoBehaviour
     {
         if (calibrator) calibrator.Calibrated -= OnCalibrated;
         if (voiceInput) voiceInput.OnCommand -= OnAnswer;
+        AppModeSwitch.Requested -= OnModeRequested;
         if (evaluator)
         {
             evaluator.Restarted -= ShowNextKey;
@@ -171,9 +177,71 @@ public class AppFlow : MonoBehaviour
     {
         PlaceSheetPanel();
         if (CurrentStep != Step.Calibrating) return;
+        AppModeSwitch.AfterCalibration = true;
+        switch (AIConfig.Get().defaultMode)
+        {
+            case StartMode.Lesson: EnterLesson(); break;
+            case StartMode.FreePlay: EnterFreePlay(); break;
+            default:
+                CurrentStep = Step.ChooseMode;
+                ResolveModeObjects();
+                if (_modePanel) _modePanel.ShowChoice();
+                StartCoroutine(Say(chooseModeLine));
+                break;
+        }
+    }
+
+    // ------------------------------------------------------------------ Lesson / Free Play
+
+    FreePlayController _freePlay;
+    ModeChoicePanel _modePanel;
+
+    // Both are added at runtime after the scene loads, so they are looked up when first needed.
+    void ResolveModeObjects()
+    {
+        if (!_freePlay) _freePlay = FindAnyObjectByType<FreePlayController>(FindObjectsInactive.Include);
+        if (!_modePanel) _modePanel = FindAnyObjectByType<ModeChoicePanel>(FindObjectsInactive.Include);
+    }
+
+    void OnModeRequested(AppMode mode, string source)
+    {
+        if (!AppModeSwitch.AfterCalibration || (calibrator && calibrator.IsCalibrating))
+        {
+            Debug.Log($"[AppFlow] {mode} ({source}) ignored: not calibrated yet.");
+            return;
+        }
+        if (mode == AppMode.Lesson && CurrentStep != Step.Lesson) EnterLesson();
+        else if (mode == AppMode.FreePlay && CurrentStep != Step.FreePlay) EnterFreePlay();
+    }
+
+    void EnterLesson()
+    {
+        ResolveModeObjects();
+        if (_freePlay) _freePlay.End();
+        if (overlay) overlay.ClearAll(); // no key from free play or an old run stays lit
         CurrentStep = Step.Lesson;
-        if (evaluator) evaluator.gameObject.SetActive(true);
+        AppModeSwitch.Current = AppMode.Lesson;
+        if (evaluator)
+        {
+            evaluator.gameObject.SetActive(true);
+            evaluator.Restart(); // from the first note; Restarted lights it
+        }
+        if (_modePanel) _modePanel.ShowSwitchButton();
         StartCoroutine(Say(lessonLine));
+    }
+
+    void EnterFreePlay()
+    {
+        ResolveModeObjects();
+        // Off first, so the evaluator stops judging notes and lighting Next keys (its sheet panel is on the same object).
+        if (evaluator) evaluator.gameObject.SetActive(false);
+        if (overlay) overlay.ClearAll();
+        CurrentStep = Step.FreePlay;
+        AppModeSwitch.Current = AppMode.FreePlay;
+        if (_freePlay) _freePlay.Begin();
+        else Debug.LogWarning("[AppFlow] No FreePlayController in the scene.");
+        if (_modePanel) _modePanel.ShowSwitchButton();
+        StartCoroutine(Say(freePlayLine));
     }
 
     void PlaceSheetPanel()
