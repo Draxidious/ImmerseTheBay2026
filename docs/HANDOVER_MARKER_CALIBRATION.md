@@ -2,7 +2,7 @@
 
 For whoever (person or agent) picks this up. Deadline: **Sun 2026-11-15 9:00 AM PT**.
 
-**Current Main_2 controls.** Poke **Menu** with the right index, then poke **Fine Tune** for the marker offsets or **Recalibrate**. Poke **Are you sure?** to start the scan. The ring follows the hand.
+**Current Main_2 controls.** Poke **Menu** with the right index, then poke **Fine Tune** for the marker offsets or **Recalibrate**. Poke **Confirm recalibration** to start the scan. The ring follows the hand.
 The device test history below predates the hand menu.
 
 ## Goal

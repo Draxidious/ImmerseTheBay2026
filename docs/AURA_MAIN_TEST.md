@@ -14,7 +14,7 @@ Für Elise demo, four-pinch calibration) is disabled; its checks are kept at the
 | Lesson + MIDI | `[Lesson] Starting …`, demo of measure 1, then runs pass/fail from real P71 notes (`[MIDI] Note ON …`), tempo steps 50 → 75 → 100 %. ✅ |
 | Sheet readability | In Lesson and Free Play, check the dark notes and staff lines on the white page and the current-bar highlight while wearing the glasses. Check the video capture separately. See [Aura display and sheet music](AURA_DISPLAY.md). |
 | Offsets | Select **Fine Tune** in the hand menu. Adjust the offsets, then **Save** to write `marker-offsets.json`. |
-| Recalibrate | Poke **Recalibrate Piano**, then poke **Are you sure?**. Poke **Close** to cancel. Check the same confirmation for **Restart Lesson**. |
+| Recalibrate | Poke **Recalibrate Piano**, then poke **Confirm recalibration**. Poke **Close** to cancel. Check the same confirmation for **Restart Lesson**. |
 | Fallback | Deny scene permission or hide the markers 45 s: pinch steps come back. |
 | No exception flood | No XRI `IndexOutOfRangeException` (`MaterialHelperBase.GetSharedMaterialForTarget`) in the log. Was ~80k lines per run; fixed 2026-11-15 (hand occluder keeps both material slots). ✅ (01:48: 0 exceptions) |
 

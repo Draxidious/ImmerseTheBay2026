@@ -223,6 +223,7 @@ public static class FingeringGuideSmokeTests
         Vector3 oldPosition = flow.overlay.transform.position;
         Poke(RadialMenu.Choice.Recalibrate);
         Require(!flow.calibrator.IsCalibrating && confirm.gameObject.activeSelf &&
+            confirm.Find("Label").GetComponent<TextMeshPro>().text == "Confirm\nrecalibration" &&
             Vector3.Dot(confirm.localPosition.normalized, Direction(RadialMenu.Choice.Recalibrate)) > 0.99f,
             "Poking Recalibrate should show a separate confirmation.");
         Sample(anchor.InverseTransformPoint(confirm.position) + Vector3.forward * 0.045f);
@@ -246,6 +247,7 @@ public static class FingeringGuideSmokeTests
             flow.sheetDisplay.gameObject.activeInHierarchy, "Returning to Lesson left duplicate or missing sheets.");
         Poke(RadialMenu.Choice.RestartLesson);
         Require(menu.IsOpen && confirm.gameObject.activeSelf &&
+            confirm.Find("Label").GetComponent<TextMeshPro>().text == "Confirm\nrestart" &&
             Vector3.Dot(confirm.localPosition.normalized, Direction(RadialMenu.Choice.RestartLesson)) > 0.99f,
             "Restart did not branch to its own confirmation.");
         PokeAt(anchor.InverseTransformPoint(confirm.position));

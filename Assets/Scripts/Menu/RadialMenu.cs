@@ -152,6 +152,7 @@ public class RadialMenu : MonoBehaviour
         if (_confirmButton == null) return;
         _confirmButton.go.SetActive(segment != null);
         if (segment == null) return;
+        _confirmButton.label.text = segment.choice == Choice.Recalibrate ? "Confirm\nrecalibration" : "Confirm\nrestart";
         _confirmButton.go.transform.localPosition = segment.go.transform.localPosition.normalized * 0.120f;
         _confirmButton.color = Color.Lerp(segment.color, SoftIvory, 0.40f);
         SetColor(_confirmButton, _confirmButton.color);
@@ -516,7 +517,7 @@ public class RadialMenu : MonoBehaviour
         AddWearableAction(Choice.FreePlay, 150f, orbit, new Color(0.25f, 0.53f, 0.35f));
         _confirmButton = NewSegment(Choice.Close, "Confirm", addToRing: false);
         MakeButtonBody(_confirmButton, 0.024f);
-        _confirmButton.label = Label(_confirmButton.go.transform, "Label", "Are you sure?\nPoke to confirm", 0.074f,
+        _confirmButton.label = Label(_confirmButton.go.transform, "Label", "", 0.074f,
             new Vector3(0f, 0f, -0.006f), new Vector2(0.047f, 0.031f));
         _confirmButton.go.SetActive(false);
 
