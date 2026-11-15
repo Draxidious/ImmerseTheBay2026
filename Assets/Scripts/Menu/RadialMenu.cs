@@ -7,10 +7,11 @@ using UnityEngine.XR.Interaction.Toolkit.Filtering;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 /// <summary>
-/// Left-hand radial menu: Restart Lesson / Free Play / Recalibrate Piano around a center Close button.
+/// Left-hand radial menu: Restart Lesson / Free Play / Visuals Off / Recalibrate Piano around a center Close button.
 ///
 /// Open / close: touch and hold the ORANGE dot on the back of the left hand (PianoCalibrator.MenuDotPressed; while this
-/// menu exists, the dot opens it instead of restarting calibration straight away). Editor: F1 toggles, F2/F3/F4 choose.
+/// menu exists, the dot opens it instead of restarting calibration straight away). Editor: F1 toggles, F2/F3/F4 choose
+/// (Visuals: F9, which works anywhere). It never opens in non-visual mode: there, voice switches the visuals back on.
 /// Select: poke a segment (XRI poke, same as ModeChoicePanel). Pokes are ignored for a moment after opening, and one
 /// action runs per opening; the menu closes after it.
 ///
@@ -20,7 +21,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 /// </summary>
 public class RadialMenu : MonoBehaviour
 {
-    public enum Choice { RestartLesson, FreePlay, Recalibrate, Close }
+    public enum Choice { RestartLesson, FreePlay, Recalibrate, Close, Visuals }
 
     [Header("Found automatically when empty")]
     public AppFlow app;
@@ -82,7 +83,7 @@ public class RadialMenu : MonoBehaviour
 
     public void Open()
     {
-        if (!_root) return;
+        if (!_root || VisualsMode.NonVisual) return; // hidden: nothing to see or poke
         _openedAt = Time.time;
         _acted = false;
         SetFocus(null);
@@ -113,6 +114,7 @@ public class RadialMenu : MonoBehaviour
         {
             case Choice.RestartLesson: RestartLesson(); break;
             case Choice.FreePlay: AppModeSwitch.Request(AppMode.FreePlay, "menu"); break;
+            case Choice.Visuals: VisualsMode.Set(true, "menu"); break; // back on by voice: "hey teacher, visuals on"
             case Choice.Recalibrate:
                 if (calibrator.IsCalibrating) calibrator.CancelCalibration();
                 else StartRecalibration();
@@ -140,6 +142,9 @@ public class RadialMenu : MonoBehaviour
             case Choice.FreePlay:
                 label = InFreePlay ? "Free Play\n(on)" : "Free Play";
                 return Calibrated && !calibrating && !InFreePlay && app;
+            case Choice.Visuals:
+                label = "Visuals\nOff";
+                return Calibrated && !calibrating;
             case Choice.Recalibrate:
                 // A calibration in progress can be cancelled only if there is an older one to go back to.
                 label = calibrating ? "Cancel\nRecalibrate" : "Recalibrate\nPiano";
@@ -282,20 +287,21 @@ public class RadialMenu : MonoBehaviour
         _root = new GameObject("RadialMenuRoot").transform;
         _root.SetParent(transform, false);
 
-        // Three ring segments, 120° each, gaps of 8°: Restart on top, Free Play lower left, Recalibrate lower right.
+        // Four ring segments, 90° each, gaps of 8°: Restart on top, Free Play left, Visuals at the bottom, Recalibrate right.
         AddSegment(Choice.RestartLesson, 90f, Icon.Restart);
-        AddSegment(Choice.FreePlay, 210f, Icon.Keys);
-        AddSegment(Choice.Recalibrate, 330f, Icon.Target);
+        AddSegment(Choice.FreePlay, 180f, Icon.Keys);
+        AddSegment(Choice.Visuals, 270f, Icon.Eye);
+        AddSegment(Choice.Recalibrate, 0f, Icon.Target);
         AddCenter();
         _title = Label(_root, "Title", "Menu", 0.2f, new Vector3(0f, radius * 1.85f, 0f), new Vector2(0.2f, 0.03f));
     }
 
-    enum Icon { Restart, Keys, Target }
+    enum Icon { Restart, Keys, Target, Eye }
 
     void AddSegment(Choice choice, float centerDeg, Icon icon)
     {
         var s = NewSegment(choice, choice.ToString());
-        float inner = radius * 0.55f, outer = radius * 1.55f, half = 56f;
+        float inner = radius * 0.55f, outer = radius * 1.55f, half = 41f;
         var outline = new List<Vector3>();
         for (int i = 0; i <= 16; i++) outline.Add(Polar(outer, centerDeg - half + i * (2 * half / 16f)));
         for (int i = 0; i <= 16; i++) outline.Add(Polar(inner, centerDeg + half - i * (2 * half / 16f)));
@@ -326,6 +332,15 @@ public class RadialMenu : MonoBehaviour
                 Line(s, ring, true);
                 Line(s, new List<Vector3> { iconAt + new Vector3(-0.011f, 0f, 0f), iconAt + new Vector3(0.011f, 0f, 0f) }, false);
                 Line(s, new List<Vector3> { iconAt + new Vector3(0f, -0.011f, 0f), iconAt + new Vector3(0f, 0.011f, 0f) }, false);
+                break;
+            case Icon.Eye: // almond outline, pupil
+                var eye = new List<Vector3>();
+                for (int i = 0; i <= 12; i++) { float a = i / 12f * Mathf.PI; eye.Add(iconAt + new Vector3(-Mathf.Cos(a) * 0.011f, Mathf.Sin(a) * 0.006f, 0f)); }
+                for (int i = 1; i < 12; i++) { float a = i / 12f * Mathf.PI; eye.Add(iconAt + new Vector3(Mathf.Cos(a) * 0.011f, -Mathf.Sin(a) * 0.006f, 0f)); }
+                Line(s, eye, true);
+                var pupil = new List<Vector3>();
+                for (int i = 0; i < 12; i++) pupil.Add(iconAt + Polar(0.003f, i * 30f));
+                Line(s, pupil, true);
                 break;
         }
         s.label = Label(s.go.transform, "Label", "", 0.2f, c + new Vector3(0f, -0.013f, -0.002f), new Vector2(0.1f, 0.03f));

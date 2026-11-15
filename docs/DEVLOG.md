@@ -4,6 +4,22 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~03:15 PT — Claude Code (for Canady): non-visual mode, part 1 (visuals switch)
+- New `AI/VisualsMode.cs` (state, `Changed`, voice command parser) and `AI/VisualsGate.cs` (main camera culling mask 0 while
+  non-visual: nothing of ours draws, every module keeps its state). `AIConfig` "Non-visual" section (`nonVisualDefault` off).
+- Ways to switch: "hey teacher, visuals off / on" (`QuestionRouter`, no model call; works through the pinch-hold trigger too),
+  radial menu **Visuals Off** segment (Nehemiah's `RadialMenu`: 4 segments of 90°, eye icon; the menu never opens while
+  non-visual), Editor **F9**. The mic debug clip moved from F9 to **F11**. `ModeChoicePanel` ignores pokes while non-visual.
+- "Visuals on" with no calibration yet: says "Let's line up the keyboard first." and calibrates; after it, the mode choice
+  panel is shown if the mode is still being chosen.
+- **Verified (Editor, Main_2 via MCP):** menu Visuals Off → mask 0, "Visuals off." spoken, menu refuses to open, lesson keeps
+  running; visuals on → mask restored, no recalibration; with calibration flag cleared → calibration starts, line spoken
+  after the lesson's own line. EditMode 131/131 (17 new parser tests).
+- **Known issues (left as they are):** the blue offsets dot (Ari's `MarkerCalibration`) still opens its unseen slider panel
+  while non-visual; Main_2's guided lesson keeps running its runs while "visuals on" calibrates (no pause API).
+- **Next / not done:** AppFlow change so a non-visual start skips calibration (Jordan's); spoken note guidance in the
+  lesson; Jordan's engine hook. Untested on the Aura.
+
 ## 2026-11-15 — Claude Code (for Canady): demo keys no longer stay dark and then rush by
 - **Bug (on the Aura):** the replay after a failed run played its sound, but the keys stayed dark until about the last second,
   then all lit at once. `DemoPlayer` scheduled sound on the audio clock but lit keys on the frame clock (`Time.time`), which

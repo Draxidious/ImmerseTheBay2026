@@ -332,6 +332,14 @@ public class QuestionRouter : MonoBehaviour
             }
             if (string.IsNullOrEmpty(question)) { coach.SayNow(cfg.questionFallbackLine); return; }
 
+            // "Visuals off / on": no model call. VisualsGate hides or shows everything (and calibrates first if needed).
+            if (VisualsMode.TryParseCommand(question, out bool visualsOn))
+            {
+                Debug.Log($"[Question] Visuals command \"{question}\" -> {(visualsOn ? "on" : "off")}");
+                VisualsMode.Set(!visualsOn, "voice");
+                return;
+            }
+
             if (TryParseModeCommand(question, out var mode))
             {
                 Debug.Log($"[Question] Mode command \"{question}\" -> {mode}");
@@ -561,7 +569,7 @@ public class QuestionRouter : MonoBehaviour
 
 #if UNITY_EDITOR
         var kb = Keyboard.current;
-        if (kb != null && kb.f9Key.wasPressedThisFrame) SaveDebugClip(cfg.micDebugClipSeconds);
+        if (kb != null && kb.f11Key.wasPressedThisFrame) SaveDebugClip(cfg.micDebugClipSeconds); // F9 = visuals on/off
 #endif
     }
 

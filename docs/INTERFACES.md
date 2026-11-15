@@ -384,7 +384,21 @@ Flow: trigger → chime → record question (VAD end-of-speech) → Groq Whisper
 | `AIConfig` "Wake word" section | Score/threshold, VAD, cooldown, mute, audio source (`voiceCommunicationSource`), backup inputs, `saveMicDebugClip`. |
 Java bridge methods: `setTuning`, `setVad`, `setAudio`, `start`, `stop`, `pause`, `resume`, `suspendMic`, `resumeMic`,
 `beginQuestion`, `cancelQuestion`, `saveDebugClip(path, seconds)`; callbacks `OnWakeWord`, `OnQuestionAudio(path)`,
-`OnWakeWordStatus`, `OnWakeWordError`. Editor keys: **Q** ask, **F9** save a 10 s mic clip. Logcat: `adb logcat -s Unity WakeWord`.
+`OnWakeWordStatus`, `OnWakeWordError`. Editor keys: **Q** ask, **F11** save a 10 s mic clip (F9 is visuals on/off). Logcat: `adb logcat -s Unity WakeWord`.
+
+### Non-visual mode — Canady (`Assets/Scripts/AI/VisualsMode.cs`, `VisualsGate.cs`) 🚧 (Editor)
+Nothing of ours is drawn: `VisualsGate` sets the main camera's culling mask to 0, so every module keeps its state (the next key stays
+lit underneath) without knowing. Switch: "hey teacher, visuals off / on" (also through the pinch-hold backup trigger), the radial
+menu's **Visuals Off** (visual → non-visual only; the menu never opens while non-visual), Editor **F9**. "Visuals on" when the piano
+was never calibrated runs calibration first (`visualsCalibrateFirstLine`). `ModeChoicePanel` ignores pokes while non-visual.
+| Member | Purpose |
+|---|---|
+| `VisualsMode.NonVisual` | True while nothing is drawn. Starts from `AIConfig.nonVisualDefault` (set before any `Start`). |
+| `VisualsMode.Set(bool nonVisual, string source)` / `Toggle(source)` | Switch; raises `Changed(nonVisual, source)`. |
+| `VisualsMode.TryParseCommand(text, out bool visualsOn)` | "visuals off", "turn on the visuals", "audio only", ... (EditMode tests). |
+| `AIConfig` "Non-visual" section | `nonVisualDefault`, `nonVisualChooseModeLine`, `visualsCalibrateFirstLine`, `visualsOffLine`. |
+**Not done:** a non-visual start still calibrates (needs the AppFlow change, awaiting OK); spoken note guidance in the lesson.
+Known gap: the blue offsets dot (Ari's) still opens its unseen slider panel while non-visual.
 
 ### Free Play — Canady (`Assets/Scripts/FreePlay/`)
 The player plays anything; pressed keys light up (`KeyState.Correct`); the coach comments now and then and answers "hey teacher"
@@ -412,7 +426,7 @@ Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C
 ---
 
 ## Radial menu — built by Nehemiah (`Assets/Scripts/Menu/RadialMenu.cs`) ✅ (Editor) / untested on the Aura
-Left-hand menu: **Restart Lesson** (top), **Free Play** (lower left), **Recalibrate Piano** (lower right), **Close** in the center.
+Left-hand menu: **Restart Lesson** (top), **Free Play** (left), **Visuals Off** (bottom), **Recalibrate Piano** (right), **Close** in the center.
 Adds itself after scene load to any scene with an `AppFlow` and a `PianoCalibrator` (no scene edit). Opens/closes by touch-and-holding the
 orange dot on the back of the left hand (`PianoCalibrator.MenuDotPressed`); placed 0.42 m ahead, 0.06 m below eye level when opened, then
 fixed in the world. Segments are XRI poke buttons (`XRSimpleInteractable` + `XRPokeFilter`, like `ModeChoicePanel`); pokes are ignored for
@@ -420,7 +434,7 @@ fixed in the world. Segments are XRI poke buttons (`XRSimpleInteractable` + `XRP
 
 | Member | Purpose |
 |---|---|
-| `enum Choice { RestartLesson, FreePlay, Recalibrate, Close }` | |
+| `enum Choice { RestartLesson, FreePlay, Recalibrate, Close, Visuals }` | Visuals added by Canady: `VisualsMode.Set(true, "menu")`. |
 | `void Open()` / `Close()` / `Toggle()`, `bool IsOpen` | Show/hide. Opening never changes the session. |
 | `bool Choose(Choice)` | Run an action (what a poke does). False if unavailable or an action already ran this opening. |
 | `event Action<Choice> Chosen` | After an action runs. |

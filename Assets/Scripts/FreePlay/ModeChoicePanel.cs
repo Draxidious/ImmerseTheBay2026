@@ -179,7 +179,8 @@ public class ModeChoicePanel : MonoBehaviour
         UpdateButtons();
     }
 
-    bool Usable => _view != View.Hidden && Time.time >= _shownAt + debounceSeconds && !(calibrator && calibrator.IsCalibrating);
+    bool Usable => _view != View.Hidden && Time.time >= _shownAt + debounceSeconds && !(calibrator && calibrator.IsCalibrating)
+                   && !VisualsMode.NonVisual; // hidden then: an unseen button must not be poked by accident
 
     void Press(Button b)
     {
