@@ -22,6 +22,26 @@ public class FreePlayCoachTests
         Assert.IsFalse(QuestionRouter.TryParseModeCommand(text, out _));
     }
 
+    [TestCase("Yes.")]
+    [TestCase("Yeah, sure!")]
+    [TestCase("Okay, let's do it.")]
+    [TestCase("yes please")]
+    public void ConfirmFreePlay_Yes(string text)
+    {
+        Assert.IsTrue(QuestionRouter.IsYes(text));
+    }
+
+    [TestCase("No.")]
+    [TestCase("Okay, no thanks.")]
+    [TestCase("Let's keep going with the lesson.")]
+    [TestCase("Not now")]
+    [TestCase("What is free play?")]
+    [TestCase("")]
+    public void ConfirmFreePlay_NotYes(string text)
+    {
+        Assert.IsFalse(QuestionRouter.IsYes(text));
+    }
+
     [Test]
     public void KeepWholeSentences_DropsTheSentenceThatOverflows()
     {

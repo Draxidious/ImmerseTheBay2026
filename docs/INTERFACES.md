@@ -370,6 +370,7 @@ questions. Code computes every musical fact (`FreePlayAnalyzer`, pure C#, EditMo
 | `FreePlayFacts.Build(...)` / `IsNotable(...)` | Facts JSON for the coach; `can_learn_in_lesson` only for the evaluator's `songId` (today Für Elise). |
 | `CoachTrigger.PhraseEnded`, `CoachContext.freePlayJson`, mode `"free_play"` | Unprompted comment after a notable phrase (song, 3+ chord progression, steady 8+ notes, new key); 25 s cooldown. Free-play replies are trimmed to whole sentences ≤ 110 chars (`AICoach.KeepWholeSentences`). |
 | `QuestionRouter.TryParseModeCommand(text, out mode)` | "hey teacher, free play" / "lesson mode" switch modes instead of asking the coach. |
+| `QuestionRouter.IsYes(text)`, `AIConfig.confirmFreePlayLine` / `keepLessonLine` | "free play" said during the lesson first asks "Do you want to switch to free play?" (once the coach is free), then listens without a wake word: yes switches; no, anything else or silence keeps the lesson. "lesson mode" and the panel switch at once. |
 Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C–F–G–C, Für Elise, Uneven run). Config: `AIConfig` "Free play" + "Mode".
 
 ---

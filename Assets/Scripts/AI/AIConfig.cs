@@ -39,6 +39,10 @@ public class AIConfig : ScriptableObject
     [Tooltip("Spoken when the model cannot be reached.")]
     public string fallbackLine = "Nice work, let's try that again";
     public string questionFallbackLine = "Sorry, I didn't catch that. Could you ask me again?";
+    [Tooltip("Asked when the player says \"free play\" during the lesson; their next answer decides.")]
+    public string confirmFreePlayLine = "Do you want to switch to free play? Say yes or no.";
+    [Tooltip("Spoken when the answer to confirmFreePlayLine is not a yes.")]
+    public string keepLessonLine = "Okay, let's keep going with the lesson.";
 
     [Header("Wake word")]
     [Tooltip("Hands-free questions: say \"hey teacher\" (Android plugin), press Q, or pinch-hold the right hand.")]

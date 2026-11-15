@@ -4,6 +4,23 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~22:45 — Claude Code (for Canady): "hey teacher" in Main_2's guided lesson
+- **Bug:** a question during the `CurriculumEngine` lesson lost the run it just judged (`QuestionRouter` overwrote `thisRun`
+  with the wait-mode evaluator's, which never runs in Main_2) and read the bar from that disabled evaluator.
+- **Fix (`QuestionRouter.cs` only):** while the engine is not Idle, a question reuses the engine's last coach context as is and
+  takes `current_bar` from the engine's note due now (`OnNextNote`), else the start of the next run. Main is unchanged.
+- **Works (Main_2, Editor Play mode, injected speech + Jordan's F5–F8 path via `SimulateRun`):** lesson question answered from the
+  engine's last run and bar; "free play" / "lesson mode" by voice; panel Switch mode → Free Play / Lesson taps (0.5 s debounce
+  holds); free-play question ("what key") answered from the analyzer facts. 51/51 EditMode tests.
+- **Note:** with nobody playing, the guided lesson talks after every empty run, so the router only arms in the gaps; on the piano
+  it is armed during runs. Untested on the Aura.
+- **Free play asks first during a lesson:** "hey teacher, free play" in the lesson → coach asks "Do you want to switch to free
+  play? Say yes or no." (queued until the coach is free, up to 40 s) → router listens with no wake word (20 s) → yes / "free play"
+  switches; no, anything else or silence says "Okay, let's keep going with the lesson." Leaving the lesson by the panel cancels it.
+  `QuestionRouter.IsYes` (+10 tests, 61/61). Fixed while testing: a busy coach dropped the request; listening started in the same
+  frame the question began (stale `armed`). **Works in Main and Main_2** (Editor, injected speech): yes, no (Main keeps the note
+  index), silence, busy coach, "lesson mode" still instant.
+
 ## 2026-11-15 early — Claude Code (for Jordan): metronome and demo steady at low frame rates
 - **Metronome jitter below 60 fps:** every click converted its time from the game clock (start of frame) to the audio
   clock at the moment it was scheduled, only 0.1 s ahead, so each click carried a different error and slow frames made

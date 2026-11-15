@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 #endif
 
 // Hands-free questions during the lesson: "hey teacher" (WakeWordTrigger), Q key or right-hand pinch-hold (BackupVoiceTrigger)
-// -> chime -> record the question -> Groq Whisper -> AICoach.Ask. Never touches the note loop: it only reads the evaluator.
+// -> chime -> record the question -> Groq Whisper -> AICoach.Ask. Never touches the note loop: it only reads the evaluator (or the guided lesson).
 // Triggers are armed only in the lesson, free play or the mode choice, while nobody is talking, thinking or listening (plus
 // muteAfterSpeechSeconds after the coach stops speaking, so the coach's own voice can't trigger it). "free play" / "lesson mode"
 // switch modes (AppModeSwitch) instead of going to the coach. Added at runtime to any scene with an AppFlow (see Bootstrap).
@@ -26,6 +26,8 @@ public class QuestionRouter : MonoBehaviour
     public VoiceInput voiceInput;
     public AppFlow appFlow;
     public PerformanceEvaluator evaluator;
+    [Tooltip("Main_2's guided lesson. While it runs, questions use its context instead of the evaluator's.")]
+    public CurriculumEngine engine;
     public PianoCalibrator calibrator;
 
     [Header("Chime")]
@@ -48,6 +50,13 @@ public class QuestionRouter : MonoBehaviour
     IQuestionRecorder _recorder;    // recording the current question
     RunStats _lastRun;
     PerformanceEvaluator _subscribed;
+    CurriculumEngine _subscribedEngine;
+    int _engineBar;                 // bar of the guided lesson's note due now; 0 between runs
+    bool _confirmAsk;               // "free play" heard in the lesson: ask "switch to free play?" once the coach is free
+    bool _confirmPending;           // asked; the next thing heard is the answer
+    float _confirmAskedAt;
+    const float ConfirmAskWindowSeconds = 40f; // the guided lesson's coach lines can take 20 s to speak
+    const float ConfirmTimeoutSeconds = 20f;   // after asking: covers the question's TTS + speech + the answer
     AudioSource _chimeSource;
     AudioClip _chime;
 
@@ -92,6 +101,7 @@ public class QuestionRouter : MonoBehaviour
         if (!voiceInput) voiceInput = FindAnyObjectByType<VoiceInput>(FindObjectsInactive.Include);
         if (!appFlow) appFlow = FindAnyObjectByType<AppFlow>(FindObjectsInactive.Include);
         if (!evaluator) evaluator = FindAnyObjectByType<PerformanceEvaluator>(FindObjectsInactive.Include);
+        if (!engine) engine = FindAnyObjectByType<CurriculumEngine>(FindObjectsInactive.Include);
         if (!calibrator) calibrator = FindAnyObjectByType<PianoCalibrator>(FindObjectsInactive.Include);
 
         // The wake word gets its own child: UnitySendMessage finds the receiver by GameObject name.
@@ -136,12 +146,15 @@ public class QuestionRouter : MonoBehaviour
     void OnEnable()
     {
         if (evaluator && _subscribed != evaluator) { evaluator.SongFinished += OnSongFinished; _subscribed = evaluator; }
+        if (engine && _subscribedEngine != engine) { engine.OnNextNote += OnEngineNote; _subscribedEngine = engine; }
     }
 
     void OnDisable()
     {
         if (_subscribed) _subscribed.SongFinished -= OnSongFinished;
         _subscribed = null;
+        if (_subscribedEngine) _subscribedEngine.OnNextNote -= OnEngineNote;
+        _subscribedEngine = null;
     }
 
     void OnDestroy()
@@ -150,6 +163,7 @@ public class QuestionRouter : MonoBehaviour
     }
 
     void OnSongFinished(RunStats stats) => _lastRun = stats;
+    void OnEngineNote(ExpectedNote note) => _engineBar = note != null ? note.bar : 0;
 
     // ------------------------------------------------------------------ Arming
 
@@ -165,6 +179,38 @@ public class QuestionRouter : MonoBehaviour
         {
             _armed = armed;
             foreach (var t in _triggers) t.SetArmed(armed);
+        }
+
+        // Left the lesson some other way (the panel) while asking: there is nothing left to confirm.
+        if ((_confirmAsk || _confirmPending) && !(appFlow && appFlow.CurrentStep == AppFlow.Step.Lesson))
+            _confirmAsk = _confirmPending = false;
+
+        // The guided lesson's coach may be mid-reply when "free play" is heard; ask as soon as it is done.
+        if (_confirmAsk)
+        {
+            if (Time.time - _confirmAskedAt > ConfirmAskWindowSeconds)
+            {
+                _confirmAsk = false;
+                Debug.Log("[Question] The coach stayed busy; free play not confirmed, staying in the lesson.");
+            }
+            else if (coach && coach.SayNow(cfg.confirmFreePlayLine))
+            {
+                _confirmAsk = false;
+                _confirmPending = true;
+                _confirmAskedAt = Time.time;
+            }
+        }
+
+        // Waiting for yes / no to "switch to free play?": listen without a wake word once the coach has finished asking.
+        if (_confirmPending && !IsListening && !IsTranscribing)
+        {
+            if (Time.time - _confirmAskedAt > ConfirmTimeoutSeconds)
+            {
+                _confirmPending = false;
+                Debug.Log("[Question] No answer to the free play question; staying in the lesson.");
+            }
+            // Checked again now: `armed` was worked out before the question above started this frame.
+            else if (CanListen(cfg, voiceOutput && voiceOutput.IsSpeaking)) ListenForAnswer();
         }
 
         // A recording that never reports back (plugin stalled) must not block questions forever.
@@ -223,6 +269,16 @@ public class QuestionRouter : MonoBehaviour
         Debug.Log($"[Question] Listening ({trigger.Name}, recorder: {(ReferenceEquals(_recorder, _wake) ? "plugin" : "Unity mic")}).");
     }
 
+    void ListenForAnswer()
+    {
+        IsListening = true;
+        _listenStartedAt = Time.time;
+        PlayChime();
+        _recorder = _wake.IsRunning ? (IQuestionRecorder)_wake : _mic;
+        _recorder.BeginQuestion();
+        Debug.Log($"[Question] Listening for yes or no (recorder: {(ReferenceEquals(_recorder, _wake) ? "plugin" : "Unity mic")}).");
+    }
+
     void OnQuestionRecorded(IQuestionRecorder from, byte[] wav)
     {
         if (!ReferenceEquals(from, _recorder) || !IsListening) return;
@@ -235,10 +291,17 @@ public class QuestionRouter : MonoBehaviour
     async Task Answer(byte[] wav)
     {
         var cfg = Cfg;
+        bool confirming = _confirmPending;
+        _confirmPending = false;
         try
         {
             IsListening = false;
-            if (wav == null) { Debug.Log("[Question] Nothing heard; back to idle."); return; }
+            if (wav == null)
+            {
+                Debug.Log("[Question] Nothing heard; back to idle.");
+                if (confirming && coach) coach.SayNow(cfg.keepLessonLine);
+                return;
+            }
 
             IsTranscribing = true;
             string text = null;
@@ -258,11 +321,27 @@ public class QuestionRouter : MonoBehaviour
 
             string question = StripWakeWord(text);
             if (!coach) return;
+            if (confirming)
+            {
+                // "yes", "sure", or "free play" again switches; anything else (or nothing) keeps the lesson.
+                bool yes = IsYes(question) || (TryParseModeCommand(question, out var again) && again == AppMode.FreePlay);
+                Debug.Log($"[Question] Free play? \"{question}\" -> {(yes ? "yes" : "no")}");
+                if (yes) AppModeSwitch.Request(AppMode.FreePlay, "voice");
+                else coach.SayNow(cfg.keepLessonLine);
+                return;
+            }
             if (string.IsNullOrEmpty(question)) { coach.SayNow(cfg.questionFallbackLine); return; }
 
             if (TryParseModeCommand(question, out var mode))
             {
                 Debug.Log($"[Question] Mode command \"{question}\" -> {mode}");
+                // Leaving a lesson throws its progress away, so ask first. Leaving free play loses nothing.
+                if (mode == AppMode.FreePlay && appFlow && appFlow.CurrentStep == AppFlow.Step.Lesson)
+                {
+                    _confirmAsk = true; // Update asks once the coach is free
+                    _confirmAskedAt = Time.time;
+                    return;
+                }
                 AppModeSwitch.Request(mode, "voice");
                 return;
             }
@@ -304,6 +383,20 @@ public class QuestionRouter : MonoBehaviour
         return true;
     }
 
+    // A yes to "do you want to switch to free play?". Any no-word wins ("okay, no thanks" is a no).
+    public static bool IsYes(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        string t = Regex.Replace(text.ToLowerInvariant(), @"[^a-z\s]", " ");
+        t = Regex.Replace(t, @"\s+", " ").Trim();
+        if (NoWord.IsMatch(t)) return false;
+        return YesStart.IsMatch(t);
+    }
+
+    static readonly Regex NoWord = new Regex(@"\b(?:no|nope|nah|not|don t|dont|stay|keep|later|wait)\b");
+    static readonly Regex YesStart = new Regex(
+        @"^(?:yes|yeah|yea|yep|yup|sure|ok|okay|please|do it|go ahead|switch|absolutely|definitely|of course|let s do it|lets do it)\b");
+
     static readonly Regex ModeCommand = new Regex(
         @"^(?:(?:switch|go|change|move|get|go back)\s+(?:to|into)\s+|back\s+to\s+|start\s+|play\s+)?(?:the\s+)?" +
         @"(?:(?<free>free play)|lesson)(?:\s+mode)?$");
@@ -320,7 +413,18 @@ public class QuestionRouter : MonoBehaviour
             };
 
         var last = coach ? coach.LastContext : null;
-        var ctx = last != null && last.song != null && !last.IsFreePlay ? last.Clone() : LessonContext();
+        bool lastIsLesson = last != null && last.song != null && !last.IsFreePlay;
+
+        // Main_2: the guided lesson's own context (its section, the run it just judged); the evaluator is off there.
+        if (engine && engine.State != CurriculumState.Idle)
+        {
+            var guided = lastIsLesson ? last.Clone()
+                : new CoachContext { mode = "curriculum", allowedActions = new[] { CoachActionType.None } };
+            guided.currentBar = _engineBar > 0 ? _engineBar : engine.CurrentRange.First;
+            return guided;
+        }
+
+        var ctx = lastIsLesson ? last.Clone() : LessonContext();
         ctx.thisRun = _lastRun;
         ctx.currentBar = evaluator && evaluator.Song != null ? evaluator.CurrentNote?.bar ?? 0 : 0;
         return ctx;
