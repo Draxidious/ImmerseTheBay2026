@@ -16,6 +16,12 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   `CoachContext.currentBar`; `this_run` is omitted for a question before the first run. `CoachOrbBridge`: 4 lines so the orb shows
   Listening/Thinking for questions (approved; Nehemiah informed by Canady). AppFlow / PerformanceEvaluator / PianoCalibrator untouched.
 - `keywords.txt` now has no per-keyword score; `AIConfig.keywordsScore` 2.0 / `keywordsThreshold` 0.25 govern.
+- **Verified in Editor Play mode (Main, via Unity MCP):** router adds itself; arms only in the lesson after the coach stops + 1 s;
+  backup trigger → orb Listening → Unity mic, no speech → ends at 3.0 s (MacBook noise floor 0.0026); a `say` WAV injected as the
+  question → Whisper 278 ms "Hey teacher, what is the next note I should play?" → stripped → `coach.Ask` 1.25 s → correct answer
+  (E5 ring finger…), orb Listening → Thinking → Speaking; context has `current_bar: 1`, no `this_run`, `allowed_actions: ["none"]`;
+  trigger while the coach speaks ignored (fixed a same-frame gap: `OnTriggered` re-checks `CanListen`); 2 s cooldown ignores a
+  second trigger. Not covered in the Editor: real mic speech, pinch-hold, the Java plugin.
 - **Untested on the puck.** To verify: both audio sources (coach volume, false triggers), VAD levels with the piano playing, chime and
   self-trigger after TTS, pinch-hold vs. the blue-ball grab, orb states, debug clip under `/sdcard/Android/data/<pkg>/files/`.
 

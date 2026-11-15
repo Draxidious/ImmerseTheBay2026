@@ -159,13 +159,7 @@ public class QuestionRouter : MonoBehaviour
         if (_wasSpeaking && !speaking) _lastSpeakingEnd = Time.time;
         _wasSpeaking = speaking;
 
-        bool armed = cfg.wakeWordEnabled
-                  && appFlow && appFlow.CurrentStep == AppFlow.Step.Lesson
-                  && !(voiceInput && voiceInput.IsListening)
-                  && !(coach && coach.IsThinking)
-                  && !speaking
-                  && Time.time >= _lastSpeakingEnd + cfg.muteAfterSpeechSeconds
-                  && !IsListening && !IsTranscribing;
+        bool armed = CanListen(cfg, speaking);
         if (armed != _armed)
         {
             _armed = armed;
@@ -184,13 +178,23 @@ public class QuestionRouter : MonoBehaviour
         UpdateDebugClip(cfg);
     }
 
+    bool CanListen(AIConfig cfg, bool speaking) =>
+        cfg.wakeWordEnabled
+        && appFlow && appFlow.CurrentStep == AppFlow.Step.Lesson
+        && !(voiceInput && voiceInput.IsListening)
+        && !(coach && coach.IsThinking)
+        && !speaking
+        && Time.time >= _lastSpeakingEnd + cfg.muteAfterSpeechSeconds
+        && !IsListening && !IsTranscribing;
+
     // ------------------------------------------------------------------ Trigger -> record
 
     void OnTriggered(IVoiceTrigger trigger)
     {
         var cfg = Cfg;
         bool isWake = ReferenceEquals(trigger, _wake);
-        if (!_armed || IsListening || IsTranscribing)
+        // Re-check now, not just the per-frame flag: the coach may have started talking earlier this frame.
+        if (!_armed || !CanListen(cfg, voiceOutput && voiceOutput.IsSpeaking))
         {
             Debug.Log($"[Question] {trigger.Name} ignored (busy or not armed).");
             if (isWake && !ReferenceEquals(_recorder, _wake)) _wake.Cancel();
