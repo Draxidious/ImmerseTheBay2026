@@ -4,6 +4,19 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~20:40 — Claude Code (for Canady): "hey teacher" wake word, step A spike
+- Added `Assets/Plugins/Android/WakeWordBridge.java` (`com.canady.wakeword`): AudioRecord 16 kHz (VOICE_RECOGNITION) → sherpa-onnx
+  keyword spotter on its own thread; logs `DETECTED HEY_TEACHER` (logcat tag `WakeWord`) and sends `OnWakeWord` / `OnWakeWordStatus`.
+  Model copied from `StreamingAssets/kws` to `filesDir/kws` on first run (version marker).
+- Bundled sherpa-onnx v2.0.1: pure-Java `sherpa-onnx-jvm-2.0.1.jar` (no Kotlin) + static-link `libsherpa-onnx-jni.so` (24 MB, ARM64, LFS).
+  Model: `kws-zipformer-gigaspeech-3.3M-2024-01-01` int8 encoder/decoder/joiner (5.2 MB). Licences in `THIRD_PARTY_NOTICES.md`.
+- **The `-mobile` model variant crashes on sherpa-onnx 2.0.1** (`/downsample/Reshape_1` reshape error on first decode); the full
+  variant's int8 files work. Desktop check (Python sherpa-onnx 2.0.1, same files and settings, macOS `say` voices): 3/3 normal
+  "hey teacher" detected, 1 very fast robotic voice missed, 0 false hits on 8 other sentences except "Hey, teach her" (homophone).
+- Spike: `WakeWordSpike.cs` + **Tools ▸ Wake Word ▸ Build Spike APK** (builds `Builds/WakeWordSpike.apk` from
+  `Dev_Canady_WakeWord.unity` only; build scene list untouched). Not in Main.
+- **Untested on the puck.** Next: confirm the jar + .so load on the Aura, then step B (VAD, question capture, Whisper, QuestionRouter).
+
 ## 2026-11-14 night — Codex (for Ari): startup mic permission and Main device checklist (handoff commit 9)
 - `AppFlow` requests Android microphone permission before the intro and waits for the system response. An existing
   grant skips the dialog. Denial or dismissal skips recording and continues to calibration without a second request.
