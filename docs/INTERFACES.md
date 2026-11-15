@@ -51,6 +51,7 @@ Disables the overlay grab while calibrating; saves the overlay pose when the gra
 |---|---|
 | `void Recalibrate()` | Forget the points and wait for two new pinches. Also wired to the `RecalibrateButton` interactable. |
 | `void SubmitPoint(Vector3 worldPoint)` | Feed a calibration point manually (non-hand input, tests). Rejects spans outside 60–160% of `ExpectedSpanMeters()` and swaps right-then-left input. |
+| `void SubmitPoint(Vector3 worldPoint, int hand)` | Same, tagged with the hand (0 = left, 1 = right, -1 = unknown). In four-point mode a key's back pinch is only accepted from the hand that pinched its front edge. |
 | (default flow) `fourPointCalibration` | Four sequential pinches (front/back of the lowest key, then of the highest). Each step is validated; a stray pinch repeats only that step. Recalibrate any time: touch-and-hold the orange dot on the back of the LEFT hand with the right index finger (~0.6 s). |
 | `void SubmitHandPinch(bool isLeft, Vector3 worldPoint)` | Two-hand flow (`twoHandCalibration`, used only when `fourPointCalibration` is off): left hand on the lowest key + right hand on the highest, pinched within `twoHandWindowSeconds`. A lone pinch never calibrates. |
 | `float ExpectedSpanMeters()` | Real-size distance between the lowest and highest key's front centers (≈1.20 m for 88 keys). |

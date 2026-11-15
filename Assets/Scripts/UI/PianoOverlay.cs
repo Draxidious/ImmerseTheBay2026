@@ -32,10 +32,18 @@ public class PianoOverlay : MonoBehaviour
     [Tooltip("Fraction of each key's front left undrawn so the overlay doesn't sit on the player's fingers.")]
     [Range(0f, 0.8f)] public float frontClearFraction = 0.35f;
 
+    [Tooltip("How far black keys stand above the white key tops (standard ≈ 12 mm).")]
+    public float blackKeyRaise = 0.012f;
+
     [Header("Look")]
     public Material keyMaterial; // e.g. URP/Unlit (uses _BaseColor). Leave empty to auto-create.
-    [Tooltip("Draw Off keys faintly so the whole keyboard outline is visible (black would be invisible on the Aura).")]
+    [Tooltip("Draw Off keys so the whole keyboard is visible (black would be invisible on the Aura).")]
     public bool showIdleKeys = true;
+    [Tooltip("Draw each key as a bright outline (idle) instead of a dim filled slab. Lit keys get a filled top too. " +
+             "Outlines read well on an additive display and show misalignment against the real key gaps.")]
+    public bool outlineKeys = true;
+    public Color outlineColor = new Color(0.45f, 0.75f, 1f);
+    public float outlineWidth = 0.0015f;
     public Color idleWhiteColor = new Color(0.10f, 0.10f, 0.12f);
     public Color idleBlackColor = new Color(0.03f, 0.03f, 0.05f);
     public Color upcomingColor = new Color(0.25f, 0.55f, 1f);
@@ -49,7 +57,9 @@ public class PianoOverlay : MonoBehaviour
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     static readonly int ColorId = Shader.PropertyToID("_Color");
 
-    readonly Dictionary<int, Renderer> _keys = new Dictionary<int, Renderer>();
+    readonly Dictionary<int, Renderer> _keys = new Dictionary<int, Renderer>();          // filled top per key
+    readonly Dictionary<int, Renderer[]> _outlines = new Dictionary<int, Renderer[]>();  // outline segments per key
+    readonly List<GameObject> _keyRoots = new List<GameObject>();
     readonly Dictionary<int, Vector3> _keyCenters = new Dictionary<int, Vector3>();
     readonly Dictionary<int, KeyState> _states = new Dictionary<int, KeyState>();
     readonly Dictionary<int, float> _flashUntil = new Dictionary<int, float>();
@@ -185,7 +195,9 @@ public class PianoOverlay : MonoBehaviour
 
     public void Build()
     {
-        foreach (var r in _keys.Values) if (r) Destroy(r.gameObject);
+        foreach (var root in _keyRoots) if (root) Destroy(root);
+        foreach (var r in _keys.Values) if (r && r.transform.parent == transform) Destroy(r.gameObject); // older layout
+        _keyRoots.Clear(); _outlines.Clear();
         _keys.Clear(); _keyCenters.Clear(); _states.Clear(); _flashUntil.Clear();
 
         if (keyMaterial == null)
@@ -211,36 +223,72 @@ public class PianoOverlay : MonoBehaviour
             }
             else
             {
-                // Sits on the boundary between the previous and next white keys (simplified, centered).
+                // Standard layout: C#/D# split the C–E span (3 white keys) into 5 equal parts, F#/G#/A# split the
+                // F–B span (4 white keys) into 7. Positions are measured from the left edge of the octave's C.
+                int pc = ((n % 12) + 12) % 12;
+                int prevWhiteFromC = pc switch { 1 => 0, 3 => 1, 6 => 3, 8 => 4, _ => 5 }; // C, D, F, G, A
+                float cLeft = (whiteIndex - 1 - prevWhiteFromC) * whiteKeyWidth;
+                float offset = pc switch { 1 => 1.5f * 3f / 5f, 3 => 3.5f * 3f / 5f, 6 => 3f + 1.5f * 4f / 7f, 8 => 3f + 3.5f * 4f / 7f, _ => 3f + 5.5f * 4f / 7f };
                 width = blackKeyWidth;
                 length = blackKeyLength;
-                centerX = whiteIndex * whiteKeyWidth;
+                centerX = cLeft + offset * whiteKeyWidth;
                 zStart = whiteKeyLength - blackKeyLength;
-                y = hoverHeight + 0.008f; // black keys are taller
+                y = hoverHeight + blackKeyRaise; // black keys stand above the white keys
             }
 
-            // Leave the front part clear for the player's fingers.
+            var root = new GameObject($"Key_{n}{(black ? "_b" : "")}");
+            root.transform.SetParent(transform, false);
+            _keyRoots.Add(root);
+
+            // Filled top (lit states). Leave the front part clear for the player's fingers.
             float drawStart = zStart + length * frontClearFraction;
             float drawLength = length - (drawStart - zStart);
             var center = new Vector3(centerX, y, drawStart + drawLength * 0.5f);
+            var r = CreateBar(root.transform, "Fill", center, new Vector3(width, thickness, drawLength));
 
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = $"Key_{n}{(black ? "_b" : "")}";
-            DestroyImmediate(go.GetComponent<Collider>()); // keys must never have colliders (grab handle only)
-            go.transform.SetParent(transform, false);
-            go.transform.localPosition = center;
-            go.transform.localScale = new Vector3(width, thickness, drawLength);
-
-            var r = go.GetComponent<Renderer>();
-            r.sharedMaterial = keyMaterial;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            r.receiveShadows = false;
+            // Outline over the whole key: left, right, front, back. White-key sides stop where a black key covers them.
+            var segs = new List<Renderer>();
+            if (outlineKeys)
+            {
+                float w = outlineWidth, half = width * 0.5f, oy = y + thickness;
+                float zEnd = zStart + length;
+                float leftEnd = zEnd, rightEnd = zEnd;
+                if (!black)
+                {
+                    int pc = ((n % 12) + 12) % 12;
+                    float blackFront = whiteKeyLength - blackKeyLength;
+                    bool blackOnLeft = (pc == 2 || pc == 4 || pc == 7 || pc == 9 || pc == 11) && n - 1 >= lowestNote;
+                    bool blackOnRight = (pc == 0 || pc == 2 || pc == 5 || pc == 7 || pc == 9) && n + 1 <= highestNote;
+                    if (blackOnLeft) leftEnd = blackFront;
+                    if (blackOnRight) rightEnd = blackFront;
+                }
+                segs.Add(CreateBar(root.transform, "OutlineL", new Vector3(centerX - half + w * 0.5f, oy, zStart + (leftEnd - zStart) * 0.5f), new Vector3(w, thickness, leftEnd - zStart)));
+                segs.Add(CreateBar(root.transform, "OutlineR", new Vector3(centerX + half - w * 0.5f, oy, zStart + (rightEnd - zStart) * 0.5f), new Vector3(w, thickness, rightEnd - zStart)));
+                segs.Add(CreateBar(root.transform, "OutlineFront", new Vector3(centerX, oy, zStart + w * 0.5f), new Vector3(width, thickness, w)));
+                if (black) segs.Add(CreateBar(root.transform, "OutlineBack", new Vector3(centerX, oy, zEnd - w * 0.5f), new Vector3(width, thickness, w)));
+            }
 
             _keys[n] = r;
+            _outlines[n] = segs.ToArray();
             _keyCenters[n] = center;
             _states[n] = KeyState.Off;
             Paint(n, 1f);
         }
+    }
+
+    Renderer CreateBar(Transform parent, string name, Vector3 localPos, Vector3 localScale)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = name;
+        DestroyImmediate(go.GetComponent<Collider>()); // keys must never have colliders (grab handle only)
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localPos;
+        go.transform.localScale = localScale;
+        var r = go.GetComponent<Renderer>();
+        r.sharedMaterial = keyMaterial;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        return r;
     }
 
     Vector3 FrontCenterLocal(int midiNote)
@@ -277,17 +325,28 @@ public class PianoOverlay : MonoBehaviour
 
     void Paint(int n, float intensity)
     {
-        Color c = _states[n] switch
+        var state = _states[n];
+        Color c = state switch
         {
             KeyState.Upcoming => upcomingColor,
             KeyState.Next => nextColor * intensity,
             KeyState.Correct => correctColor,
             KeyState.Wrong => wrongColor,
-            _ => !showIdleKeys ? Color.black // additive display: black = invisible
+            _ => !showIdleKeys || outlineKeys ? Color.black // additive display: black = invisible
                  : IsBlack(n) ? idleBlackColor : idleWhiteColor,
         };
+        SetColor(_keys[n], c);
+
+        if (_outlines.TryGetValue(n, out var segs))
+        {
+            Color o = state == KeyState.Off ? (showIdleKeys ? outlineColor : Color.black) : c;
+            foreach (var s in segs) SetColor(s, o);
+        }
+    }
+
+    void SetColor(Renderer r, Color c)
+    {
         c.a = 1f;
-        var r = _keys[n];
         r.GetPropertyBlock(_mpb);
         _mpb.SetColor(BaseColorId, c);
         _mpb.SetColor(ColorId, c);

@@ -55,6 +55,10 @@ public class PianoCalibrator : MonoBehaviour
     public bool fourPointCalibration = true;
     [Tooltip("Accepted distance between a key's front edge and back end (m).")]
     public Vector2 keyDepthRange = new Vector2(0.06f, 0.25f);
+    [Tooltip("A back-end pinch must be at least this far behind the front-edge pinch, measured level toward the panel (m).")]
+    public float minBackDepth = 0.08f;
+    [Tooltip("A back-end pinch may be at most this much higher or lower than its front-edge pinch (m).")]
+    public float maxBackHeightDelta = 0.06f;
     [Tooltip("Calibrate with one pinch per hand at the same time (left hand on the lowest key, right hand on the highest). " +
              "A single stray pinch can't finish calibration. Off = the old two-step, one-hand flow.")]
     public bool twoHandCalibration = true;
@@ -121,8 +125,10 @@ public class PianoCalibrator : MonoBehaviour
     bool _promptSnapped;     // prompt has been placed at least once with a tracked head
     float _clearPreviewAt = -1f;
     float _messageUntil = -1f;       // a temporary message (error / done) is showing until then
-    readonly Vector3[] _pts = new Vector3[4]; // four-point flow: frontLow, backLow, frontHigh, backHigh
+    readonly Vector3[] _pts = new Vector3[4]; // four-point flow, sorted: nearLow, farLow, nearHigh, farHigh
+    readonly Vector3[] _raw = new Vector3[4]; // four-point flow, in pinch order
     int _step;
+    int _stepHand = -1;              // four-point flow: hand (0 = left, 1 = right) that made the current key's front pinch
     GameObject _backLowMarker, _backHighMarker;
     GameObject _handDot;
     float _handDotHeld, _handDotCooldownUntil;
@@ -206,39 +212,71 @@ public class PianoCalibrator : MonoBehaviour
         _promptSnapped = false; // snap (not lerp) to the head on the next tracked frame
         _leftPinchTime = _rightPinchTime = -10f;
         _step = 0;
+        _stepHand = -1;
         SetPhase(Phase.WaitingForLow);
         ShowCalibrationPreview();
     }
 
     /// <summary>Four-point flow: validate one pinch against the previous ones; a bad pinch only repeats that step.</summary>
-    void SubmitFourPointStep(Vector3 p)
+    void SubmitFourPointStep(Vector3 p, int hand)
     {
+        var h = HeadTransform();
+        if (h)
+        {
+            Vector3 hf = FlatForward(h), hr = Vector3.Cross(Vector3.up, hf), rel = p - h.position;
+            Debug.Log($"[PianoCalibrator] Pinch for step {_step + 1} ({(hand == 0 ? "left" : hand == 1 ? "right" : "?")} hand): " +
+                      $"world {p:F3}; from head: right {Vector3.Dot(rel, hr) * 100f:F0} cm, up {rel.y * 100f:F0} cm, " +
+                      $"forward {Vector3.Dot(rel, hf) * 100f:F0} cm; head pitch {h.eulerAngles.x:F0}°.");
+        }
+        // A key's second pinch must come from the hand that made its first pinch; the other (resting) hand's
+        // stray pinches are ignored instead of being judged as attempts.
+        if ((_step == 1 || _step == 3) && hand >= 0 && _stepHand >= 0 && hand != _stepHand)
+        {
+            Debug.Log($"[PianoCalibrator] Step {_step + 1}: ignored a pinch from the {(hand == 0 ? "left" : "right")} hand.");
+            return;
+        }
+
+        // Pinch order per key: FAR end (at the panel) first, then NEAR end (closest to the player). The reverse order
+        // is also accepted; each key's two pinches are sorted into near/far by distance toward the panel.
         float expected = ExpectedSpanMeters();
         string problem = null;
+        Vector3 nearPt = p, farPt = p;
         switch (_step)
         {
             case 1:
             case 3:
             {
-                float d = Vector3.Distance(p, _pts[_step - 1]);
+                Vector3 first = _raw[_step - 1];
+                float d = Vector3.Distance(p, first);
+                // Level direction toward the panel: from the left→right line once known (same as the fit), else the gaze.
+                Vector3 fwd;
+                if (_step == 3) fwd = Vector3.Cross(Flat(_raw[2] - _raw[0]), Vector3.up).normalized;
+                else { var head = HeadTransform(); fwd = head ? Flat(head.forward) : Vector3.zero; }
+                float along = fwd.sqrMagnitude > 0f ? Vector3.Dot(p - first, fwd) : -d; // + = toward the panel
+                float rise = p.y - first.y;
+                if (along < 0f) { nearPt = p; farPt = first; } else { nearPt = first; farPt = p; }
                 if (d < keyDepthRange.x || d > keyDepthRange.y)
-                    problem = $"That was {d * 100f:F0} cm from the front edge.\nThe back end of a key is about 13-15 cm behind it.";
+                    problem = $"That was {d * 100f:F0} cm from your first pinch.\nPinch the OTHER end of the same key\n(keys are about 14 cm long).";
+                else if (Mathf.Abs(along) < minBackDepth)
+                    problem = $"That was only {Mathf.Abs(along) * 100f:F0} cm nearer to / farther from you.\nOpen your fingers, rest your hand on the\nOTHER end of the same key, then pinch.";
+                else if (Mathf.Abs(rise) > maxBackHeightDelta)
+                    problem = $"That was {Mathf.Abs(rise) * 100f:F0} cm {(rise > 0f ? "above" : "below")} your first pinch.\nPinch ON the key.";
                 else if (_step == 3)
                 {
                     float depthL = Vector3.Distance(_pts[1], _pts[0]);
-                    float backSpan = Vector3.Distance(p, _pts[1]), frontSpan = Vector3.Distance(_pts[2], _pts[0]);
+                    float farSpan = Vector3.Distance(farPt, _pts[1]), nearSpan = Vector3.Distance(nearPt, _pts[0]);
                     if (Mathf.Abs(d - depthL) > 0.05f)
-                        problem = $"Key depth here is {d * 100f:F0} cm but {depthL * 100f:F0} cm on the left.\nPinch the back end of the far-RIGHT key.";
-                    else if (Mathf.Abs(backSpan - frontSpan) > 0.06f)
-                        problem = "The back points aren't parallel to the front.\nPinch the back end of the far-RIGHT key.";
+                        problem = $"This key measured {d * 100f:F0} cm long but the left one {depthL * 100f:F0} cm.\nPinch the other end of the far-RIGHT key again.";
+                    else if (Mathf.Abs(farSpan - nearSpan) > 0.06f)
+                        problem = "The far ends and near ends aren't parallel.\nPinch the other end of the far-RIGHT key again.";
                 }
                 break;
             }
             case 2:
             {
-                float span = Vector3.Distance(p, _pts[0]);
+                float span = Vector3.Distance(p, _raw[0]);
                 var head = HeadTransform();
-                if (head && Vector3.Dot(p - _pts[0], head.right) < 0f)
+                if (head && Vector3.Dot(p - _raw[0], head.right) < 0f)
                     problem = "That point is LEFT of the first one.\nPinch the far-RIGHT key.";
                 else if (span < expected * minSpanFraction || span > expected * maxSpanFraction)
                     problem = $"That was {span * 100f:F0} cm from the far-left key;\nthe far-right key is about {expected * 100f:F0} cm away.";
@@ -253,7 +291,9 @@ public class PianoCalibrator : MonoBehaviour
             return;
         }
 
-        _pts[_step] = p;
+        _raw[_step] = p;
+        if (_step == 1 || _step == 3) { _pts[_step - 1] = nearPt; _pts[_step] = farPt; } // _pts = near/far per key
+        if (_step == 0 || _step == 2) _stepHand = hand;
         ShowMarker(_step switch { 0 => _lowMarker, 1 => _backLowMarker, 2 => _highMarker, _ => _backHighMarker }, p);
         _step++;
         if (_step < 4)
@@ -266,7 +306,8 @@ public class PianoCalibrator : MonoBehaviour
         string reason = overlay ? overlay.CalibrateFromFourPoints(_pts[0] + drop, _pts[1] + drop, _pts[2] + drop, _pts[3] + drop) : "no overlay";
         if (reason != null)
         {
-            Debug.Log($"[PianoCalibrator] Four-point fit rejected: {reason}");
+            Debug.Log($"[PianoCalibrator] Four-point fit rejected: {reason}. Points: nearLow {_pts[0]:F3}, farLow {_pts[1]:F3}, " +
+                      $"nearHigh {_pts[2]:F3}, farHigh {_pts[3]:F3}; depth L/R {(_pts[1] - _pts[0]) * 100f:F1} / {(_pts[3] - _pts[2]) * 100f:F1} cm.");
             Recalibrate();
             ShowMessage($"Those points didn't fit a keyboard ({reason}).\nLet's start again.\n\n" + PromptFor(Phase.WaitingForLow), 6f);
             return;
@@ -309,9 +350,12 @@ public class PianoCalibrator : MonoBehaviour
     }
 
     /// <summary>Feed a pinch point manually (world space). Used by hand tracking and the Editor debug keys.</summary>
-    public void SubmitPoint(Vector3 worldPoint)
+    public void SubmitPoint(Vector3 worldPoint) => SubmitPoint(worldPoint, -1);
+
+    /// <param name="hand">0 = left, 1 = right, -1 = unknown (debug keys).</param>
+    public void SubmitPoint(Vector3 worldPoint, int hand)
     {
-        if (fourPointCalibration && IsCalibrating) { SubmitFourPointStep(worldPoint); return; }
+        if (fourPointCalibration && IsCalibrating) { SubmitFourPointStep(worldPoint, hand); return; }
         switch (_phase)
         {
             case Phase.WaitingForLow:
@@ -369,10 +413,10 @@ public class PianoCalibrator : MonoBehaviour
     string PromptFor(Phase p) => fourPointCalibration && p != Phase.Idle
         ? _step switch
         {
-            0 => "<b>Step 1 of 4</b>\nPinch the FRONT edge of the\nfar-LEFT key (palm down).",
-            1 => "<b>Step 2 of 4</b>\nPinch the BACK end of that same key,\nwhere it meets the panel.",
-            2 => "<b>Step 3 of 4</b>\nPinch the FRONT edge of the\nfar-RIGHT key.",
-            _ => "<b>Step 4 of 4</b>\nPinch the BACK end of that same key,\nwhere it meets the panel.",
+            0 => "<b>Step 1 of 4</b>\nFar-LEFT key: pinch its FAR end,\nwhere it goes under the panel (palm down).",
+            1 => "<b>Step 2 of 4</b>\nSame key: pinch its NEAR end,\nthe edge closest to you.",
+            2 => "<b>Step 3 of 4</b>\nFar-RIGHT key: pinch its FAR end,\nwhere it goes under the panel.",
+            _ => "<b>Step 4 of 4</b>\nSame key: pinch its NEAR end,\nthe edge closest to you.",
         }
         : twoHandCalibration && p != Phase.Idle
         ? "<b>Calibrate</b>\nLEFT hand on the far-LEFT key,\nRIGHT hand on the far-RIGHT key.\n" +
@@ -469,7 +513,7 @@ public class PianoCalibrator : MonoBehaviour
             {
                 Vector3 p = ToWorld((thumb.position + index.position) * 0.5f);
                 if (twoHandCalibration && !fourPointCalibration) SubmitHandPinch(isLeft, p);
-                else SubmitPoint(p);
+                else SubmitPoint(p, isLeft ? 0 : 1);
             }
         }
         else if (pinching && d > pinchEndDistance)
@@ -477,6 +521,8 @@ public class PianoCalibrator : MonoBehaviour
             pinching = false;
         }
     }
+
+    static Vector3 Flat(Vector3 v) => Vector3.ProjectOnPlane(v, Vector3.up).normalized;
 
     Transform TrackingSpace() =>
         xrOrigin ? (xrOrigin.CameraFloorOffsetObject ? xrOrigin.CameraFloorOffsetObject.transform : xrOrigin.transform) : null;

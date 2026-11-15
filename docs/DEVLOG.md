@@ -4,6 +4,38 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~16:10 — Claude Code (for Ari): brighter overlay, standard black-key layout, Aura tracking check
+- Faint overlay cause: idle keys were 0.10 grey in Linear color space (≈1% light on an additive display), drawn only on the back
+  65% of each key. `PianoOverlay` now draws idle keys as bright outlines (`outlineKeys`, `outlineColor`, `outlineWidth`); lit keys
+  get a filled top plus outline in the state color. White-key side lines stop where a black key covers them.
+- Black keys now follow the standard layout (C#/D# split C–E into 5 parts, F#/G#/A# split F–B into 7) instead of sitting centered
+  on the white-key boundary; `blackKeyRaise` = 12 mm. White-key sizes were already standard (octave 164.5 mm).
+- Aura runtime check (diagnostic build, not committed): the Android XR runtime lists XR_ANDROID_trackables_marker, _qr_code,
+  _image, depth texture, raycast and scene meshing. Camera CPU images are NOT available to Unity scripts (as Unity's Android XR
+  docs state). Next: marker tracking (ArUco on a phone screen) to place the overlay without pinching.
+- Built and installed on the puck; outline look not yet checked on the glasses.
+
+## 2026-11-14 ~15:20 — Claude Code (for Ari): four-point order is now far end → near end
+- Real cause of "back points aren't behind the front points": the prompts said "FRONT edge" / "BACK end", which Ari (sitting at
+  the piano) read the opposite way. Device log showed every second pinch 14–18 cm toward the player = pinched in reverse.
+- New order per key: **FAR end (where the key goes under the panel) first, then NEAR end (closest to you)**; far-left key, then
+  far-right key. The reverse order is accepted too: each key's two pinches are sorted into near/far by direction toward the panel.
+  Prompts and error messages say "far end" / "near end" now.
+- Every four-point pinch is logged with its position relative to the head (right/up/forward cm). Not tested in Play mode; built and
+  installed on the puck for an on-device test.
+
+## 2026-11-14 ~14:55 — Claude Code (for Ari): fix "back points aren't behind the front points"
+- Cause: steps 2/4 only checked the 3D distance (6–25 cm, any direction), but the final fit needs the back points to be
+  behind the front ones on the level, toward the panel. A pinch fired while lifting the hand passed the step check, failed
+  the fit, and all four points were thrown away. The device log also showed the other, resting hand firing stray pinches.
+- `PianoCalibrator`: back pinches must now be ≥ `minBackDepth` (8 cm) back toward the panel (gaze direction for the left key,
+  the left→right line for the right key) and within `maxBackHeightDelta` (6 cm) of the front pinch height, else only that step repeats.
+  A key's back pinch is only accepted from the hand that pinched its front edge (the other hand's pinches are ignored).
+  `SubmitPoint(Vector3, int hand)` overload added (0 = left, 1 = right, -1 = unknown); the old `SubmitPoint(Vector3)` still works.
+  When the fit is rejected, the four points and both depth vectors are logged.
+- **Works (Editor play mode, scripted):** clean four points calibrate; other-hand pinch ignored; lifted (3 cm back) and sideways
+  (2 cm back) back pinches rejected at that step; then good pinches calibrate (key length 13.7 cm). **Untested on the Aura.**
+
 ## 2026-11-14 ~15:05 — Claude Code (for Ari): four-point calibration, Recalibrate dot on the left hand
 - Device log: a good two-hand calibration (116 cm, scale 0.968) was overwritten 9 s later by a mid-air pinch (87 cm, right point
   ~9 cm above / 25 cm in front of the keys) after Recalibrate. Simultaneous pinches were also awkward at 1.2 m apart.
