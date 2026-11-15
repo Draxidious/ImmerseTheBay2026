@@ -4,6 +4,19 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+
+## 2026-11-15 ~07:50 PT — Claude Code (for Nehemiah): 4 beginner songs + fingering (uncommitted, for review)
+- **New songs** (Assets/Resources/SongDB, RH melody, C five-finger position, typed from memory, `verified: false`): Mary Had a Little Lamb,
+  Au Clair de la Lune (A phrase ×2), Jingle Bells (chorus), When the Saints Go Marching In (opening). Curriculum `order` renumbered so
+  beginner songs come first (11 songs total).
+- **Fingering:** new `SongEntry.fingering` field (where the fingers come from / what needs review; empty in older files = fine).
+  Für Elise bars 1–8 both hands copied from the team's Resources/Songs/fur_elise.json (pitch-checked, 53 notes). The 4 new songs and the
+  RH of Hot Cross Buns / Ode to Joy use standard C five-finger fingering. **Needs review (no fingering):** Twinkle, Chopsticks,
+  The Entertainer, Clair de Lune, all LH parts except Für Elise 1–8, Für Elise 9–22.
+- **Show/hide:** Tools ▸ Songs ▸ Sheet Music: Show Fingering (checkable, on by default, regenerates). It changes the generated PNGs;
+  there is no in-app runtime toggle (that would need an overlay in Jordan's SongNoteDisplay).
+- **Checked (Unity via MCP):** 11 songs, 0 duplicate ids/titles, 0 errors/warnings, fingers 1–5 on the right notes; all sheets generated
+  with every bar/note placed; free play's matchable list builds with all 11; Main still gets 35 lesson/coach notes.
 ## 2026-11-14 ~22:45 — Claude Code (for Canady): "hey teacher" in Main_2's guided lesson
 - **Bug:** a question during the `CurriculumEngine` lesson lost the run it just judged (`QuestionRouter` overwrote `thisRun`
   with the wait-mode evaluator's, which never runs in Main_2) and read the bar from that disabled evaluator.

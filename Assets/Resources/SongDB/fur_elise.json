@@ -3,11 +3,12 @@
     "name": "Für Elise",
     "composer": "Ludwig van Beethoven",
     "license": "Public domain",
-    "source": "Bars 1–8 typed by hand (Claude Code for Nehemiah, 2026-11-14); RH matches Jordan's SongLibrary.FurElise(). Bars 9–22 imported from the Mutopia Project MIDI (piece 931, fur_Elise_WoO59.mid, Breitkopf & Härtel 1888 edition, Public Domain / CC0 'No rights reserved'), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931. Hands = staves (bars 14–15 alternate between hands as written).",
+    "source": "Bars 1–8 typed by hand (Claude Code for Nehemiah, 2026-11-14); RH matches Jordan's SongLibrary.FurElise(). Bars 9–22 imported from the Mutopia Project MIDI (piece 931, fur_Elise_WoO59.mid, Breitkopf & Härtel 1888 edition, Public Domain / CC0 'No rights reserved'), https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931. Hands = staves (bars 14–15 alternate between hands as written). Fingering bars 1–8 (both hands) copied from the team's curriculum file Assets/Resources/Songs/fur_elise.json (checked note-by-note: same pitches in the same order).",
     "verified": false,
+    "fingering": "Bars 1–8 both hands: copied from the team's Assets/Resources/Songs/fur_elise.json (pitch-checked). Bars 9–22: none — needs review.",
     "arrangement": "as written",
     "difficulty": 3,
-    "order": 5,
+    "order": 9,
     "tempoBpm": 90,
     "beatsPerBar": 3,
     "beatUnit": "eighth",
@@ -30,27 +31,27 @@
             "lastBar": 22
         }
     ],
-    "pickupRH": "E5:0.5 D#5:0.5",
+    "pickupRH": "E5@5:0.5 D#5@4:0.5",
     "pickupLH": "",
     "rh": [
-        "E5:0.5 D#5:0.5 E5:0.5 B4:0.5 D5:0.5 C5:0.5",
-        "A4:1 r:0.5 C4:0.5 E4:0.5 A4:0.5",
-        "B4:1 r:0.5 E4:0.5 G#4:0.5 B4:0.5",
-        "C5:1 r:0.5 E4:0.5 E5:0.5 D#5:0.5",
-        "E5:0.5 D#5:0.5 E5:0.5 B4:0.5 D5:0.5 C5:0.5",
-        "A4:1 r:0.5 C4:0.5 E4:0.5 A4:0.5",
-        "B4:1 r:0.5 E4:0.5 C5:0.5 B4:0.5",
-        "A4:1 r:2"
+        "E5@5:0.5 D#5@4:0.5 E5@5:0.5 B4@2:0.5 D5@4:0.5 C5@3:0.5",
+        "A4@1:1 r:0.5 C4@1:0.5 E4@2:0.5 A4@3:0.5",
+        "B4@4:1 r:0.5 E4@1:0.5 G#4@3:0.5 B4@4:0.5",
+        "C5@5:1 r:0.5 E4@1:0.5 E5@5:0.5 D#5@4:0.5",
+        "E5@5:0.5 D#5@4:0.5 E5@5:0.5 B4@2:0.5 D5@4:0.5 C5@3:0.5",
+        "A4@1:1 r:0.5 C4@1:0.5 E4@2:0.5 A4@3:0.5",
+        "B4@4:1 r:0.5 E4@1:0.5 C5@4:0.5 B4@3:0.5",
+        "A4@2:1 r:2"
     ],
     "lh": [
         "r:3",
-        "A2:0.5 E3:0.5 A3:0.5 r:1.5",
-        "E2:0.5 E3:0.5 G#3:0.5 r:1.5",
-        "A2:0.5 E3:0.5 A3:0.5 r:1.5",
+        "A2@5:0.5 E3@2:0.5 A3@1:0.5 r:1.5",
+        "E2@5:0.5 E3@2:0.5 G#3@1:0.5 r:1.5",
+        "A2@5:0.5 E3@2:0.5 A3@1:0.5 r:1.5",
         "r:3",
-        "A2:0.5 E3:0.5 A3:0.5 r:1.5",
-        "E2:0.5 E3:0.5 G#3:0.5 r:1.5",
-        "A2:0.5 E3:0.5 A3:0.5 r:1.5"
+        "A2@5:0.5 E3@2:0.5 A3@1:0.5 r:1.5",
+        "E2@5:0.5 E3@2:0.5 G#3@1:0.5 r:1.5",
+        "A2@5:0.5 E3@2:0.5 A3@1:0.5 r:1.5"
     ],
     "notes": [
         {

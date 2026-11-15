@@ -185,7 +185,7 @@ River Flows in You); they're still built into your own app.
 | `SongAutoPlayer` (component) | Debug: lights each song note on the `PianoOverlay` at tempo (context menu Play/Stop, or `K`). |
 
 JSON notes, one string per bar per hand (same notation the coach reads): `"E4 D4 C4:2"` (1 beat unless `:beats`),
-`"C4+E4+G4:2"` chord, `"r:0.5"` rest, `"E4@3"` finger, `pickupRH`/`pickupLH` for an anacrusis (stored in bar 1 with beat < 1).
+`"C4+E4+G4:2"` chord, `"r:0.5"` rest, `"E4@3"` finger, (`fingering` field = where the finger numbers come from / what needs review; Tools ▸ Songs ▸ Sheet Music: Show Fingering toggles them on the generated sheets), `pickupRH`/`pickupLH` for an anacrusis (stored in bar 1 with beat < 1).
 Imported songs use an explicit `notes` list instead. Menu: **Tools ▸ Songs ▸ Validate All / Print All / Import MIDI Files (as written | simplified)**.
 
 Songs now: hot_cross_buns, twinkle_twinkle, ode_to_joy, chopsticks, fur_elise (bars 1–22: 1–8 typed, 9–22 from public-domain MIDI;
