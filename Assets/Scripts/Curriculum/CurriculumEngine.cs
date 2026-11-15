@@ -90,6 +90,9 @@ public class CurriculumEngine : MonoBehaviour
     public event Action<ExpectedNote> OnDemoNoteUp;
     public event Action<int, int[]> OnShowFingering;           // the coach asked: bar, one finger per note (1 = thumb)
     public event Action<EvaluationResult> OnRunEvaluated;
+    // After OnRunEvaluated, once the run is rated: LastRatings, LastRightRatings, LastLeftRatings, LastTempoRating and
+    // LastPassed describe it. The argument is the bars that were judged (a repair's lead-in is not).
+    public event Action<BarRange> OnRunRated;
 
     // ------------------------------------------------------------------ State
 
@@ -118,6 +121,7 @@ public class CurriculumEngine : MonoBehaviour
     public IReadOnlyDictionary<int, string> LastRightRatings => lastRight; // the same per hand; a bar's rating is the worse of the two
     public IReadOnlyDictionary<int, string> LastLeftRatings => lastLeft;
     public bool LastPassed { get; private set; }
+    public float LastAccuracy { get; private set; } = 1f;    // 0-1, first try, over the judged bars of the last run
     public LessonStats Stats { get; private set; } = new LessonStats();
     public bool IsRunning => running;
     // Set by StartLesson from LessonConfig; replace it after StartLesson to try another evaluator.
@@ -192,6 +196,7 @@ public class CurriculumEngine : MonoBehaviour
     void Awake()
     {
         if (coach == null) coach = GetComponent<AICoach>();
+        if (coach == null) coach = FindAnyObjectByType<AICoach>();
         if (demoPlayer == null) demoPlayer = GetComponent<DemoPlayer>();
         if (demoPlayer == null) demoPlayer = gameObject.AddComponent<DemoPlayer>();
         metronome = GetComponent<Metronome>();
@@ -496,6 +501,8 @@ public class CurriculumEngine : MonoBehaviour
         string leadIn = runBars.First < judged.First ? $", lead-in {new BarRange(runBars.First, judged.First - 1)} not judged" : "";
         Debug.Log($"[Lesson] {State}: {Measures(runBars)} {HandWords(runHand)} at {RunPct}% -> {(v.passed ? "passed" : "failed")} ({bars}{leadIn}), " +
                   $"accuracy {v.accuracy:0.00}, tempo {TempoName(v.tempo)} x{v.tempoRatio:0.00}");
+        LastAccuracy = v.accuracy;
+        OnRunRated?.Invoke(judged);
         return v;
     }
 
