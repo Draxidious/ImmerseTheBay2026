@@ -162,10 +162,18 @@ public class AppFlow : MonoBehaviour
         yield return Wait(startDelay);
         // Visual start: say how to choose voice only. The answer below can ask for it ("audio only").
         string hint = AIConfig.Get().audioOnlyIntroHint;
-        yield return Say(VisualsMode.NonVisual || string.IsNullOrWhiteSpace(hint) ? introLine : introLine + " " + hint);
+        bool canListen = voiceInput && HasMicrophonePermission() && Microphone.devices.Length > 0;
+        if (engine && canListen)
+        {
+            var secrets = AISecrets.Load();
+            while (!secrets.IsCompleted) yield return null;
+            canListen = secrets.Status == System.Threading.Tasks.TaskStatus.RanToCompletion &&
+                !string.IsNullOrWhiteSpace(secrets.Result.GROQ_API_KEY);
+        }
+        yield return Say(!canListen || VisualsMode.NonVisual || string.IsNullOrWhiteSpace(hint) ? introLine : introLine + " " + hint);
 
         CurrentStep = Step.Listening;
-        if (voiceInput && HasMicrophonePermission())
+        if (canListen && (!engine || !VisualsMode.NonVisual && !string.IsNullOrWhiteSpace(hint)))
         {
             _answered = false;
             voiceInput.StartListening();
@@ -189,7 +197,7 @@ public class AppFlow : MonoBehaviour
         CurrentStep = Step.Calibrating;
         if (overlay) overlay.gameObject.SetActive(true);
         if (calibrator) calibrator.Recalibrate();
-        yield return Say(calibrateLine);
+        if (!string.IsNullOrWhiteSpace(calibrateLine)) yield return Say(calibrateLine);
     }
 
     static bool HasMicrophonePermission()

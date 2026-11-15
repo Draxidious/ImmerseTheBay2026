@@ -106,7 +106,7 @@ public class AIConfig : ScriptableObject
              "brings the visuals back (calibrating first if needed).")]
     public bool nonVisualDefault;
     [Tooltip("Added to the intro (visual start only): how to choose voice only. Empty = not said.")]
-    public string audioOnlyIntroHint = "If you'd rather use voice only, say audio only.";
+    public string audioOnlyIntroHint = "If you'd rather go audio-only, say audio only to skip visual setup.";
     [Tooltip("Non-visual start: spoken instead of showing the Lesson / Free Play panel.")]
     public string nonVisualChooseModeLine = "Say lesson mode or free play.";
     [Tooltip("\"Visuals on\" before the piano was ever calibrated.")]

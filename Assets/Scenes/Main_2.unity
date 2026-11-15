@@ -437,8 +437,8 @@ MonoBehaviour:
   engine: {fileID: 1472991808}
   sheetOffset: {x: 0, y: 0.15, z: 0.4}
   orbPanelGap: 0.04
-  introLine: "Hi, I'm your piano coach. Today we'll play the opening of F\xFCr Elise. Are you ready to learn?"
-  calibrateLine: Great. First show me where your piano is. Follow the steps in front of you.
+  introLine: Hi, I'm your piano coach. I can help you play piano through lessons, or we can explore music through Free Play. To begin, let's line up your keyboard.
+  calibrateLine:
   lessonLine: Got it. Play the first note whenever you're ready.
   chooseModeLine: Poke Menu on your left hand, then poke Lesson or Free Play.
   freePlayLine: Free play. Play anything you like, and I'll listen.

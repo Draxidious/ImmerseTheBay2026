@@ -868,3 +868,6 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - Aura logs from the swipe build show the recalibration confirmation opening, with no recalibration selection or green press pulse recorded.
 - The wrist menu accepts individual right-index pokes. Recalibrate and Restart require a separate confirmation poke. Fingering shows small numbers on tracked fingertips with the green press pulse.
 - Unity Editor smoke test passed with simulated hands, including separate confirmation pokes and fingertip numbers. Aura hardware verification is pending.
+
+## 2026-11-15 — Main_2 startup prompts
+- The welcome introduces Lesson and Free Play. The audio-only offer and listening window depend on microphone access and configured transcription.
