@@ -11,6 +11,8 @@
   "tempoBpm": 100,
   "beatsPerBar": 4,
   "beatUnit": "quarter",
+  "keyFifths": 0,
+  "keyMode": "major",
   "sections": [
     { "name": "Whole tune (bars 1–4)", "firstBar": 1, "lastBar": 4 }
   ],

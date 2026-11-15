@@ -11,6 +11,8 @@
   "tempoBpm": 72,
   "beatsPerBar": 2,
   "beatUnit": "quarter",
+  "keyFifths": 0,
+  "keyMode": "major",
   "sections": [
     { "name": "A strain opening (bars 1–4)", "firstBar": 1, "lastBar": 4 }
   ],

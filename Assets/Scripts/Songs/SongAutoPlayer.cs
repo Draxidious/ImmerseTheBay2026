@@ -9,7 +9,7 @@ using UnityEngine;
 /// </summary>
 public class SongAutoPlayer : MonoBehaviour
 {
-    [Tooltip("Song id from Assets/Resources/Songs (e.g. hot_cross_buns, fur_elise).")]
+    [Tooltip("Song id from Assets/Resources/SongDB (e.g. hot_cross_buns, fur_elise).")]
     public string songId = "hot_cross_buns";
     [Tooltip("Section name from the song's sections list. Empty = the whole song.")]
     public string section = "";

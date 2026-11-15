@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// One song as stored in the song database: a JSON file in Assets/Resources/Songs/ (loaded with JsonUtility).
+/// One song as stored in the song database: a JSON file in Assets/Resources/SongDB/ (loaded with JsonUtility).
 /// Converted to the AI layer's <see cref="SongData"/> by <see cref="SongNotation.ToSongData"/>.
 ///
 /// Notes can be given two ways (both may be used in one file):
@@ -32,6 +32,11 @@ public class SongEntry
     public int tempoBpm = 100;      // beats per minute, in the beat unit below
     public int beatsPerBar = 4;
     public string beatUnit = "quarter"; // what one beat is: "quarter", "eighth", ...
+
+    // Key signature, for sheet music: sharps (+) or flats (−), e.g. 0 = C major / A minor, −5 = D-flat major.
+    // Also decides how black keys are spelled (sharps for ≥ 0, flats for < 0).
+    public int keyFifths;
+    public string keyMode = "major"; // "major" or "minor"
 
     public List<SongSection> sections = new List<SongSection>();
 

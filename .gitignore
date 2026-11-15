@@ -118,7 +118,14 @@ InitTestScene*.unity*
 /[Aa]ssets/StreamingAssets/secrets.json.meta
 
 # Songs that must not go in the public repo (e.g. copyrighted pieces): kept local, still built into your own app.
-/[Aa]ssets/[Rr]esources/[Ss]ongs/[Ll]ocal/
-/[Aa]ssets/[Rr]esources/[Ss]ongs/[Ll]ocal.meta
+/[Aa]ssets/[Rr]esources/[Ss]ong[Dd][Bb]/[Ll]ocal/
+/[Aa]ssets/[Rr]esources/[Ss]ong[Dd][Bb]/[Ll]ocal.meta
 /[Aa]ssets/[Mm]usic/[Ll]ocal/
 /[Aa]ssets/[Mm]usic/[Ll]ocal.meta
+
+# Sheet-music generator: local Python venv (recreate with the uv commands in Tools/SheetMusic/README.md)
+/Tools/SheetMusic/.venv/
+/Tools/SheetMusic/__pycache__/
+# Sheets for local-only songs
+/[Aa]ssets/[Rr]esources/[Ss]heets/[Ll]ocal/
+/[Aa]ssets/[Rr]esources/[Ss]heets/[Ll]ocal.meta

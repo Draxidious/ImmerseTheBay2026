@@ -11,6 +11,8 @@
     "tempoBpm": 120,
     "beatsPerBar": 9,
     "beatUnit": "eighth",
+    "keyFifths": -5,
+    "keyMode": "major",
     "sections": [
         {
             "name": "Opening (bars 1–8)",

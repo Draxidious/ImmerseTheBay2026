@@ -11,6 +11,8 @@
     "tempoBpm": 90,
     "beatsPerBar": 3,
     "beatUnit": "eighth",
+    "keyFifths": 0,
+    "keyMode": "minor",
     "sections": [
         {
             "name": "A section (bars 1–8)",

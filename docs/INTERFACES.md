@@ -104,9 +104,9 @@ Glue between the AI layer and the orb; the AI scripts are not modified. Add it t
 ---
 
 ## Song database — built by Nehemiah (`Assets/Scripts/Songs/`) ✅
-Songs ship inside the app (no server): one JSON file per song in `Assets/Resources/Songs/`, converted to the AI layer's
+Songs ship inside the app (no server): one JSON file per song in `Assets/Resources/SongDB/`, converted to the AI layer's
 `SongData` (Canady's `Assets/Scripts/AI/SongData.cs`: bar + beat-in-bar + length + hand + finger), so the coach can read it directly.
-`Assets/Resources/Songs/Local/` and `Assets/Music/Local/` are **gitignored** (songs that can't be in the public repo, e.g.
+`Assets/Resources/SongDB/Local/` and `Assets/Music/Local/` are **gitignored** (songs that can't be in the public repo, e.g.
 River Flows in You); they're still built into your own app.
 
 | Member | Purpose |
@@ -133,6 +133,25 @@ Note: in Für Elise bar 8 is the 1st ending and bar 9 the 2nd ending, so playing
 **Not merged with Jordan's model:** jordan-branch's `Song`/`SongNote` (`Assets/Scripts/Lesson/SongData.cs`, absolute beat + duration,
 one hand) clashes by name with Canady's `SongNote`. The DB uses Canady's `SongData`; Jordan's `PerformanceEvaluator` would need a
 converter (absolute beat = (bar−1)·beatsPerBar + beat − 1) once the two models are reconciled.
+
+### Sheet music images (`SheetLibrary`, `Assets/Scripts/Songs/SheetLibrary.cs`) ✅
+Generated from the song database (so they show exactly the DB notes, incl. simplified arrangements) by
+**Tools ▸ Songs ▸ Generate Sheet Music**: `MusicXmlExporter` → MusicXML → Verovio (engraving) → resvg (PNG), see
+`Tools/SheetMusic/README.md` for the one-time Python setup (private venv, no admin). Output per song in
+`Assets/Resources/Sheets/<songId>/`: `page-01.png …` (A4 pages filled one at a time, 2048 px wide, black on white; title,
+composer, tempo, arrangement note, every bar numbered, fingering) and `layout.json`. Local songs → `Sheets/Local/` (gitignored).
+Imported as sprites, ASTC 4x4 on Android (~6 MB per page in memory).
+
+| Member | Purpose |
+|---|---|
+| `SheetMusic SheetLibrary.Get(string songId)` | `pages` (Texture2D[], index 0 = page 1) + `layout`, or null if not generated. |
+| `SheetLayout.pages` | Page files + pixel sizes. |
+| `SheetLayout.BarRects(int bar)` | Bar rectangles (page, x, y, w, h in pixels, origin top-left). Bar 1 has two if the song has a pickup (`pickup = true`). |
+| `SheetLayout.NotesAt(int bar, float beat)` | Notehead rectangles struck at that bar/beat (both hands; `hand`, `midi`). |
+| `SheetLayout.NotesOf(int noteIndex)` | All noteheads of one DB note (index into `SongDatabase.Get(id).notes`), incl. tied continuations (`tied = true`). |
+
+Note: the images are black on white as requested. On the Aura (additive display) a white page glows; for in-headset use
+invert the colors in the shader/material or regenerate with light-on-transparent. The sheet panel itself (Ari's `SheetPanel`) isn't built.
 
 ## MIDI input — owner: TBD 📝
 | Member | Purpose |

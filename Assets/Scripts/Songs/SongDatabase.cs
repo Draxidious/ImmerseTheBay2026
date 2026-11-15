@@ -4,8 +4,8 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// The song database: every JSON file under Assets/Resources/Songs/ (and its subfolders) is one <see cref="SongEntry"/>.
-/// Ships inside the app (no server). Assets/Resources/Songs/Local/ is gitignored: songs that can't go in the public repo
+/// The song database: every JSON file under Assets/Resources/SongDB/ (and its subfolders) is one <see cref="SongEntry"/>.
+/// Ships inside the app (no server). Assets/Resources/SongDB/Local/ is gitignored: songs that can't go in the public repo
 /// (e.g. copyrighted pieces) go there and are still built into your own app.
 ///
 ///   var song = SongDatabase.Get("fur_elise");                       // SongData for the coach / lesson engine
@@ -15,7 +15,7 @@ using UnityEngine;
 /// </summary>
 public static class SongDatabase
 {
-    public const string ResourcesFolder = "Songs";
+    public const string ResourcesFolder = "SongDB";
 
     static List<SongEntry> s_entries;
     static Dictionary<string, SongEntry> s_byId;
@@ -68,6 +68,27 @@ public static class SongDatabase
         SongFormatter.Invalidate();
     }
 
+    /// <summary>
+    /// True if the parsed JSON is really a song-database entry. Other song files (e.g. Canady's curriculum songs, which use
+    /// "note": "E5" instead of MIDI numbers) would otherwise load as broken songs with every note at MIDI 0.
+    /// </summary>
+    public static bool IsSongEntry(SongEntry e, string rawJson, out string why)
+    {
+        why = null;
+        if (e == null || string.IsNullOrWhiteSpace(e.id)) { why = "no \"id\""; return false; }
+        bool hasBars = (e.rh != null && e.rh.Count > 0) || (e.lh != null && e.lh.Count > 0);
+        bool hasNotes = e.notes != null && e.notes.Count > 0;
+        if (!hasBars && !hasNotes) { why = "no \"rh\"/\"lh\" bars or \"notes\""; return false; }
+        if (hasNotes && e.notes.Any(n => n.midi <= 0))
+        {
+            why = rawJson != null && rawJson.Contains("\"note\"")
+                ? "not in the song-database format (uses \"note\": names instead of \"midi\" numbers; probably a curriculum song)"
+                : "notes without a \"midi\" number";
+            return false;
+        }
+        return true;
+    }
+
     static void Load()
     {
         if (s_entries != null) return;
@@ -78,7 +99,7 @@ public static class SongDatabase
             SongEntry e;
             try { e = JsonUtility.FromJson<SongEntry>(asset.text); }
             catch (Exception ex) { Debug.LogError($"[SongDatabase] {asset.name}.json is not valid JSON: {ex.Message}"); continue; }
-            if (e == null || string.IsNullOrWhiteSpace(e.id)) { Debug.LogError($"[SongDatabase] {asset.name}.json has no \"id\"."); continue; }
+            if (!IsSongEntry(e, asset.text, out string why)) { Debug.LogWarning($"[SongDatabase] Skipping {asset.name}.json: {why}"); continue; }
             if (s_byId.ContainsKey(e.id)) { Debug.LogError($"[SongDatabase] Duplicate song id \"{e.id}\" ({asset.name}.json); keeping the first."); continue; }
             s_byId[e.id] = e;
             s_entries.Add(e);

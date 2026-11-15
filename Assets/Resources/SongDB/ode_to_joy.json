@@ -11,6 +11,8 @@
   "tempoBpm": 100,
   "beatsPerBar": 4,
   "beatUnit": "quarter",
+  "keyFifths": 0,
+  "keyMode": "major",
   "sections": [
     { "name": "First phrase (bars 1–4)", "firstBar": 1, "lastBar": 4 },
     { "name": "Bars 1–8", "firstBar": 1, "lastBar": 8 }

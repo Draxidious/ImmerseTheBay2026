@@ -4,6 +4,26 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~21:30 — Claude Code (for Nehemiah): sheet-music PNGs for every song in the DB
+- **Pipeline:** `Assets/Scripts/Songs/Editor/MusicXmlExporter.cs` (DB → MusicXML: pickup as implicit measure, ties across bar lines
+  and into printable lengths, chords, extra voices for overlapping notes, rests, key-aware accidentals, beams per beat group,
+  fingering, per-bar clef changes, title/composer/tempo/arrangement credits, note ids = DB note index) →
+  `Tools/SheetMusic/render_sheets.py` (Verovio 6.4.1 → SVG, text-size fix, resvg-py 0.5.0 → PNG + bar/notehead rects) →
+  `SheetMusicMenu` (Tools ▸ Songs ▸ Generate Sheet Music) maps everything back to the DB and writes `layout.json`.
+  Runtime loader `SheetLibrary`. Added `keyFifths`/`keyMode` to SongEntry + all song JSONs (Clair de Lune −5 = D-flat major, flats).
+- **Python:** private venv `Tools/SheetMusic/.venv` (gitignored) with only verovio + resvg-py (`uv`, no admin, nothing system-wide).
+  PyMuPDF was tried first and removed (renders Verovio SVG blank).
+- **Output:** 7 songs, 10 pages (Clair de Lune 4). Every song: all bars present, every DB note placed, no pitch mismatches
+  (checked automatically each run). Overlay check on Für Elise: all bar/notehead rects land exactly on the engraving.
+  Looked at every song's page: correct key/time signatures, beams, accidentals, rests, ties, fingering (Hot Cross Buns), clef change
+  in Für Elise bars 14–15.
+- **Fixed along the way:** metronome glyph rendered as boxes (music font missing in resvg) → tempo as header text; Verovio's
+  0px text broke titles/bar numbers/fingering in resvg → patched; OneDrive locked the temp folder → per-run folders; a texture
+  AssetPostprocessor made Unity reimport every texture (one-time) → replaced by per-file import settings; uncompressed pages were
+  ~24 MB each → ASTC 4x4 on Android (~6 MB).
+- **Known limits:** Clair de Lune's automatic simplification puts high LH notes on ledger lines in bars ~15–24 (needs a hand edit);
+  Verovio prints the first system's bar number "1" above the Für Elise pickup. Images are black on white (asked for) — invert for the Aura.
+
 ## 2026-11-14 ~20:55 — Claude Code (for Nehemiah): Für Elise bars 9–22 + Clair de Lune from public-domain MIDI
 - **Sources:** Mutopia Project, both "Public Domain / CC: No rights reserved": Für Elise WoO 59 (piece 931, Breitkopf & Härtel 1888) and
   Clair de Lune (piece 1778, E. Fromont 1905). Downloaded only the .mid files into an empty scratch folder; checked: `MThd` header,

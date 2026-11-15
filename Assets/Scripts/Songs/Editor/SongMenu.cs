@@ -10,13 +10,13 @@ using UnityEngine;
 /// Tools ▸ Songs ▸ Validate All                     — checks every song JSON (notation, bar lengths, key range, overlaps).
 /// Tools ▸ Songs ▸ Print All (as the coach sees them) — SongFormatter text of every song, to compare with the sheet music.
 /// Tools ▸ Songs ▸ Import MIDI Files (as written / simplified)
-///     — every .mid in Assets/Music/ → Assets/Resources/Songs/&lt;id&gt;.json; Assets/Music/Local/ → Assets/Resources/Songs/Local/
+///     — every .mid in Assets/Music/ → Assets/Resources/SongDB/&lt;id&gt;.json; Assets/Music/Local/ → Assets/Resources/SongDB/Local/
 ///       (gitignored). Existing JSON files are never overwritten: delete one to re-import it.
 /// </summary>
 public static class SongMenu
 {
     const string MusicDir = "Assets/Music";
-    const string SongsDir = "Assets/Resources/Songs";
+    const string SongsDir = "Assets/Resources/SongDB";
 
     [MenuItem("Tools/Songs/Validate All")]
     public static void ValidateAll()

@@ -11,6 +11,8 @@
   "tempoBpm": 120,
   "beatsPerBar": 3,
   "beatUnit": "quarter",
+  "keyFifths": 0,
+  "keyMode": "major",
   "sections": [
     { "name": "Opening (bars 1–8)", "firstBar": 1, "lastBar": 8 }
   ],
