@@ -50,7 +50,7 @@ public static class FingeringGuideSmokeTests
         }
         SuspendStreaming();
         SessionState.SetInt(FingeringState, PlayerPrefs.GetInt(FingeringPref, -1));
-        PlayerPrefs.SetInt(FingeringPref, 1);
+        PlayerPrefs.DeleteKey(FingeringPref);
         SessionState.SetBool(Running, true);
         Debug.Log("[Fingering smoke] Starting Main_2 with simulated hands.");
         EditorApplication.isPlaying = true;
@@ -172,6 +172,10 @@ public static class FingeringGuideSmokeTests
 
         PokeAt(startTarget);
         Require(flow.CurrentStep == AppFlow.Step.Lesson && !menu.IsOpen, "A fast poke through Start Lesson did not work.");
+        Require(!(bool)guide.GetType().GetProperty("OverlayEnabled", flags).GetValue(guide),
+            "Fingering should default to off.");
+        Poke(RadialMenu.Choice.Fingering);
+        Require(PlayerPrefs.GetInt(FingeringPref) == 1, "The first Fingering poke did not enable it.");
         var badge = FindLabel(flow, "Key badge R5");
         var nextBadge = FindLabel(flow, "Key badge R4");
         var glow = flow.transform.Find("Fingertip glow R5").GetComponent<SpriteRenderer>();

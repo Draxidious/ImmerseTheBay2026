@@ -27,6 +27,8 @@ internal sealed class FingeringGuide : MonoBehaviour
     };
 
     const string PreferenceKey = "PianoFingeringOverlay";
+    const string IntroKey = "PianoFingeringIntroHeard";
+    const string IntroLine = "One is your thumb. Match the number on your finger to the badge on the key. To turn fingering off, poke Menu on your left hand, then poke Fingering.";
     const float BadgeDiameter = 0.017f;
     static readonly Color BadgeColor = new Color(1f, 0.77f, 1f);
     static readonly Color RingColor = new Color(0.93f, 0.47f, 1f);
@@ -55,6 +57,7 @@ internal sealed class FingeringGuide : MonoBehaviour
     Sprite _ringSprite;
     Camera _camera;
     bool _showFingering;
+    bool _introPending;
 #if UNITY_EDITOR
     bool _simulateHands;
 #endif
@@ -67,12 +70,13 @@ internal sealed class FingeringGuide : MonoBehaviour
         _showFingering = !_showFingering;
         PlayerPrefs.SetInt(PreferenceKey, _showFingering ? 1 : 0);
         PlayerPrefs.Save();
+        _introPending = _showFingering && PlayerPrefs.GetInt(IntroKey, 0) == 0;
         if (!_showFingering) HideLabels();
     }
 
     void Awake()
     {
-        _showFingering = PlayerPrefs.GetInt(PreferenceKey, 1) != 0;
+        _showFingering = PlayerPrefs.GetInt(PreferenceKey, 0) != 0;
         _glowSprite = CreateCueSprite(false);
         _ringSprite = CreateCueSprite(true);
         for (int i = 0; i < _fingers.Length; i++)
@@ -250,6 +254,14 @@ internal sealed class FingeringGuide : MonoBehaviour
         {
             HideLabels();
             return;
+        }
+
+        if (_introPending && engine && !engine.IsRunning && !engine.IsDemoPlaying &&
+            flow.coach && flow.coach.SayNow(IntroLine))
+        {
+            _introPending = false;
+            PlayerPrefs.SetInt(IntroKey, 1);
+            PlayerPrefs.Save();
         }
 
         if (!_camera) _camera = Camera.main;
