@@ -71,6 +71,7 @@ public class SongNoteDisplay : MonoBehaviour
     private RectTransform _root;
     private TMP_Text _title, _next, _feedback, _stats;
     private bool _built;
+    private FingeringGuide _fingeringGuide;
 
     // Piano roll
     private readonly List<Image> _blocks = new List<Image>();
@@ -89,6 +90,7 @@ public class SongNoteDisplay : MonoBehaviour
         if (engine == null) engine = FindAnyObjectByType<CurriculumEngine>();
         if (engine != null)
         {
+            _fingeringGuide = FindAnyObjectByType<FingeringGuide>();
             engine.OnRunStarted += OnRunStarted;
             engine.OnNextNote += OnNoteDue;
             engine.OnNotePlayed += OnNotePlayed;
@@ -347,6 +349,11 @@ public class SongNoteDisplay : MonoBehaviour
     private void OnShowFingering(int bar, int[] fingers)
     {
         if (!_built || fingers == null || fingers.Length == 0) return;
+        if (_fingeringGuide && _fingeringGuide.TryReplayFingering(engine, bar))
+        {
+            if (_stats.text.StartsWith("Fingering,", StringComparison.Ordinal)) _stats.text = "";
+            return;
+        }
         _stats.text = $"Fingering, measure {bar}: {string.Join(" ", fingers)}   (1 = thumb)";
     }
 

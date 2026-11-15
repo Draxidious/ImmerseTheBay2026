@@ -13,3 +13,5 @@ Turns every song in the song database (`Assets/Resources/SongDB/*.json`) into sh
 Pipeline: `MusicXmlExporter` (C#) → MusicXML → `render_sheets.py`: Verovio 6.4.1 (engraving, LGPL-3.0) → SVG → resvg-py 0.5.0
 (rasterizing, MPL-2.0) → PNG (2048 px wide A4 pages, black on white) + raw layout → `SheetMusicMenu` maps bars/notes back to
 the song database → `layout.json`.
+
+Free Play uses these PNGs directly. Guided Lesson uses the score images assigned in Main_2. See [Aura display and sheet music](../../docs/AURA_DISPLAY.md).

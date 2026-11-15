@@ -2,10 +2,13 @@
 
 For whoever (person or agent) picks this up. Deadline: **Sun 2026-11-15 9:00 AM PT**.
 
+**Current Main_2 controls.** Tap the raised **Menu** button on the back of the left hand, then choose **Fine Tune**
+to open the marker offsets or **Recalibrate** to start another scan. The ring follows the hand while open.
+The device test history below predates the hand menu.
+
 ## Goal
 Two printed ArUco 4x4_50 markers (33 mm, ID 0 behind A0 on the left rear corner, ID 1 behind C8 on the right) replace the
-four pinch steps in `PianoCalibrator`. **Hands, occlusion, the orange recalibrate dot and all XRI interaction stay exactly as in
-main** (user requirement; don't invent input or visuals). Print sheet: `output/pdf/Yamaha-P71-Corner-Markers-Letter.pdf`.
+four pinch steps in `PianoCalibrator` when marker tracking works. Print sheet: `output/pdf/Yamaha-P71-Corner-Markers-Letter.pdf`.
 
 ## Done
 - `Assets/Scripts/UI/MarkerCalibration.cs` + `PianoCalibrator` hooks (`CalibrateFromMarkers`, `ApplyMarkerAdjustment`,
@@ -30,7 +33,7 @@ main** (user requirement; don't invent input or visuals). Print sheet: `output/p
    hands' two material slots with ONE, but the rig's poke / near-far hand affordances tint slot 1. It now fills every slot with the
    occluder and keeps the count.
 2. ~~Keyboard covers the marker dot during calibration~~ Fixed and verified: hidden until both markers lock.
-3. Rescans move the keyboard 8–16 mm (mostly height at the C8 end); retune with the blue-dot sliders if needed.
+3. Rescans move the keyboard 8–16 mm (mostly height at the C8 end); retune via **Menu → Fine Tune** if needed.
 4. Team: announce that `Main_2` is the main/build scene and that Google's marker OpenXR features are on.
 
 ## Risks / watch

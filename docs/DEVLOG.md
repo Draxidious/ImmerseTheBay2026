@@ -4,6 +4,14 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~04:00 PT — Claude Code (for Canady): merged Ari's hand menu into Canady
+- Ari's tracked left-hand menu (Main_2) gets a sixth action, **Visuals Off**; the six buttons now sit 60° apart (Restart top,
+  Recalibrate, Fine Tune, Fingering, Visuals, Free Play). The fallback ring puts Visuals at the bottom when there is no
+  FingeringGuide. The menu still never opens while non-visual. Ari's Fine Tune/Recalibrate buttons replace the blue/orange
+  dots, so the earlier "blue offsets dot while non-visual" known issue is gone.
+- Ari's `FingeringGuideSmokeTests` updated for seven controls (and Visuals unavailable before calibration): **PASS**.
+  EditMode 143/143.
+
 ## 2026-11-15 ~03:40 PT — Claude Code (for Canady): non-visual mode, part 2 (spoken guidance, choosing it by voice)
 - New `AI/NonVisualGuide.cs` (Main_2, non-visual only, engine events only): before a run of new bars or a new hand, the
   notes and fingers are added to the coach's line via the new `AICoach.LineSuffix` ("Right hand: E, finger five; ...", the
@@ -38,6 +46,26 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   "Would you like a lesson, or free play?", panel shown); non-visual start → no calibration → lesson by voice, nothing drawn.
 - **Next / not done:** spoken note guidance in the lesson; Jordan's engine hook. Untested on the Aura.
 
+## 2026-11-15 — Codex (for Ari): track the radial menu to the left hand
+- Main_2 uses a raised amber Menu button with a piano-key icon. Warm circular action buttons expand around it and
+  follow the hand. The center becomes Close. An action, a center tap, or sustained tracking loss collapses the ring.
+- Fine Tune and Recalibrate replace the separate blue and orange dots. Removed Main_2's overlay drag handle and
+  its grab interaction. A fresh marker scan is needed for Fine Tune after a pinch calibration.
+- The Play Mode smoke test passed for the hand anchor, tracking loss, fine-tune panel, and six distinct poke targets.
+- Built, installed, and cold-launched the wrist-menu APK on the Aura puck at 03:22 PT.
+- Audited the Aura guidance against XREAL and Android XR docs. [Aura display and sheet music](AURA_DISPLAY.md) records
+  the black-on-white renderer, optical and capture differences, and which passthrough observations came from the tested build.
+
+## 2026-11-15 — Codex (for Ari): integrate fingering with Main_2's radial menu
+- Merged the ARI component wiring into Main_2 and kept main's audio-clock demo and Free Play sheet changes.
+- The radial menu owns startup mode choice, mode changes, and the persistent fingering toggle. Main_2 does not build the old
+  world-space mode panel or sheet-side fingering button. The original layout still serves scenes without the guide.
+- Coach fingering help uses the overlay replay when available, with sheet text as a fallback.
+- Unity 6000.6.8f1: 114 EditMode tests passed. The Main_2 smoke test passed for five distinct poke targets,
+  no duplicate buttons, label visibility at a downward head pose, coach replay/fallback, calibration cancel, and the sheet handoff.
+- Android APK built, installed, and launched on the Aura. Actual hand gestures, text readability, and MIDI need an on-device play-through.
+- Review handoff for Nehemiah, Canady, and Jordan: see the radial menu, mode panel, and sheet display integration in INTERFACES.
+
 ## 2026-11-15 — Claude Code (for Canady): demo keys no longer stay dark and then rush by
 - **Bug (on the Aura):** the replay after a failed run played its sound, but the keys stayed dark until about the last second,
   then all lit at once. `DemoPlayer` scheduled sound on the audio clock but lit keys on the frame clock (`Time.time`), which
@@ -65,6 +93,22 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   Screenshot checked (labels readable after enlarging).
 - **Not verified:** real hand poke/hover on the Aura, opening via the dot on device, readability/position in the glasses, real MIDI while
   the evaluator is paused, Main_2 (guided lesson keeps running during recalibration: no pause API in CurriculumEngine).
+
+## 2026-11-15 — Codex (for Ari): smaller fingering cues and on/off control
+- Fingertip digits sit on the tracked finger surface. Key cues are compact lilac circles that sit flat on the keys.
+- **Fingering On/Off** beside **Switch mode** hides or restores the full overlay and saves that choice on the device.
+- The Main_2 smoke test passed for badge size and placement, glow, both toggle states, recalibration, and Free Play.
+  Check actual fingertip alignment and contrast on the Aura after installing the updated APK.
+
+## 2026-11-15 — Codex (for Ari): fingering cues in Main_2
+- Guided Lesson shows authored fingerings as L/R badges on the key and numbers on tracked fingertips. The target tip
+  brightens in the key's hand color, with a translucent glow that fades in as it approaches that key.
+- First notes preview during the count-in. Live runs and demos use the same score data. A missing finger number omits
+  the cue for that note. Editor **F10** simulates hands during a lesson for checking the cue without a headset.
+- Editor Play mode checks passed for concurrent L1/R5 cues, missing data, tracking loss, proximity fade, run end, and demo cues.
+- **Tools → Piano → Run Fingering Smoke Test** passed from startup through Free Play with simulated hands, including
+  the opening R5/R4 demo, count-in, proximity glow, and recalibration. Android build installed and launched on the Aura puck.
+- Next on the Aura: check joint alignment, near-key fade, and readability with the hand occluder enabled.
 
 ## 2026-11-15 ~02:00 — Claude Code (for Ari): state of calibration in the main scene (Main_2)
 - **Works on the Aura:** corner-marker calibration (left then right, ~3–9 s each), keyboard hidden until both lock, calibrated at
@@ -359,7 +403,8 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   AssetPostprocessor made Unity reimport every texture (one-time) → replaced by per-file import settings; uncompressed pages were
   ~24 MB each → ASTC 4x4 on Android (~6 MB).
 - **Known limits:** Clair de Lune's automatic simplification puts high LH notes on ledger lines in bars ~15–24 (needs a hand edit);
-  Verovio prints the first system's bar number "1" above the Für Elise pickup. Images are black on white (asked for) — invert for the Aura.
+  Verovio prints the first system's bar number "1" above the Für Elise pickup. The images are black on white.
+  The current app displays them in those colors. See [Aura display and sheet music](AURA_DISPLAY.md).
 
 ## 2026-11-14 ~20:55 — Claude Code (for Nehemiah): Für Elise bars 9–22 + Clair de Lune from public-domain MIDI
 - **Sources:** Mutopia Project, both "Public Domain / CC: No rights reserved": Für Elise WoO 59 (piece 931, Breitkopf & Härtel 1888) and
@@ -686,9 +731,10 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - Note: Unity 6.6 isn't writing `%LOCALAPPDATA%/Unity/Editor/Editor.log` here (stale since 13:16); use the Console / MCP `read_console`.
 
 ## 2026-11-14 ~14:15 — Claude Code (for Ari): first on-device runs (Aura), passthrough + calibration fixes
-- **World was blacked out:** logcat showed `XR_ENVIRONMENT_BLEND_MODE_OPAQUE` (100% lens dimming). Fix per the Android XR package docs:
+- **World looked blacked out in this build:** logcat showed `XR_ENVIRONMENT_BLEND_MODE_OPAQUE`. The fix used the Android XR package setup:
   enabled OpenXR **Android XR: Session** + **Android XR: Camera (Passthrough)**, added an `AR Session` and an `ARCameraManager` on the
-  Main Camera (background already solid (0,0,0,0)). Verified on device: `OPAQUE → ALPHA_BLEND`, dimming 0.9 → 0.1. The scene builder adds these too.
+  Main Camera (background already solid (0,0,0,0)). On that device and build, the logs moved from `OPAQUE` to `ALPHA_BLEND` and
+  reported dimming values of 0.9 and 0.1 respectively. The scene builder adds the same components. [Aura display and sheet music](AURA_DISPLAY.md)
 - **Prompt/overlay not visible:** placed in `Start()`, but the XR session became visible ~2 min later and the runtime re-centers
   (`ReferenceSpaceChangePending`). Now: wait for a tracked, settled head pose, place the overlay ~45 cm ahead / 35 cm down, re-place
   on `XRInputSubsystem.trackingOriginUpdated`. Prompt stays still while in view and only re-centers after being out of view (no jitter).
