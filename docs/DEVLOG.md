@@ -878,3 +878,7 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - Editor smoke covers marker steps and retry, pinch fallback, wrist choices, fingering, and mode handoffs. Real permissions, gestures, voice and optical clarity require the Aura run.
 
 - Fingering now starts off on every launch, including upgrades with an older saved On setting. The toggle applies to the current session. The one-time spoken explanation is still remembered.
+
+## 2026-11-15 — PianoPal demo video handover
+- Added a team shot plan, Aura capture options, and Remotion assembly notes for the 30-second vertical submission. The remaining work is filming, assembling, and checking the final export.
+- Matched the video script to the Devpost draft, specified the cyan chamfer end card, and added timed narration and a live coach audio cue.
