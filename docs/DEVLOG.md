@@ -4,6 +4,22 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~16:30 — Claude Code (for Ari): hands occlude the overlay
+- New shader `Assets/Scripts/UI/Shaders/HandOccluder.shader` (`PianoTeacher/HandOccluder`): depth-only (ColorMask 0, ZWrite On,
+  queue 1990), stereo-instancing safe, inflates the mesh 4 mm along normals to cover tracking error. Material at
+  `Assets/Scripts/UI/Resources/HandOccluder.mat` (loaded at runtime, so no scene change).
+- `PianoCalibrator`: once calibrated (`handsOccludeOverlay`, default on), the tracked hand meshes get the occluder material and
+  follow tracking instead of being hidden, so overlay keys under a hand aren't drawn and the real hand shows through. While
+  calibrating the meshes stay hidden as before, so pinch markers remain visible.
+- Built and installed on the puck; not yet checked on the glasses. The template hand mesh is a generic size, so occlusion
+  edges may be a few mm off for small or large hands (tune `_Inflate` on the material).
+- ~16:40 update after a device test ("occluded zone too big, edge too clean"): the occluder is now a soft black mask drawn
+  after the keys (queue 2450, alpha blend, ColorMask RGB, ZWrite Off). Alpha = smoothstep(0, `_EdgeWidth`, |N·V|), so it
+  fades from 0 at the hand outline to full just inside it; `_Inflate` now -1.5 mm (shrinks the generic mesh). Cost: one extra
+  draw per tracked hand, no render targets or full-screen passes. Depth-map occlusion (XR_ANDROID_depth_texture) was
+  considered and rejected: a per-pixel depth sample in every overlay shader plus the runtime's depth computation, with
+  coarser edges than the hand mesh at finger scale.
+
 ## 2026-11-14 ~16:10 — Claude Code (for Ari): brighter overlay, standard black-key layout, Aura tracking check
 - Faint overlay cause: idle keys were 0.10 grey in Linear color space (≈1% light on an additive display), drawn only on the back
   65% of each key. `PianoOverlay` now draws idle keys as bright outlines (`outlineKeys`, `outlineColor`, `outlineWidth`); lit keys

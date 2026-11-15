@@ -36,6 +36,11 @@ public class PianoCalibrator : MonoBehaviour
              "Kept hidden every frame because XR Hands re-enables them when tracking changes. Tracking/pinch still work.")]
     public bool hideHandMeshes = true;
     public Renderer[] handMeshRenderers;
+    [Tooltip("Once calibrated, the hand meshes become invisible depth-only occluders, so the overlay is hidden wherever a " +
+             "hand is in front of it (like the real keys). While calibrating they stay hidden so pinch markers stay visible.")]
+    public bool handsOccludeOverlay = true;
+    [Tooltip("Soft black hand mask (PianoTeacher/HandOccluder). Loaded from Resources/HandOccluder if empty.")]
+    public Material handOccluderMaterial;
 
     [Header("Recalibrate dot on the back of the LEFT hand")]
     [Tooltip("Always available: touch the orange dot on the back of your left hand with your right index finger and hold.")]
@@ -441,7 +446,32 @@ public class PianoCalibrator : MonoBehaviour
 
     void LateUpdate()
     {
-        if (!hideHandMeshes || handMeshRenderers == null) return;
+        if (handMeshRenderers == null) return;
+        if (handsOccludeOverlay && !IsCalibrating)
+        {
+            if (!handOccluderMaterial) handOccluderMaterial = Resources.Load<Material>("HandOccluder");
+            if (handOccluderMaterial)
+            {
+                // XR Hands enables the renderers while a hand is tracked and may reassign its own material; keep ours.
+                foreach (var r in handMeshRenderers)
+                {
+                    if (!r) continue;
+                    if (r.sharedMaterial != handOccluderMaterial)
+                    {
+                        r.sharedMaterial = handOccluderMaterial;
+                        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    }
+                    // Renderers hidden during calibration stay off until tracking changes; follow tracking ourselves.
+                    if (_hands != null)
+                    {
+                        bool tracked = r.name.Contains("Left") ? _hands.leftHand.isTracked : _hands.rightHand.isTracked;
+                        if (r.enabled != tracked) r.enabled = tracked;
+                    }
+                }
+                return;
+            }
+        }
+        if (!hideHandMeshes) return;
         foreach (var r in handMeshRenderers) if (r && r.enabled) r.enabled = false;
     }
 
