@@ -32,10 +32,12 @@ internal sealed class FingeringGuide : MonoBehaviour
     static readonly Color RingColor = new Color(0.93f, 0.47f, 1f);
     static readonly Color ApproachGlow = new Color(0.68f, 1f, 0.16f);
     static readonly Color PressGlow = new Color(0.86f, 1f, 0.66f);
+    static readonly Color IdleNumber = new Color(0.83f, 0.91f, 1f, 0.36f);
     double _nextPressLog;
 
     sealed class Finger
     {
+        public TextMeshPro number;
         public TextMeshPro badge;
         public SpriteRenderer ring;
         public SpriteRenderer glow;
@@ -79,6 +81,7 @@ internal sealed class FingeringGuide : MonoBehaviour
             string number = (i % 5 + 1).ToString();
             _fingers[i] = new Finger
             {
+                number = MakeLabel($"Fingertip {hand}{number}", number, 0.010f),
                 badge = MakeLabel($"Key badge {hand}{number}", hand + number, 0.009f),
                 ring = MakeSprite($"Key ring {hand}{number}", _ringSprite, BadgeDiameter),
                 glow = MakeSprite($"Fingertip glow {hand}{number}", _glowSprite, 0.036f)
@@ -117,6 +120,7 @@ internal sealed class FingeringGuide : MonoBehaviour
         foreach (var finger in _fingers)
         {
             if (finger == null) continue;
+            Destroy(finger.number.gameObject);
             Destroy(finger.badge.gameObject);
             Destroy(finger.ring.gameObject);
             Destroy(finger.glow.gameObject);
@@ -206,6 +210,7 @@ internal sealed class FingeringGuide : MonoBehaviour
         foreach (var finger in _fingers)
         {
             if (finger == null) continue;
+            finger.number.enabled = false;
             finger.badge.enabled = false;
             finger.ring.enabled = false;
             finger.glow.enabled = false;
@@ -292,22 +297,26 @@ internal sealed class FingeringGuide : MonoBehaviour
             }
 
             bool pressed = now < finger.pressUntil && (note == null || note.midi == finger.pressedMidi);
-            if ((!hasKey && !pressed && finger.glowAmount <= 0f) ||
-                !TryGetTip(i, trackingSpace, note?.midi ?? finger.pressedMidi, out Vector3 tip,
-                    out Vector3 backAlongFinger, out float radius))
+            int tipMidi = note?.midi ?? (pressed ? finger.pressedMidi : (i < 5 ? 48 : 64) + i % 5);
+            bool tracked = TryGetTip(i, trackingSpace, tipMidi, out Vector3 tip,
+                out Vector3 backAlongFinger, out float radius);
+            finger.number.enabled = tracked;
+            if (!tracked)
             {
                 finger.glow.enabled = false;
                 finger.glowAmount = 0f;
                 continue;
             }
 
+            Vector3 center = tip + backAlongFinger * 0.005f;
+            Vector3 towardEye = (cameraPose.position - center).normalized;
+            finger.number.color = pressed || hasKey ? Color.white : IdleNumber;
+            finger.number.transform.SetPositionAndRotation(center + towardEye * (radius + 0.002f), cameraPose.rotation);
             float proximity = hasKey ? KeyProximity(keyboard.InverseTransformPoint(tip), surface) : 0f;
             finger.glowAmount = Mathf.MoveTowards(finger.glowAmount, proximity, Time.unscaledDeltaTime * 10f);
             finger.glow.enabled = pressed || finger.glowAmount > 0f;
             if (finger.glow.enabled)
             {
-                Vector3 center = tip + backAlongFinger * 0.005f;
-                Vector3 towardEye = (cameraPose.position - center).normalized;
                 Color cueColor = pressed ? PressGlow : ApproachGlow;
                 cueColor.a = pressed ? 1f : glowOpacity * finger.glowAmount;
                 finger.glow.color = cueColor;

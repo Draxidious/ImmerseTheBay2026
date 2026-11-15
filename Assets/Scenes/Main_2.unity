@@ -440,7 +440,7 @@ MonoBehaviour:
   introLine: "Hi, I'm your piano coach. Today we'll play the opening of F\xFCr Elise. Are you ready to learn?"
   calibrateLine: Great. First show me where your piano is. Follow the steps in front of you.
   lessonLine: Got it. Play the first note whenever you're ready.
-  chooseModeLine: Touch Menu on your left hand, swipe toward Lesson or Free Play, then lift.
+  chooseModeLine: Poke Menu on your left hand, then poke Lesson or Free Play.
   freePlayLine: Free play. Play anything you like, and I'll listen.
   startDelay: 1.5
   listenSeconds: 4

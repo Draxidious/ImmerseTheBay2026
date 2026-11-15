@@ -863,3 +863,8 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 - **Für Elise unchanged:** default song, bars, warm-up and sheet panel take the same path as before (the panel is not rebuilt unless another song was taught first).
 - Tests: `FreePlaySheetTests` (35 pass). **Untested** in play mode and on the Aura. Fingerings: only Ode to Joy RH and Mary RH have them; Twinkle has none.
 - Not done: asking to learn during a running lesson is ignored (it would throw the progress away); no confirmation flow.
+
+## 2026-11-15 — Main_2 wrist pokes
+- Aura logs from the swipe build show the recalibration confirmation opening, with no recalibration selection or green press pulse recorded.
+- The wrist menu accepts individual right-index pokes. Recalibrate and Restart require a separate confirmation poke. Fingering shows small numbers on tracked fingertips with the green press pulse.
+- Unity Editor smoke test passed with simulated hands, including separate confirmation pokes and fingertip numbers. Aura hardware verification is pending.

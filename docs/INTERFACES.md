@@ -32,7 +32,7 @@ holds no lesson or AI logic. Steps (`AppFlow.Step`, `CurrentStep`): `MicrophoneP
    Permission is rechecked before listening. Any answer, silence, or unavailable recording moves on.
 3. `Calibrating`: shows the overlay, calls `PianoCalibrator.Recalibrate()` (the scene has `calibrateOnStart` off), speaks `calibrateLine`.
 4. `ChooseMode`: on the first `PianoCalibrator.Calibrated`, sets `AppModeSwitch.AfterCalibration`, shows `ModeChoicePanel.ShowChoice()`
-   and speaks `chooseModeLine`. In Main_2 the player touches **Menu**, swipes toward a mode, then lifts to choose.
+   and speaks `chooseModeLine`. In Main_2 the player pokes **Menu**, then pokes the desired mode.
    `AIConfig.defaultMode` = `Lesson` / `FreePlay` skips the choice.
 5. `Lesson` (`EnterLesson`): ends free play, `PianoOverlay.ClearAll()`, activates the `PerformanceEvaluator` object, `Restart()`s it
    (always from the first note) and speaks `lessonLine`. `FreePlay` (`EnterFreePlay`): deactivates the evaluator object (stops judging
@@ -72,8 +72,8 @@ The lines are fixed text on the component (no model call). Editor debug: `Enter`
 ## UI — owner: Ari
 
 `Main_2` has a `FingeringGuide` on App Flow. It consumes the curriculum's existing run, due-note, and demo events.
-It uses authored `ExpectedNote.hand` and `finger` to pair lilac key badges (e.g. L1) with a glow on the target fingertip.
-A correct MIDI note with the authored fingertip close to the key produces a brighter pulse. **Fingering On/Off** controls both cues.
+It uses authored `ExpectedNote.hand` and `finger` to pair lilac key badges (e.g. L1) with a glow on the target fingertip. Fingering mode also labels each tracked hand 1–5, from thumb to pinky.
+A correct MIDI note with the authored fingertip close to the key produces a brighter pulse. **Fingering On/Off** controls the fingertip numbers, key badges and glow.
 The setting defaults to on and is saved on the device.
 `SongNoteDisplay` routes coach fingering help to an authored overlay replay when the guide is on and can replay the requested
 bar. Otherwise it displays the existing sheet text. In Editor Play mode, **F10** toggles simulated fingertip positions.
@@ -442,13 +442,9 @@ Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C
 ---
 
 ## Radial menu — built by Nehemiah (`Assets/Scripts/Menu/RadialMenu.cs`) ✅ (Editor) / untested on the Aura
-Main_2 uses the tracked right index only. Touch the center on the left hand, swipe toward a colored action, then lift.
-A swipe requires at least 5 cm of right-index travel and 5 cm of separation from the center in the action's direction.
-Return to the center before lifting to abandon the swipe. Tap **Close** or lower the hand to collapse the ring.
-Restart Lesson and Recalibrate reveal a tinted **Are you sure?** branch as soon as the swipe reaches the action.
-Continue outward through the branch to about 9 cm before withdrawing, or start another swipe from center if you lifted early.
+Main_2 uses the tracked right index only. Poke **Menu**, pull back, then poke a colored action. A poke can pass through the face. **Restart Lesson** and **Recalibrate** require a separate confirmation poke. Poke the center to close.
 The ring and confirmation follow the left hand. The Fingering sector reads **Lesson only** before entering Lesson.
-Fine Tune opens the existing calibration panel. Fingering is available in Lesson. The Main_2 wrist menu exposes no XRI ray or poke targets.
+Fine Tune opens the existing calibration panel. Fingering is available in Lesson. The Main_2 wrist menu handles pokes from tracked joints without XRI interactables.
 Legacy scenes retain their original orange-dot menu. Editor: **F1** toggles the ring with a simulated hand if needed, and **Esc** closes it.
 
 | Member | Purpose |

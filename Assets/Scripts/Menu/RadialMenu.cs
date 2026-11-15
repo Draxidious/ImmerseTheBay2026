@@ -8,7 +8,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 /// <summary>
 /// Main_2 renders a tracked left-hand button and a ring that expands around it. Other scenes use the legacy dot menu.
-/// Touch the center, swipe toward an action, and lift to select.
+/// Poke the center to open, then poke individual actions.
 /// </summary>
 public class RadialMenu : MonoBehaviour
 {
@@ -49,6 +49,7 @@ public class RadialMenu : MonoBehaviour
         public Material material;
         public Color color;
         public Color painted;
+        public float pokeRadius;
         public bool enabled = true;
     }
 
@@ -65,18 +66,12 @@ public class RadialMenu : MonoBehaviour
     GameObject _menuIcon, _closeIcon;
     Material _buttonEdge, _iconMaterial;
     float _lastHandPoseAt;
-    const float CenterRadius = 0.019f;
-    const float TouchDepth = -0.013f;
-    const float LiftDepth = -0.035f;
-    const float SwipeDistance = 0.050f;
-    const float ConfirmDistance = 0.087f;
-    const float DirectionMatch = 0.88f;
-    bool _readyToTouch, _stroking, _leftCenter, _openedByStroke, _previewedConfirmation;
+    const float PokeDepth = -0.008f;
+    const float RearmDepth = -0.022f;
+    const float MinimumIndexTravel = 0.005f;
+    bool _pokeArmed, _hasPokeSample;
     float _nextRefresh;
-    float _deepestTouch;
-    Vector3 _strokeStart;
-    Quaternion _strokeRotation;
-    Segment _swipeTarget;
+    Vector3 _previousPokeSample, _pokeStart;
     bool _wearable => _fingeringGuide;
 #if UNITY_EDITOR
     bool _simulateMenuHand;
@@ -122,8 +117,6 @@ public class RadialMenu : MonoBehaviour
     {
         if (!_root || !_root.gameObject.activeSelf) return;
         _root.gameObject.SetActive(false);
-        ClearStroke();
-        _readyToTouch = false;
         SetConfirmation(null);
         SetFocus(null);
         UpdateHandButton();
@@ -159,7 +152,7 @@ public class RadialMenu : MonoBehaviour
         if (_confirmButton == null) return;
         _confirmButton.go.SetActive(segment != null);
         if (segment == null) return;
-        _confirmButton.go.transform.localPosition = segment.go.transform.localPosition.normalized * 0.108f;
+        _confirmButton.go.transform.localPosition = segment.go.transform.localPosition.normalized * 0.120f;
         _confirmButton.color = Color.Lerp(segment.color, SoftIvory, 0.40f);
         SetColor(_confirmButton, _confirmButton.color);
     }
@@ -268,7 +261,7 @@ public class RadialMenu : MonoBehaviour
         {
             _markerCalibration = FindAnyObjectByType<MarkerCalibration>();
             BuildWearable();
-            AuraInteractionLog.Write("[RadialMenu] Swipe-through menu ready.");
+            AuraInteractionLog.Write("[RadialMenu] Individual poke menu ready.");
         }
         else Build();
         _root.gameObject.SetActive(false);
@@ -314,24 +307,15 @@ public class RadialMenu : MonoBehaviour
         {
             Close();
             if (_handAnchor && _handAnchor.gameObject.activeSelf) _handAnchor.gameObject.SetActive(false);
-            _readyToTouch = false;
+            ResetPoke();
             return;
         }
         if (_wearable)
         {
             UpdateHandTracking();
             if (_handAnchor.gameObject.activeSelf && calibrator.TryGetMenuIndexTip(out var tip))
-                UpdateSwipe(tip);
-            else
-            {
-                if (_stroking)
-                {
-                    AuraInteractionLog.Write("[RadialMenu] Stroke canceled: hand tracking lost.");
-                    if (_previewedConfirmation) SetConfirmation(null);
-                    ClearStroke();
-                }
-                _readyToTouch = false;
-            }
+                UpdatePoke(tip);
+            else ResetPoke();
         }
         DebugKeys();
         if (!IsOpen) return;
@@ -366,7 +350,7 @@ public class RadialMenu : MonoBehaviour
             if (s.label.color != labelColor) s.label.color = labelColor;
         }
         if (_pending != null)
-            SetColor(_confirmButton, _focused == _pending
+            SetColor(_confirmButton, _focused == _confirmButton
                 ? Color.Lerp(_confirmButton.color, Color.white, 0.35f) : _confirmButton.color);
         if (_title)
             _title.text = app && app.CurrentStep == AppFlow.Step.ChooseMode ? "Choose a mode" :
@@ -381,95 +365,66 @@ public class RadialMenu : MonoBehaviour
         else foreach (var x in _segments) x.go.transform.localScale = Vector3.one * (x == s ? 1.08f : 1f);
     }
 
-    // The left hand defines the menu direction; the right index must also travel in world space.
-    // This prevents a translation of the wrist under a stationary index from becoming a swipe.
-    void UpdateSwipe(Vector3 tip)
+    // Interpolate the face crossing so a quick poke can pass through the button.
+    void UpdatePoke(Vector3 tip)
     {
         Vector3 local = _handAnchor.InverseTransformPoint(tip);
-        Vector2 radial = new Vector2(local.x, local.y);
-        bool atCenter = radial.sqrMagnitude <= CenterRadius * CenterRadius;
-        bool lifted = local.z < LiftDepth;
-        if (!_stroking)
+        if (local.z <= RearmDepth)
         {
-            if (lifted && atCenter) _readyToTouch = true;
-            if (!atCenter) _readyToTouch = false;
-            // A sampled frame can jump from in front of the button to behind it.
-            // The center approach arms a crossing, so a sample on the face isn't required.
-            if (!_readyToTouch || local.z < TouchDepth) return;
-            _readyToTouch = false;
-            _openedByStroke = !IsOpen;
-            if (_openedByStroke) Open();
-            _stroking = true;
-            _leftCenter = false;
-            _strokeStart = tip;
-            _strokeRotation = _handAnchor.rotation;
-            _deepestTouch = local.z;
+            _pokeStart = tip;
+            _pokeArmed = true;
+        }
+        Vector3 previous = _previousPokeSample;
+        bool crossing = _hasPokeSample && previous.z < PokeDepth && local.z >= PokeDepth;
+        _previousPokeSample = local;
+        _hasPokeSample = true;
+        if (!crossing)
+        {
+            SetFocus(_pokeArmed && local.z < PokeDepth && local.z > -0.065f ? FindPokeTarget(local) : null);
             return;
         }
 
-        // Once armed, use the finger's projection onto the menu. Moving through the
-        // visual face is still part of the swipe. Only withdrawing toward the viewer releases.
-        _deepestTouch = Mathf.Max(_deepestTouch, local.z);
-        if (!atCenter) _leftCenter = true;
-        if (atCenter && _previewedConfirmation)
-        {
-            SetConfirmation(null);
-            _previewedConfirmation = false;
-        }
-        Vector3 motion = Quaternion.Inverse(_strokeRotation) * (tip - _strokeStart);
-        var planarMotion = new Vector2(motion.x, motion.y);
-        Segment target = FindSwipeTarget(radial, planarMotion);
-        if (_pending == null && target != null && NeedsConfirmation(target.choice))
-        {
-            SetConfirmation(target);
-            _previewedConfirmation = true;
-            Refresh();
-        }
-        bool reachedConfirmation = _pending != null && target == _pending &&
-            radial.sqrMagnitude >= ConfirmDistance * ConfirmDistance &&
-            planarMotion.sqrMagnitude >= ConfirmDistance * ConfirmDistance;
-        _swipeTarget = _pending == null || reachedConfirmation ? target : null;
-        SetFocus(_swipeTarget);
-        if (!lifted) return;
-
-        var selection = _swipeTarget;
-        bool closeTap = atCenter && !_leftCenter && !_openedByStroke;
-        AuraInteractionLog.Write($"[RadialMenu] Released: {selection?.choice.ToString() ?? (target != null ? "confirmation shown" : atCenter ? "center" : "no target")}; " +
-            $"depth {_deepestTouch * 1000f:F0} mm, radial {radial.magnitude * 1000f:F0} mm, " +
-            $"right-index travel {new Vector2(motion.x, motion.y).magnitude * 1000f:F0} mm" +
-            (_pending != null ? "; confirming." : "."));
-        ClearStroke();
-        _readyToTouch = atCenter;
-        if (closeTap) Close();
-        else if (selection != null)
-        {
-            if (reachedConfirmation) ExecuteChoice(selection.choice);
-            else Choose(selection.choice);
-        }
+        bool armed = _pokeArmed;
+        _pokeArmed = false;
+        SetFocus(null);
+        float forwardTravel = Vector3.Dot(tip - _pokeStart, _handAnchor.forward);
+        if (!armed || forwardTravel < MinimumIndexTravel) return;
+        Vector3 facePoint = Vector3.Lerp(previous, local, (PokeDepth - previous.z) / (local.z - previous.z));
+        var target = FindPokeTarget(facePoint);
+        if (target == null) return;
+        string label = target == _handButton ? (IsOpen ? "Close" : "Menu") :
+            target == _confirmButton ? $"Confirm {_pending.choice}" : target.choice.ToString();
+        AuraInteractionLog.Write($"[RadialMenu] Poked: {label}; right-index travel {forwardTravel * 1000f:F0} mm.");
+        if (target == _handButton) Toggle();
+        else if (target == _confirmButton) ExecuteChoice(_pending.choice);
+        else Choose(target.choice);
     }
 
-    Segment FindSwipeTarget(Vector2 radial, Vector2 motion)
+    Segment FindPokeTarget(Vector2 point)
     {
-        if (radial.sqrMagnitude < SwipeDistance * SwipeDistance || motion.sqrMagnitude < SwipeDistance * SwipeDistance)
-            return null;
-        radial.Normalize();
-        motion.Normalize();
+        if (point.sqrMagnitude <= _handButton.pokeRadius * _handButton.pokeRadius) return _handButton;
+        if (!IsOpen) return null;
+        if (_pending != null)
+            return IsAvailable(_pending.choice, out _) && Hits(_confirmButton, point) ? _confirmButton : null;
         foreach (var segment in _segments)
         {
-            if ((_pending != null && segment != _pending) || !segment.enabled) continue;
-            Vector2 direction = ((Vector2)segment.go.transform.localPosition).normalized;
-            if (Vector2.Dot(radial, direction) >= DirectionMatch &&
-                Vector2.Dot(motion, direction) >= DirectionMatch) return segment;
+            if (IsAvailable(segment.choice, out _) && Hits(segment, point)) return segment;
         }
         return null;
     }
 
-    void ClearStroke()
+    bool Hits(Segment segment, Vector2 point)
     {
-        _stroking = false;
-        _previewedConfirmation = false;
-        _swipeTarget = null;
-        SetFocus(null);
+        float size = _root.localScale.x;
+        float radius = segment.pokeRadius * size;
+        return (point - (Vector2)segment.go.transform.localPosition * size).sqrMagnitude <= radius * radius;
+    }
+
+    void ResetPoke()
+    {
+        _pokeArmed = false;
+        _hasPokeSample = false;
+        if (_wearable) SetFocus(null);
     }
 
     void PlaceInFrontOfHead()
@@ -561,13 +516,13 @@ public class RadialMenu : MonoBehaviour
         AddWearableAction(Choice.FreePlay, 150f, orbit, new Color(0.25f, 0.53f, 0.35f));
         _confirmButton = NewSegment(Choice.Close, "Confirm", addToRing: false);
         MakeButtonBody(_confirmButton, 0.024f);
-        _confirmButton.label = Label(_confirmButton.go.transform, "Label", "Are you sure?\nSwipe through", 0.074f,
+        _confirmButton.label = Label(_confirmButton.go.transform, "Label", "Are you sure?\nPoke to confirm", 0.074f,
             new Vector3(0f, 0f, -0.006f), new Vector2(0.047f, 0.031f));
         _confirmButton.go.SetActive(false);
 
         _handButton = NewSegment(Choice.Close, "Close", _handAnchor, addToRing: false);
         MakeButtonBody(_handButton, 0.019f);
-        _handButton.label = Label(_handButton.go.transform, "Label", "Menu", 0.108f,
+        _handButton.label = Label(_handButton.go.transform, "Label", "Menu", 0.120f,
             new Vector3(0f, -0.006f, -0.006f), new Vector2(0.032f, 0.014f));
         _menuIcon = new GameObject("Piano keys icon");
         _menuIcon.transform.SetParent(_handButton.go.transform, false);
@@ -604,6 +559,7 @@ public class RadialMenu : MonoBehaviour
 
     void MakeButtonBody(Segment segment, float buttonRadius)
     {
+        segment.pokeRadius = buttonRadius;
         var parent = segment.go.transform;
         var rotation = Quaternion.Euler(90f, 0f, 0f);
         MakeShape(parent, PrimitiveType.Cylinder, Vector3.zero,

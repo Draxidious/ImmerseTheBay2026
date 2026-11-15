@@ -9,27 +9,29 @@ Für Elise demo, four-pinch calibration) is disabled; its checks are kept at the
 |---|---|
 | Startup | `[MarkerCalibration] Loaded offsets …` (if saved before), MIDI backend starts, intro speech. |
 | Marker calibration | Prompt asks for the corner markers; first launch asks scene-understanding permission. Look at the LEFT marker (A0 end) then the RIGHT (C8 end), ~1 s each: `Left marker locked`, `Right marker locked; span ~1.25 m`, `Calibrated (markers) … scale 1.000`. Every C lights for 5 s; sheet moves above the keyboard. ✅ |
-| Choose mode | Touch or pass through the center of **Menu** with the right index, swipe toward a colored action, then withdraw toward yourself. Try swiping behind the visible menu, returning to center, and making a short motion. A full swipe can pass through the face. Center returns and short movements should keep the lesson unchanged. |
+| Choose mode | Poke **Menu**, pull back, then poke a mode. Try a fast poke through the face. Moving sideways behind the menu or moving the wrist into a stationary index should leave the mode unchanged. |
 | Keyboard during scan | `Keyboard hidden while scanning` at the calibrate line; keys appear only with `Keyboard shown` after the right marker locks. ✅ (01:48) |
 | Lesson + MIDI | `[Lesson] Starting …`, demo of measure 1, then runs pass/fail from real P71 notes (`[MIDI] Note ON …`), tempo steps 50 → 75 → 100 %. ✅ |
 | Sheet readability | In Lesson and Free Play, check the dark notes and staff lines on the white page and the current-bar highlight while wearing the glasses. Check the video capture separately. See [Aura display and sheet music](AURA_DISPLAY.md). |
 | Offsets | Select **Fine Tune** in the hand menu. Adjust the offsets, then **Save** to write `marker-offsets.json`. |
-| Recalibrate | Swipe toward **Recalibrate Piano**. **Are you sure?** should appear before you lift. Continue through that branch and withdraw to start the scan. Returning to the center should abandon the preview. Check the same confirmation for **Restart Lesson**. |
+| Recalibrate | Poke **Recalibrate Piano**, then poke **Are you sure?**. Poke **Close** to cancel. Check the same confirmation for **Restart Lesson**. |
 | Fallback | Deny scene permission or hide the markers 45 s: pinch steps come back. |
 | No exception flood | No XRI `IndexOutOfRangeException` (`MaterialHelperBase.GetSharedMaterialForTarget`) in the log. Was ~80k lines per run; fixed 2026-11-15 (hand occluder keeps both material slots). ✅ (01:48: 0 exceptions) |
 
 ### Run the Editor smoke test before Build and Run
 
 In Unity, choose **Tools → Piano → Run Fingering Smoke Test**. It enters Play mode, opens Main_2,
-simulates marker calibration, wrist motion, and right-index swipe samples. It checks the gesture thresholds, center cancellation,
+simulates marker calibration, wrist motion, and right-index poke samples. It checks poke depth, fresh withdrawal between pokes, center cancellation,
 confirmation, ray exclusion, fine-tuning, the overlay toggle, coach replay or sheet fallback, and both
 mode switches. Check the Console for `[Fingering smoke] PASS` or the failed step. It exits Play mode automatically.
 
 Choose Lesson and check the opening E5 → D♯5 demo for lilac `R5` → `R4` key badges and fingertip glow. During the timed run,
 check for a larger, pale-green pulse over the lime glow when the indicated fingertip is on the correct MIDI key.
-Swipe to **Fingering On/Off** to toggle the cues.
+Poke **Fingering On/Off** to toggle the cues and small 1–5 numbers on each tracked hand.
 
-Swipe outcomes and sampled press pulses persist on the puck. To retrieve them after testing, run
+To exit audio-only mode, say **Hey teacher**, wait for the chime, then say **visuals on**. The voice command requires microphone access and working Groq transcription.
+
+Poke outcomes and sampled press pulses persist on the puck. To retrieve them after testing, run
 `adb pull /sdcard/Android/data/com.DefaultCompany.VRTemplate/files/interaction-test.log`.
 If the log has rotated, retrieve `interaction-test.log.previous` from the same directory.
 

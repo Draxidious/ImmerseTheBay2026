@@ -82,7 +82,7 @@ public static class FingeringGuideSmokeTests
                 _wait = _checks.Current as CustomYieldInstruction;
                 return;
             }
-            Debug.Log("[Fingering smoke] PASS: tracked swipes, center cancellation, confirmations, ray exclusion, fingering pulse, and sheet handoff.");
+            Debug.Log("[Fingering smoke] PASS: tracked pokes, center cancellation, confirmations, ray exclusion, fingertip numbers and press pulse, and sheet handoff.");
         }
         catch (Exception error)
         {
@@ -124,18 +124,20 @@ public static class FingeringGuideSmokeTests
 
         var simulateHand = menu.GetType().GetField("_simulateMenuHand", flags);
         var handOffset = menu.GetType().GetField("_simulatedHandOffset", flags);
-        var updateSwipe = menu.GetType().GetMethod("UpdateSwipe", flags);
+        var updatePoke = menu.GetType().GetMethod("UpdatePoke", flags);
         simulateHand.SetValue(menu, true);
         Vector3 Direction(RadialMenu.Choice choice) => root.Find(choice + "Segment").localPosition.normalized;
-        void Sample(Vector3 local) => updateSwipe.Invoke(menu, new object[] { anchor.TransformPoint(local) });
-        void Touch() { Sample(Vector3.back * 0.05f); Sample(Vector3.zero); }
-        void Lift(Vector3 local) => Sample(local + Vector3.back * 0.05f);
-        void Swipe(RadialMenu.Choice choice, float distance = 0.065f)
+        Vector3 Target(RadialMenu.Choice choice) => anchor.InverseTransformPoint(root.Find(choice + "Segment").position);
+        void Sample(Vector3 local) => updatePoke.Invoke(menu, new object[] { anchor.TransformPoint(local) });
+        void PokeAt(Vector3 point)
         {
-            Touch();
-            Vector3 target = Direction(choice) * distance;
-            Sample(target);
-            Lift(target);
+            Sample(point + Vector3.back * 0.045f);
+            Sample(point + Vector3.forward * 0.045f);
+        }
+        void Poke(RadialMenu.Choice choice)
+        {
+            if (!menu.IsOpen) PokeAt(Vector3.zero);
+            PokeAt(Target(choice));
         }
 
         var config = AIConfig.Get();
@@ -148,42 +150,36 @@ public static class FingeringGuideSmokeTests
         Require(menu.IsOpen && flow.CurrentStep == AppFlow.Step.ChooseMode, "Skipping past the menu face should still open the menu.");
         Require(root.Find("FingeringSegment/Label").GetComponent<TextMeshPro>().text == "Fingering\nLesson only",
             "The startup fingering label does not explain why it is unavailable.");
-        Lift(Vector3.zero);
+        Sample(Vector3.back * 0.045f);
         Vector3 previousCenter = anchor.position;
         handOffset.SetValue(menu, new Vector3(0.07f, 0.01f, 0f));
         yield return WaitFor(() => Vector3.Distance(previousCenter, anchor.position) > 0.05f, "the open menu to follow the hand");
         Require(root.parent == anchor && root.localPosition == Vector3.zero, "The ring detached from the hand.");
 
-        Swipe(RadialMenu.Choice.RestartLesson, 0.025f);
-        Require(menu.IsOpen && flow.CurrentStep == AppFlow.Step.ChooseMode, "A short movement selected an action.");
-        Touch();
-        Sample(Direction(RadialMenu.Choice.RestartLesson) * 0.065f + Vector3.forward * 0.06f);
-        Require(flow.CurrentStep == AppFlow.Step.ChooseMode, "The action fired before lift.");
-        Sample(Vector3.zero);
-        Lift(Vector3.zero);
-        Require(menu.IsOpen && flow.CurrentStep == AppFlow.Step.ChooseMode, "Returning to center selected an action.");
+        Vector3 startTarget = Target(RadialMenu.Choice.RestartLesson);
+        Vector3 gap = Vector3.right * 0.18f;
+        PokeAt(gap);
+        Sample(startTarget + Vector3.forward * 0.045f);
+        Require(menu.IsOpen && flow.CurrentStep == AppFlow.Step.ChooseMode, "Sliding behind a button selected it.");
 
-        Touch();
-        Vector3 stationaryTip = anchor.position;
+        Vector3 stationaryTip = anchor.TransformPoint(startTarget + Vector3.back * 0.045f);
         Vector3 originalAnchor = anchor.position;
-        anchor.position -= anchor.TransformVector(Direction(RadialMenu.Choice.RestartLesson) * 0.065f);
-        updateSwipe.Invoke(menu, new object[] { stationaryTip });
-        updateSwipe.Invoke(menu, new object[] { stationaryTip - anchor.forward * 0.05f });
+        updatePoke.Invoke(menu, new object[] { stationaryTip });
+        anchor.position -= anchor.forward * 0.08f;
+        updatePoke.Invoke(menu, new object[] { stationaryTip });
         anchor.position = originalAnchor;
         Require(menu.IsOpen && flow.CurrentStep == AppFlow.Step.ChooseMode, "Wrist movement alone selected an action.");
 
-        Sample(Vector3.back * 0.05f);
-        Sample(Vector3.forward * 0.045f);
-        Vector3 startTarget = Direction(RadialMenu.Choice.RestartLesson) * 0.065f;
-        Sample(startTarget + Vector3.forward * 0.06f);
-        Require(flow.CurrentStep == AppFlow.Step.ChooseMode, "Pushing through the plane committed an action before withdrawal.");
-        Lift(startTarget);
-        Require(flow.CurrentStep == AppFlow.Step.Lesson && !menu.IsOpen, "The Start Lesson swipe did not work.");
+        PokeAt(startTarget);
+        Require(flow.CurrentStep == AppFlow.Step.Lesson && !menu.IsOpen, "A fast poke through Start Lesson did not work.");
         var badge = FindLabel(flow, "Key badge R5");
         var nextBadge = FindLabel(flow, "Key badge R4");
         var glow = flow.transform.Find("Fingertip glow R5").GetComponent<SpriteRenderer>();
-        Require(!flow.transform.Find("Fingertip R5"), "A fingertip number is still visible.");
+        var rightPinky = FindLabel(flow, "Fingertip R5");
+        var leftThumb = FindLabel(flow, "Fingertip L1");
         yield return WaitFor(() => badge.enabled, "R5 on E5");
+        Require(rightPinky.enabled && rightPinky.text == "5" && leftThumb.enabled && leftThumb.text == "1",
+            "Tracked hands did not show their fingertip numbers.");
         Require(badge.text == "R5" && Vector3.Distance(badge.transform.position, flow.overlay.GetKeyWorldCenter(76)) < 0.04f,
             "R5 is on the wrong key.");
         yield return WaitFor(() => nextBadge.enabled, "R4 on D sharp 5 during the demo");
@@ -199,24 +195,24 @@ public static class FingeringGuideSmokeTests
             return false;
         }, "the bright correct-press pulse");
 
-        Swipe(RadialMenu.Choice.Fingering);
-        Require(!badge.enabled && !glow.enabled && !menu.IsOpen && PlayerPrefs.GetInt(FingeringPref) == 0,
+        Poke(RadialMenu.Choice.Fingering);
+        Require(!badge.enabled && !glow.enabled && !rightPinky.enabled && !leftThumb.enabled &&
+            !menu.IsOpen && PlayerPrefs.GetInt(FingeringPref) == 0,
             "Turning off fingering left a cue active.");
         var coachAction = flow.engine.GetType().GetMethod("HandleCoachAction", flags);
         var stats = (TMP_Text)flow.sheetDisplay.GetType().GetField("_stats", flags).GetValue(flow.sheetDisplay);
         var help = new CoachAction { type = CoachActionType.ShowFingering, firstBar = 1, lastBar = 1, fingers = new[] { 5, 4 } };
         coachAction.Invoke(flow.engine, new object[] { help });
         Require(stats.text.StartsWith("Fingering,", StringComparison.Ordinal), "Coach fingering should use the sheet with the overlay off.");
-        Swipe(RadialMenu.Choice.Fingering);
+        Poke(RadialMenu.Choice.Fingering);
         Require(PlayerPrefs.GetInt(FingeringPref) == 1, "Turning on fingering did not save.");
         coachAction.Invoke(flow.engine, new object[] { help });
         Require(!stats.text.StartsWith("Fingering,", StringComparison.Ordinal), "Coach replay duplicated the sheet text.");
         yield return WaitFor(() => flow.engine.IsDemoPlaying, "coach fingering replay");
 
-        Swipe(RadialMenu.Choice.FineTune);
+        Poke(RadialMenu.Choice.FineTune);
         Require(!menu.IsOpen && GameObject.Find("MarkerOffsetsPanel"), "Fine Tune did not open the marker offsets.");
-        Touch();
-        Lift(Vector3.zero);
+        PokeAt(Vector3.zero);
         yield return WaitFor(() => !GameObject.Find("MarkerOffsetsPanel"), "the menu to dismiss fine tuning");
         simulateHand.SetValue(menu, false);
         yield return WaitFor(() => !anchor.gameObject.activeSelf && !menu.IsOpen, "tracking loss to close the ring");
@@ -225,46 +221,36 @@ public static class FingeringGuideSmokeTests
 
         var confirm = root.Find("ConfirmSegment");
         Vector3 oldPosition = flow.overlay.transform.position;
-        Touch();
-        Vector3 recalibrateDirection = Direction(RadialMenu.Choice.Recalibrate);
-        Sample(recalibrateDirection * 0.065f + Vector3.forward * 0.05f);
+        Poke(RadialMenu.Choice.Recalibrate);
         Require(!flow.calibrator.IsCalibrating && confirm.gameObject.activeSelf &&
             Vector3.Dot(confirm.localPosition.normalized, Direction(RadialMenu.Choice.Recalibrate)) > 0.99f,
-            "Recalibrate should preview its confirmation while the index is still down.");
-        Sample(Vector3.zero);
-        Lift(Vector3.zero);
-        Require(menu.IsOpen && !confirm.gameObject.activeSelf && !flow.calibrator.IsCalibrating,
-            "Returning to center should dismiss the confirmation preview.");
-        Swipe(RadialMenu.Choice.Recalibrate);
-        Swipe(RadialMenu.Choice.Recalibrate);
-        Require(!flow.calibrator.IsCalibrating && menu.IsOpen, "A short swipe confirmed recalibration.");
-        Touch();
-        Lift(Vector3.zero);
+            "Poking Recalibrate should show a separate confirmation.");
+        Sample(anchor.InverseTransformPoint(confirm.position) + Vector3.forward * 0.045f);
+        Poke(RadialMenu.Choice.Recalibrate);
+        Require(!flow.calibrator.IsCalibrating && menu.IsOpen, "Confirmation accepted without a separate poke.");
+        PokeAt(Vector3.zero);
         Require(!menu.IsOpen && !confirm.gameObject.activeSelf && !flow.calibrator.IsCalibrating, "Close did not cancel confirmation.");
-        Touch();
-        Sample(recalibrateDirection * 0.065f + Vector3.forward * 0.05f);
-        Sample(recalibrateDirection * 0.105f + Vector3.forward * 0.06f);
-        Require(!flow.calibrator.IsCalibrating, "Recalibration started before release.");
-        Lift(recalibrateDirection * 0.105f);
+        Poke(RadialMenu.Choice.Recalibrate);
+        PokeAt(anchor.InverseTransformPoint(confirm.position));
         Require(flow.calibrator.IsCalibrating && !menu.IsOpen, "Confirmed recalibration did not start.");
-        Swipe(RadialMenu.Choice.Recalibrate);
+        Poke(RadialMenu.Choice.Recalibrate);
         yield return WaitFor(() => !flow.calibrator.IsCalibrating && flow.overlay.isActiveAndEnabled, "cancellation to restore the keyboard");
         Require(flow.overlay.transform.position == oldPosition, "Cancelling recalibration moved the keyboard.");
 
-        Swipe(RadialMenu.Choice.FreePlay);
+        Poke(RadialMenu.Choice.FreePlay);
         Require(flow.CurrentStep == AppFlow.Step.FreePlay && !flow.sheetDisplay.gameObject.activeInHierarchy, "Incorrect Free Play handoff.");
         var freePlaySheet = UnityEngine.Object.FindAnyObjectByType<FreePlaySheet>();
         Require(freePlaySheet && freePlaySheet.Show("fur_elise", true), "The Free Play sheet could not show a song.");
-        Swipe(RadialMenu.Choice.RestartLesson);
+        Poke(RadialMenu.Choice.RestartLesson);
         Require(flow.CurrentStep == AppFlow.Step.Lesson && !freePlaySheet.IsShowing &&
             flow.sheetDisplay.gameObject.activeInHierarchy, "Returning to Lesson left duplicate or missing sheets.");
-        Swipe(RadialMenu.Choice.RestartLesson);
+        Poke(RadialMenu.Choice.RestartLesson);
         Require(menu.IsOpen && confirm.gameObject.activeSelf &&
             Vector3.Dot(confirm.localPosition.normalized, Direction(RadialMenu.Choice.RestartLesson)) > 0.99f,
             "Restart did not branch to its own confirmation.");
-        Swipe(RadialMenu.Choice.RestartLesson, 0.118f);
+        PokeAt(anchor.InverseTransformPoint(confirm.position));
         Require(!menu.IsOpen && flow.engine.Measure == 1, "Confirmed restart did not return to the opening measure.");
-        Swipe(RadialMenu.Choice.Visuals);
+        Poke(RadialMenu.Choice.Visuals);
         Require(VisualsMode.NonVisual && !menu.IsOpen && Camera.main.cullingMask == 0,
             "Visuals Off must hide the app and close the menu.");
         yield return WaitFor(() => !anchor.gameObject.activeSelf, "audio-only mode to hide the wrist");
