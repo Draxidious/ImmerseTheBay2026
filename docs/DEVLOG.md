@@ -4,6 +4,13 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Claude Code (for Jordan): Main gets the MIDI reader, evaluator and sheet panel
+- Moved `MidiPianoReader` and `Performance Evaluator` (`PerformanceEvaluator` + `SongNoteDisplay` with the 21 sheet lines) from
+  `JordanScene` into `Main` (JordanScene itself is unchanged). The evaluator object **starts inactive**; nothing turns it on yet.
+- Left behind: JordanScene's rig, Plane, light, EventSystem and the MIDI Log Canvas.
+- **Works (Editor Play mode):** activating the evaluator by hand builds the sheet panel and it advances on key presses, 0 errors.
+  **Not yet:** the panel still sits at its JordanScene position (0.95, 1.5, 1.8), not relative to the piano.
+
 ## 2026-11-14 night — Claude Code (for Jordan): `Main.unity` = Dev_Ari + coach orb + AI coach
 - `Assets/Scenes/Main.unity` is a copy of `Dev_Ari` (rig, AR Session, PianoOverlay, PianoCalibrator untouched) plus the `CoachOrb`
   prefab and an `AI Coach` object (AudioSource, `VoiceOutput`, `AICoach`, `VoiceInput`; no `AIDebugPanel`, its keys clash).
