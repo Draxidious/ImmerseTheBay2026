@@ -4,6 +4,14 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 night — Claude Code (for Jordan): Lesson scripts compile again after the AI merge
+- Main had 6 compile errors in `Assets/Scripts/Lesson/` after merging Canady: `SongNote` defined twice, `PerformanceMetrics`
+  deleted, `WrongNote` changed to MIDI numbers.
+- Lesson types renamed `Song` → `LessonSong`, `SongNote` → `LessonNote`. `PerformanceEvaluator.SongFinished` now hands out the
+  coach's `RunStats` (accuracy, timing, `tempoRating`, wrong notes, rushed / dragged bars). `avgTimingErrorMs` and `songName` are gone.
+- **Works:** the runtime assembly compiles. **Still broken:** `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs` references the deleted
+  `HesitationTracker` and `AIDebugPanel.tracker` (2 errors, editor assembly), so Play mode is still blocked.
+
 ## 2026-11-14 evening — Claude Code (for Jordan): coach playbook linked from the docs
 - `docs/COACH_PLAYBOOK.md` (already on main) is now referenced from `CLAUDE.md` (Architecture) and `INTERFACES.md` (LessonEngine).
   It defines the lesson progression: learn each new measure alone at 50% → 75% → 100% tempo, then a full play-through from

@@ -151,6 +151,22 @@ measure). Agreed design, not implemented yet. It needs per-measure ratings and a
   "avgHesitationMs": 820, "slowestNote": {"note": 69, "measure": 7, "ms": 2100} }
 ```
 
+### PerformanceEvaluator (`Assets/Scripts/Lesson/PerformanceEvaluator.cs`) ✅ — Jordan
+Wait-mode judge for the Für Elise excerpt (`SongLibrary.FurElise`). Its song types are `LessonSong` / `LessonNote`
+(renamed so they don't collide with the AI layer's `SongData` / `SongNote`).
+
+| Member | Purpose |
+|---|---|
+| `void HandleNoteOn(int midi, int velocity)` | Feed a key press (subscribed to `MidiPianoReader.NoteOn` automatically). |
+| `void Restart()` | Back to the first note, score cleared. |
+| `LessonNote CurrentNote` / `int CurrentIndex` / `bool IsFinished` | Where the player is. |
+| `event Action Restarted` | A new attempt started. |
+| `event Action<NoteResult> NoteJudged` | The correct key was pressed. |
+| `event Action<int, int> WrongNotePlayed` | `(expectedMidi, playedMidi)`. |
+| `event Action<RunStats> SongFinished` | The run summary in the coach's own type (`CoachContext.thisRun`): accuracy, timing, `tempoRating`, wrong notes as MIDI numbers, rushed / dragged bars. |
+
+Editor debug: `Space` = correct note, `X` = wrong note, `P` = auto-play, `Backspace` = restart.
+
 ## AICoach — `AICoach` (`Assets/Scripts/AI/AICoach.cs`, from main) 🚧
 Takes `PerformanceMetrics` (`Assets/Scripts/AI/PerformanceMetrics.cs`) instead of the proposed `PhraseResult`. Keys live in a
 gitignored `Assets/StreamingAssets/secrets.json`.
