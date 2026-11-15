@@ -4,6 +4,21 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~02:00 PT — Claude Code (for Nehemiah): left-hand radial menu (Restart Lesson / Free Play / Recalibrate)
+- New `Assets/Scripts/Menu/RadialMenu.cs`: ring of three poke segments + center Close, bright rims/icons/text only (additive display).
+  Adds itself to scenes with AppFlow + PianoCalibrator. Opened/closed by the existing orange dot on the back of the left hand.
+- `PianoCalibrator` (Ari's file, small additive change): `MenuDotPressed` (the orange dot raises it instead of recalibrating when a
+  listener exists), `CancelCalibration()` + `CalibrationCancelled`; the "Calibrated!" prompts mention the menu when it exists.
+  **Ari: please review.** With no RadialMenu in a scene the dot behaves exactly as before.
+- **Verified (Editor, Main, Play mode via MCP, calibration faked with `SubmitPoint`):** menu auto-added; before calibration all actions
+  refused; mode choice → Start Lesson enters the lesson at note 0; 5 right + 1 wrong then open/close only → index 5 kept; Restart →
+  index 0, wrong 0; a second action in the same opening refused; Recalibrate → calibrating, evaluator off, index kept → Cancel → overlay
+  pose/rotation/scale unchanged, evaluator on, next note advances; Recalibrate → successful fit → overlay moved, index kept, still Lesson;
+  Free Play → step FreePlay, option shows "Free Play (on)" disabled; Start Lesson from free play → Lesson at note 0. EditMode 77/77.
+  Screenshot checked (labels readable after enlarging).
+- **Not verified:** real hand poke/hover on the Aura, opening via the dot on device, readability/position in the glasses, real MIDI while
+  the evaluator is paused, Main_2 (guided lesson keeps running during recalibration: no pause API in CurriculumEngine).
+
 ## 2026-11-15 ~00:10 — Claude Code (for Ari): corner markers take over calibration (Dev_Ari)
 - New `MarkerCalibration` (UI folder), ported from the AuraMarkerTest prototype: two 33 mm ArUco markers on the P71's rear
   corners replace the four pinch steps. Hands, occlusion, the orange recalibrate dot and all XRI interaction are unchanged.

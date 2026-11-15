@@ -122,6 +122,8 @@ a hand are not drawn and the real hand shows through. Toggle with `handsOccludeO
 | `void ShowInfo(string text, float seconds)` | Temporary message on the calibration prompt. |
 | `bool markersAvailable` (runtime) | Set by `MarkerCalibration`: pinches are ignored and the prompt asks for the corner markers. Cleared if marker tracking can't run that round, which brings the pinch steps back. |
 | `event Action OffsetsDotPressed` | A second, blue dot sits just below the orange one (toward the wrist) while something listens; touch-and-hold it the same way (~0.6 s). |
+| `event Action MenuDotPressed` | Orange dot held (~0.6 s, 2 s cooldown). While anything listens (the `RadialMenu`), the dot raises this **instead of** calling `Recalibrate()`; with no listener it recalibrates as before. Added by Nehemiah's session (Ari informed via this doc). |
+| `void CancelCalibration()` / `event Action CalibrationCancelled` | Stop a calibration in progress; the overlay keeps the pose of the last successful calibration (it only moves when a fit succeeds). Hides markers and preview keys, shows "Recalibration cancelled". No-op when idle. |
 
 Editor debug: `C` = fake both pinches in front of the camera, `R` = recalibrate.
 
@@ -401,6 +403,27 @@ questions. Code computes every musical fact (`FreePlayAnalyzer`, pure C#, EditMo
 Editor: `FreePlayDebugPanel` (OnGUI buttons: Start Free Play / Back to Lesson, C–F–G–C, Für Elise, Uneven run). Config: `AIConfig` "Free play" + "Mode".
 
 ---
+
+## Radial menu — built by Nehemiah (`Assets/Scripts/Menu/RadialMenu.cs`) ✅ (Editor) / untested on the Aura
+Left-hand menu: **Restart Lesson** (top), **Free Play** (lower left), **Recalibrate Piano** (lower right), **Close** in the center.
+Adds itself after scene load to any scene with an `AppFlow` and a `PianoCalibrator` (no scene edit). Opens/closes by touch-and-holding the
+orange dot on the back of the left hand (`PianoCalibrator.MenuDotPressed`); placed 0.42 m ahead, 0.06 m below eye level when opened, then
+fixed in the world. Segments are XRI poke buttons (`XRSimpleInteractable` + `XRPokeFilter`, like `ModeChoicePanel`); pokes are ignored for
+0.6 s after opening, one action per opening, closes after an action or after 20 s. Editor: **F1** toggle, **F2/F3/F4** choose, **Esc** close.
+
+| Member | Purpose |
+|---|---|
+| `enum Choice { RestartLesson, FreePlay, Recalibrate, Close }` | |
+| `void Open()` / `Close()` / `Toggle()`, `bool IsOpen` | Show/hide. Opening never changes the session. |
+| `bool Choose(Choice)` | Run an action (what a poke does). False if unavailable or an action already ran this opening. |
+| `event Action<Choice> Chosen` | After an action runs. |
+
+Actions (public APIs only): Restart = in the lesson `overlay.ClearAll()` + `evaluator.Restart()` (Main) or `engine.StartLesson()` (Main_2);
+outside it `AppModeSwitch.Request(Lesson, "menu")` (shown as "Start Lesson"). Free Play = `AppModeSwitch.Request(FreePlay, "menu")`
+(disabled while already in free play). Recalibrate = `calibrator.Recalibrate()`; in Main's wait-mode lesson the evaluator component is
+switched off until `Calibrated`/`CalibrationCancelled` (note index kept). While calibrating, the option becomes **Cancel Recalibrate**
+(`CancelCalibration()`), only if an earlier calibration exists. Nothing is available before the first calibration.
+**Not done:** the guided lesson (`CurriculumEngine`, Main_2) has no pause API, so its runs are not paused during recalibration.
 
 ## Requested (add asks for other owners here)
 - **PianoOverlay — Ari:** a `KeyState.Pressed` color (held key, no flash). Free Play lights held keys with `Correct` and re-lights
