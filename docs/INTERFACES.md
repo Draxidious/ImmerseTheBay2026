@@ -78,7 +78,19 @@ No dependency on the AI scripts.
 | `OrbState State`, `bool IsTextVisible` | Current state. |
 
 Editor debug: `T` = sample text, `Y` = cycle state, `H` = hide text, `V` = toggle fake voice level.
-Menu: **Tools ▸ Coach ▸ Add Coach Orb** (adds it to the open scene), **Tools ▸ Coach ▸ Add Aura XR Rig to Scene**.
+Menu: **Tools ▸ Coach ▸ Add Coach Orb** (adds it to the open scene), **Tools ▸ Coach ▸ Add Aura XR Rig to Scene**,
+**Tools ▸ Coach ▸ Add AI Coach + Orb Bridge**.
+
+#### Driven by the AI: CoachOrbBridge (`Assets/Scripts/Coach/CoachOrbBridge.cs`) ✅
+Glue between the AI layer and the orb; the AI scripts are not modified. Add it to any object; it finds `CoachOrb`,
+`AICoach`, `VoiceOutput` and `VoiceInput` itself (only the orb is required).
+- **State** (polled each frame, by priority): `VoiceInput.IsListening` → Listening, `AICoach.IsThinking` → Thinking
+  (shows `"..."`), `VoiceOutput.IsSpeaking` → Speaking, else Idle.
+- **Text:** `AICoach.OnResponse` → `ShowText(result.say)` (fallback replies too; empty = nothing). Held while speaking,
+  then `lingerSeconds` (2 s) or the orb's reading time, whichever is longer.
+- **Voice level:** RMS of `VoiceOutput.source` (Groq TTS) × `voiceGain`; synthetic pulse when nothing measurable plays
+  on that source (Android native TTS, or the TTS request still downloading).
+- Editor debug: `G` = send `AIDebugPanel.Improving()` (a fake "run finished") to the coach. `logChanges` logs state/text changes.
 
 ---
 
@@ -115,4 +127,8 @@ Events must be raised on Unity's main thread.
 ---
 
 ## Requested (add asks for other owners here)
+- **AICoach / VoiceOutput — Nehemiah (CoachOrbBridge):** (1) events for speaking started/finished and thinking started/finished,
+  so the orb doesn't have to poll `IsSpeaking`/`IsThinking`; (2) a way to tell when TTS audio actually starts playing
+  (`IsSpeaking` is already true while the Groq request downloads, so the orb pulses before any sound); (3) optional: a 0..1
+  voice level for native Android TTS (it doesn't play through `VoiceOutput.source`, so the orb fakes the pulse). Nice-to-haves, not blocking.
 - _example: "SheetPanel needs measure-to-page mapping from LessonEngine — Ari"_

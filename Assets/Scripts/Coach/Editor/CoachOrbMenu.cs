@@ -8,6 +8,7 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 /// <summary>
 /// Menu: Tools ▸ Coach ▸ Add Coach Orb             — adds a CoachOrb to the open scene (or selects the existing one).
+///       Tools ▸ Coach ▸ Add AI Coach + Orb Bridge — AICoach/VoiceOutput/VoiceInput/HesitationTracker + AIDebugPanel + CoachOrbBridge.
 ///       Tools ▸ Coach ▸ Add Aura XR Rig to Scene  — the project's hands rig + passthrough setup (same as Dev_Ari),
 ///                                                    so the open scene can run on the Aura.
 /// Neither saves the scene; save it yourself.
@@ -50,6 +51,50 @@ public static class CoachOrbMenu
         Selection.activeGameObject = go;
         EditorSceneManager.MarkSceneDirty(go.scene);
         Debug.Log("[CoachOrbMenu] Added CoachOrb. Play-mode keys: T = sample text, Y = cycle state, H = hide, V = fake voice.");
+    }
+
+    /// <summary>
+    /// AI coach set up the way AIDebugPanel expects (AICoach + VoiceOutput + VoiceInput + HesitationTracker on one object),
+    /// plus the debug panel and the bridge that drives the orb. Adds the orb too if the scene has none.
+    /// </summary>
+    [MenuItem("Tools/Coach/Add AI Coach + Orb Bridge")]
+    public static void AddAICoachBridge()
+    {
+        if (!Object.FindAnyObjectByType<CoachOrb>()) AddCoachOrb();
+
+        var coach = Object.FindAnyObjectByType<AICoach>();
+        GameObject go;
+        if (coach) go = coach.gameObject;
+        else
+        {
+            go = new GameObject("AI Coach");
+            Undo.RegisterCreatedObjectUndo(go, "Add AI coach");
+        }
+
+        var audio = GetOrAdd<AudioSource>(go);
+        audio.playOnAwake = false;
+        audio.spatialBlend = 0f;
+        var output = GetOrAdd<VoiceOutput>(go);
+        output.source = audio;
+        coach = GetOrAdd<AICoach>(go);
+        coach.voiceOutput = output;
+        var input = GetOrAdd<VoiceInput>(go);
+        var tracker = GetOrAdd<HesitationTracker>(go);
+        var panel = GetOrAdd<AIDebugPanel>(go);
+        panel.coach = coach; panel.voiceOutput = output; panel.voiceInput = input; panel.tracker = tracker;
+        var bridge = GetOrAdd<CoachOrbBridge>(go);
+        bridge.orb = Object.FindAnyObjectByType<CoachOrb>();
+        bridge.coach = coach; bridge.voiceOutput = output; bridge.voiceInput = input;
+
+        Selection.activeGameObject = go;
+        EditorSceneManager.MarkSceneDirty(go.scene);
+        Debug.Log("[CoachOrbMenu] Added AI coach + orb bridge. Play-mode keys: G = fake run finished, 1-5 = AIDebugPanel scenarios, hold Space = talk.");
+    }
+
+    static T GetOrAdd<T>(GameObject go) where T : Component
+    {
+        var c = go.GetComponent<T>();
+        return c ? c : Undo.AddComponent<T>(go);
     }
 
     [MenuItem("Tools/Coach/Add Aura XR Rig to Scene")]

@@ -4,6 +4,27 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~18:15 — Claude Code (for Nehemiah): CoachOrb hooked up to the AI coach
+- Merged `origin/Canady` (`9c4984f`: CoachContext/CoachFacts/CoachAction, SongData, CoachPrompt.txt) into `nehemiah` first. No conflicts, no keys.
+- **Added** `Assets/Scripts/Coach/CoachOrbBridge.cs` (AI scripts untouched): Listening > Thinking > Speaking > Idle from the AI flags,
+  `"..."` while thinking, `OnResponse` → `ShowText(say)` held while speaking + 2 s, voice level from `VoiceOutput.source` RMS
+  (synthetic pulse for native TTS). Editor key `G` = fake "run finished". Menu **Tools ▸ Coach ▸ Add AI Coach + Orb Bridge**.
+- **Dev_Nehemiah:** new `AI Coach` object (AudioSource, VoiceOutput, AICoach, VoiceInput, HesitationTracker, AIDebugPanel, CoachOrbBridge).
+- **Verified in Editor Play mode (via UnityMCP):** with no `secrets.json` on this machine the coach falls back in ~66 ms →
+  orb shows the fallback line, speech never starts → text kept 2.5 s. Simulated slow reply: Idle → Thinking + `"..."` → reply text →
+  Speaking. 0 script errors.
+- **Real keys (secrets.json added locally, gitignored):** G-style "Improving" run → Thinking + `"..."` → Claude (Haiku) reply in ~1.9 s
+  (`show_fingering bar 3`) → reply shown → Speaking → Idle; text kept 9.4 s (reading time). **Groq TTS fails: HTTP 400
+  `model_terms_required`**: the Groq org admin must accept the `canopylabs/orpheus-v1-english` terms in the Groq console. Until then
+  the coach falls back to native TTS (silent in the Editor, works on Android).
+  **Update:** the key owner accepted the Groq terms; retested: `TTS Groq ... OK in 829 ms`, 15.6 s clip played through
+  `VoiceOutput.source`, orb Speaking → text faded ~2 s after speech ended.
+- **Text limit raised:** `CoachOrb.maxCharacters` 120 → 300 and `textWidth` 0.30 → 0.36 m (~40 chars/line, ~8 lines max):
+  coach replies were 160–245 chars; a 245-char reply now shows in full.
+- **Not verified:** RMS voice level from real audio (the Editor was in the background, so audio/frames were paused; the synthetic
+  pulse path did run). Needs Unity focused + a Groq key, or the Aura. Native TTS pulse and readability: Aura only.
+- Requests for the AI owner added under "Requested" in INTERFACES (speaking/thinking events, TTS-started signal, native TTS level).
+
 ## 2026-11-14 ~17:45 — Claude Code (for Nehemiah): CoachOrb (floating coach orb + text)
 - **Added** `Assets/Scripts/Coach/CoachOrb.cs` (implements the INTERFACES `CoachOrb` contract + `ShowText`/`HideText`) and
   `Assets/Scripts/Coach/Editor/CoachOrbMenu.cs` (Tools ▸ Coach ▸ Add Coach Orb / Add Aura XR Rig to Scene), material

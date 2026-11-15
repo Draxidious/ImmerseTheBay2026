@@ -35,13 +35,14 @@ public class CoachOrb : MonoBehaviour
     [Header("Text")]
     [Tooltip("World font size. 0.18 ≈ 1.8 cm lines ≈ 1.5° at 0.68 m (Ari's calibration prompt uses 0.135 at 0.6 m).")]
     public float fontSize = 0.18f;
-    [Tooltip("Wrap width in meters (≈26° at 0.65 m).")]
-    public float textWidth = 0.30f;
+    [Tooltip("Wrap width in meters (≈30° at 0.68 m, ~40 characters per line at fontSize 0.18).")]
+    public float textWidth = 0.36f;
     public float textGap = 0.025f;
     public Color textColor = new Color(0.88f, 0.97f, 1f);
     public Color textOutlineColor = new Color(0.25f, 0.65f, 1f);
     [Range(0f, 0.5f)] public float textOutlineWidth = 0.15f;
-    public int maxCharacters = 120;
+    [Tooltip("Longer text is cut at a word with \"...\". The coach prompt asks for at most 2 short sentences; real replies run ~160 chars.")]
+    public int maxCharacters = 300;
     public float secondsPerWord = 0.3f;
     public float minSeconds = 3f;
     public float fadeSeconds = 0.25f;
