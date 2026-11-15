@@ -4,6 +4,19 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 — Claude Code (for Canady): demo keys no longer stay dark and then rush by
+- **Bug (on the Aura):** the replay after a failed run played its sound, but the keys stayed dark until about the last second,
+  then all lit at once. `DemoPlayer` scheduled sound on the audio clock but lit keys on the frame clock (`Time.time`), which
+  falls behind on long frames.
+- **Fix (`Curriculum/DemoPlayer.cs`):** keys and sound now follow one position driven by the audio clock. A frame moves it
+  at most 0.1 s, so a stall pauses the demo instead of rushing it, and every key stays lit for at least one drawn frame. If the
+  audio clock is frozen for 0.5 s, real time moves the keys (silently).
+- **Logging:** `[Demo] Start`, one `[Demo] Key <midi> due <t> lit at <t> (frame ms, dsp)` per key, and `[Demo] Done: longest frame,
+  jumps held back`. On the device: `adb logcat -s Unity | grep "\[Demo\]"`.
+- **Verified (Editor, Main_2 via MCP, real coach):** auto-demo and the "play it again" replay light keys within ~20 ms of their notes;
+  with a 1.5 s main-thread freeze forced after key 3, the remaining keys still came 0.66 s apart ("longest frame 1514 ms, 1 jumps
+  held back"). EditMode 114/114. **Not yet tested on the Aura.**
+
 ## 2026-11-15 ~02:00 PT — Claude Code (for Nehemiah): left-hand radial menu (Restart Lesson / Free Play / Recalibrate)
 - New `Assets/Scripts/Menu/RadialMenu.cs`: ring of three poke segments + center Close, bright rims/icons/text only (additive display).
   Adds itself to scenes with AppFlow + PianoCalibrator. Opened/closed by the existing orange dot on the back of the left hand.
