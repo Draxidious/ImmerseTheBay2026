@@ -408,7 +408,10 @@ A non-visual start (`nonVisualDefault`) skips calibration: `AppFlow` goes from t
 (`nonVisualChooseModeLine`). Without sight: the intro answer "audio only" (`VisualsMode.AsksForNonVisual`, hint
 `audioOnlyIntroHint`), or "hey teacher, visuals off" during the first calibration (cancels it). `NonVisualGuide` speaks the
 next run's notes (`AICoach.LineSuffix`), "No, E: ..." on a wrong key and the note + where it is after 2.5 s stuck (Main_2).
-Known gap: the blue offsets dot (Ari's) still opens its unseen slider panel while non-visual.
+| `AICoach.LineSuffix` | `Func<CoachResult, (string text, IReadOnlyList<AudioClip> clips)>`: text appended to the coach line, or clips played right after it. |
+| `VoiceOutput.Speak(text, clips, gap, clipPitch)` | Speaks the line, then the clips; `IsSpeaking` stays true until they end. |
+| `SpokenWords.Preload()` / `Get(words)` | Cached TTS clips for the 12 note names, "finger one".."five", "Right/Left hand"; `Get` is null if any is missing. |
+| `GroqTts.Synthesize(text, keepAfter)` | One TTS clip without playing it. |
 
 ### Free Play — Canady (`Assets/Scripts/FreePlay/`)
 The player plays anything; pressed keys light up (`KeyState.Correct`); the coach comments now and then and answers "hey teacher"

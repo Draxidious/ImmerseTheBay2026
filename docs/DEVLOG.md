@@ -4,6 +4,18 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-15 ~04:20 PT — Claude Code (for Canady): faster non-visual readout, landmark stuck hint
+- The readout before a run is built from cached word clips (`SpokenWords`, 19 clips loaded in the background, ~10 s, during
+  the intro) instead of one TTS sentence: "E, finger five, D sharp, E, D sharp, E, B, D, C." The finger is said only on
+  each bar's first note, no repeat-folding, and the hand word is skipped when the coach's line already says it. The words
+  have 0.06 s gaps (not the 0.12 s planned) and play at pitch 1.15, with each clip capped at 0.8 s. If a clip is missing,
+  the readout falls back to TTS text.
+- Measured (Main_2 bar 1, right hand): coach line + readout = **8.04 s** from the TTS request to the end of speech
+  (readout 4.7 s); it was 26 s as one sentence.
+- Stuck hint now names the place: "E, finger five: the white key just right of the two black keys." (`NonVisualGuide.Landmark`).
+  Verified in Play mode; one hint per run.
+- EditMode tests: 146/146 pass. **Next:** check on the Aura (the clip cache depends on Groq latency there).
+
 ## 2026-11-15 ~04:00 PT — Claude Code (for Canady): merged Ari's hand menu into Canady
 - Ari's tracked left-hand menu (Main_2) gets a sixth action, **Visuals Off**; the six buttons now sit 60° apart (Restart top,
   Recalibrate, Fine Tune, Fingering, Visuals, Free Play). The fallback ring puts Visuals at the bottom when there is no

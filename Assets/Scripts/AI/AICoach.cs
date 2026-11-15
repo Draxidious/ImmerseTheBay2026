@@ -23,7 +23,8 @@ public class AICoach : MonoBehaviour
 
     // Added to the spoken line (not to result.say): NonVisualGuide reads out the next run's notes here, so the lesson,
     // which waits for the coach to finish speaking, counts in after them.
-    public Func<CoachResult, string> LineSuffix;
+    // Either text (spoken by TTS after the line) or cached word clips (played after it); both may be null.
+    public Func<CoachResult, (string text, IReadOnlyList<AudioClip> clips)> LineSuffix;
 
     public CoachResult LastResult { get; private set; }
     public CoachContext LastContext { get; private set; }
@@ -131,9 +132,11 @@ public class AICoach : MonoBehaviour
         OnCoachAction?.Invoke(result.action);
         OnResponse?.Invoke(result);
         string say = result.say;
-        string extra = LineSuffix?.Invoke(result); // non-visual: the notes of the next run, spoken in the same breath
+        var (extra, clips) = LineSuffix != null ? LineSuffix(result) : default; // non-visual: the next run's notes
         if (!string.IsNullOrWhiteSpace(extra)) say = string.IsNullOrWhiteSpace(say) ? extra : say.TrimEnd() + " " + extra;
-        if (speakReplies && voiceOutput != null && !string.IsNullOrWhiteSpace(say)) _ = voiceOutput.Speak(say);
+        bool hasClips = clips != null && clips.Count > 0;
+        if (hasClips) say = KeepWholeSentences(say, 1); // the readout gives the notes and fingers: the first sentence is enough
+        if (speakReplies && voiceOutput != null && (!string.IsNullOrWhiteSpace(say) || hasClips)) _ = voiceOutput.Speak(say, clips);
         return result;
     }
 

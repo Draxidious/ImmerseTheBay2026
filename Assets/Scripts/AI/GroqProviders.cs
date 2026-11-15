@@ -117,7 +117,20 @@ public class GroqTts : ITtsProvider
 
     public async Task<bool> Speak(string text, AudioSource source, Func<bool> cancelled)
     {
-        if (Unavailable || !Groq.HasKey(keys)) return false;
+        var clip = await Synthesize(text);
+        if (clip == null) return false;
+        if (cancelled()) return true; // a newer line replaced this one while we were waiting
+
+        source.clip = clip;
+        source.Play();
+        while (!cancelled() && source.isPlaying) await Awaitable.NextFrameAsync();
+        return true;
+    }
+
+    // The line as a clip with the silence trimmed (keepAfter: seconds kept after the speech). Null if it can't be had.
+    public async Task<AudioClip> Synthesize(string text, float keepAfter = KeepAfterSeconds)
+    {
+        if (Unavailable || !Groq.HasKey(keys)) return null;
 
         var requests = new List<Task<AIHttp.Result>>();
         foreach (string piece in Split(text, Mathf.Max(20, cfg.groqTtsMaxChars)))
@@ -145,29 +158,24 @@ public class GroqTts : ITtsProvider
                                      (terms ? " (accept the model terms in the Groq console)" : "") +
                                      ". Using native TTS for the rest of this session.");
                 }
-                return false;
+                return null;
             }
 
             float[] part = WavUtility.Decode(r.data, out int partRate, out int partChannels);
             if (part == null || (rate != 0 && (partRate != rate || partChannels != channels)))
             {
                 Debug.LogWarning("[AI] Groq TTS returned audio that could not be read.");
-                return false;
+                return null;
             }
             rate = partRate;
             channels = partChannels;
-            samples.AddRange(TrimSilence(part, partChannels, partRate));
+            samples.AddRange(TrimSilence(part, partChannels, partRate, keepAfter));
         }
-        if (samples.Count == 0) return false;
-
-        if (cancelled()) return true; // a newer line replaced this one while we were waiting
+        if (samples.Count == 0) return null;
 
         var clip = AudioClip.Create("GroqTts", samples.Count / channels, channels, rate, false);
         clip.SetData(samples.ToArray(), 0);
-        source.clip = clip;
-        source.Play();
-        while (!cancelled() && source.isPlaying) await Awaitable.NextFrameAsync();
-        return true;
+        return clip;
     }
 
     public void Stop() { }
@@ -176,7 +184,7 @@ public class GroqTts : ITtsProvider
 
     // Orpheus pads every clip with 0.3-0.55 s of silence before the speech and 0.4-1 s after ("Now bar 2." is 1.4 s of speech
     // in a 2.8 s clip). The lesson waits for speech to end, so cut it, keeping a short margin on each side.
-    public static float[] TrimSilence(float[] samples, int channels, int rate)
+    public static float[] TrimSilence(float[] samples, int channels, int rate, float keepAfter = KeepAfterSeconds)
     {
         if (samples == null || samples.Length == 0) return samples;
         channels = Mathf.Max(1, channels);
@@ -185,7 +193,7 @@ public class GroqTts : ITtsProvider
             if (Mathf.Abs(samples[i]) > SilenceLevel) { if (first < 0) first = i; last = i; }
         if (first < 0) return samples; // all quiet: leave it alone
         int start = Mathf.Max(0, first - Mathf.RoundToInt(KeepBeforeSeconds * rate) * channels);
-        int end = Mathf.Min(samples.Length, last + 1 + Mathf.RoundToInt(KeepAfterSeconds * rate) * channels);
+        int end = Mathf.Min(samples.Length, last + 1 + Mathf.RoundToInt(keepAfter * rate) * channels);
         start -= start % channels; // whole frames
         end -= (end - start) % channels;
         var kept = new float[end - start];
