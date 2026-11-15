@@ -17,8 +17,10 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
   after the lesson's own line. EditMode 131/131 (17 new parser tests).
 - **Known issues (left as they are):** the blue offsets dot (Ari's `MarkerCalibration`) still opens its unseen slider panel
   while non-visual; Main_2's guided lesson keeps running its runs while "visuals on" calibrates (no pause API).
-- **Next / not done:** AppFlow change so a non-visual start skips calibration (Jordan's); spoken note guidance in the
-  lesson; Jordan's engine hook. Untested on the Aura.
+- **AppFlow (Jordan approved):** a non-visual start skips calibration: intro → "Say lesson mode or free play." → mode by
+  voice. The mode choice after calibration moved into a shared `StartAfterSetup`. Editor: visual flow unchanged (calibration →
+  "Would you like a lesson, or free play?", panel shown); non-visual start → no calibration → lesson by voice, nothing drawn.
+- **Next / not done:** spoken note guidance in the lesson; Jordan's engine hook. Untested on the Aura.
 
 ## 2026-11-15 — Claude Code (for Canady): demo keys no longer stay dark and then rush by
 - **Bug (on the Aura):** the replay after a failed run played its sound, but the keys stayed dark until about the last second,

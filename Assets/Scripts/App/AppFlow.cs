@@ -171,6 +171,15 @@ public class AppFlow : MonoBehaviour
             }
         }
 
+        if (VisualsMode.NonVisual)
+        {
+            // MIDI gives the keys; calibration only places the overlay, which is hidden. "Visuals on" calibrates later.
+            Debug.Log("[AppFlow] Non-visual: no calibration.");
+            AppModeSwitch.AfterCalibration = true; // mode switching and voice questions open once setup is over
+            StartAfterSetup(AIConfig.Get().nonVisualChooseModeLine);
+            yield break;
+        }
+
         CurrentStep = Step.Calibrating;
         if (overlay) overlay.gameObject.SetActive(true);
         if (calibrator) calibrator.Recalibrate();
@@ -220,6 +229,12 @@ public class AppFlow : MonoBehaviour
         PlaceSheetPanel();
         if (CurrentStep != Step.Calibrating) return;
         AppModeSwitch.AfterCalibration = true;
+        StartAfterSetup(chooseModeLine);
+    }
+
+    // After the first calibration, or straight after the intro when non-visual: the default mode, or ask for one.
+    void StartAfterSetup(string chooseLine)
+    {
         switch (AIConfig.Get().defaultMode)
         {
             case StartMode.Lesson: EnterLesson(); break;
@@ -228,7 +243,7 @@ public class AppFlow : MonoBehaviour
                 CurrentStep = Step.ChooseMode;
                 ResolveModeObjects();
                 if (_modePanel) _modePanel.ShowChoice();
-                StartCoroutine(Say(chooseModeLine));
+                StartCoroutine(Say(chooseLine));
                 break;
         }
     }

@@ -397,7 +397,8 @@ was never calibrated runs calibration first (`visualsCalibrateFirstLine`). `Mode
 | `VisualsMode.Set(bool nonVisual, string source)` / `Toggle(source)` | Switch; raises `Changed(nonVisual, source)`. |
 | `VisualsMode.TryParseCommand(text, out bool visualsOn)` | "visuals off", "turn on the visuals", "audio only", ... (EditMode tests). |
 | `AIConfig` "Non-visual" section | `nonVisualDefault`, `nonVisualChooseModeLine`, `visualsCalibrateFirstLine`, `visualsOffLine`. |
-**Not done:** a non-visual start still calibrates (needs the AppFlow change, awaiting OK); spoken note guidance in the lesson.
+A non-visual start (`nonVisualDefault`) skips calibration: `AppFlow` goes from the intro to the mode choice by voice
+(`nonVisualChooseModeLine`). **Not done:** spoken note guidance in the lesson.
 Known gap: the blue offsets dot (Ari's) still opens its unseen slider panel while non-visual.
 
 ### Free Play — Canady (`Assets/Scripts/FreePlay/`)
