@@ -4,6 +4,14 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~17:45 — Claude Code (for Ari): branch ARI-MAIN-MERGE-531 = ARI + main
+- New branch from ARI (ARI itself unchanged); main merged in (MIDI reader + Android MidiBridge, AI coach, Jordan's scenes).
+- Conflicts: `Packages/manifest.json` + lock kept ARI's (MCP pinned to v10.0.0, `com.google.xr.extensions` kept, and
+  `com.unity.ai.assistant` NOT re-added: it clashes with MCP for Unity, see CLAUDE.md; main's code doesn't use it).
+  Build scenes: Dev_Ari first, then main's JordanScene. `Assets/Scripts.meta`: main's folder GUID.
+- INTERFACES.md now lists the real MidiPianoReader and AICoach APIs from main.
+- Not yet opened/compiled in Unity on this branch; MIDI is not wired to PianoOverlay yet.
+
 ## 2026-11-14 ~17:30 — Claude Code (for Ari): hand occluder back to the first (depth-only) version
 - The soft black-mask occluder (~16:40 entry below) was wrong: it drew the hand instead of only hiding the overlay. Reverted to the
   first version: `PianoTeacher/HandOccluder` is depth-only again (ColorMask 0, ZWrite On, queue 1990), mesh grown +4 mm

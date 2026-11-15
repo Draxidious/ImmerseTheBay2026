@@ -85,14 +85,17 @@ Editor debug: `C` = fake both pinches in front of the camera, `R` = recalibrate.
 
 ---
 
-## MIDI input — owner: TBD 📝
+## MIDI input — `MidiPianoReader` (`Assets/Scripts/MidiPianoReader.cs`, from main) 🚧
+Windows Editor/standalone via winmm.dll; Android/Aura puck via `Assets/Plugins/Android/MidiBridge.java` (android.media.midi).
 | Member | Purpose |
 |---|---|
 | `event Action<int, int> NoteOn` | `(midiNote, velocity)` |
 | `event Action<int> NoteOff` | `(midiNote)` |
-| `bool IsConnected` | Whether a MIDI device is attached. |
+| `event Action<string> ChordChanged` | Chord name + notes, or "" when released. |
+| `HashSet<int> HeldNotes` | Notes currently down. |
+| `bool IsConnected` | 📝 agreed, not in the code yet. |
 
-Events must be raised on Unity's main thread.
+Events must be raised on Unity's main thread. Not yet wired to `PianoOverlay`.
 
 ## LessonEngine — owner: TBD 📝
 | Member | Purpose |
@@ -109,11 +112,16 @@ Events must be raised on Unity's main thread.
   "avgHesitationMs": 820, "slowestNote": {"note": 69, "measure": 7, "ms": 2100} }
 ```
 
-## AICoach — owner: TBD 📝
+## AICoach — `AICoach` (`Assets/Scripts/AI/AICoach.cs`, from main) 🚧
+Takes `PerformanceMetrics` (`Assets/Scripts/AI/PerformanceMetrics.cs`) instead of the proposed `PhraseResult`. Keys live in a
+gitignored `Assets/StreamingAssets/secrets.json`.
 | Member | Purpose |
 |---|---|
-| `void OnPhraseCompleted(PhraseResult r)` | Builds a prompt and speaks 1 to 2 sentences of feedback. |
-| Drives `CoachOrb.SetState(...)` and `CoachOrb.SetVoiceLevel(...)`. | |
+| `Task<CoachResponse> GetCoachResponse(PerformanceMetrics m)` | One short spoken coaching line plus an optional action. |
+| `Task<string> GetFeedback(PerformanceMetrics m)` | Text-only feedback. |
+| `Task<CoachResponse> Ask(string question, PerformanceMetrics m = null)` | Free-form question to the coach. |
+| `event Action<CoachResponse> OnResponse` | Raised with each response. |
+| Drives `CoachOrb.SetState(...)` / `SetVoiceLevel(...)` | 📝 not yet (CoachOrb not built). |
 
 ---
 

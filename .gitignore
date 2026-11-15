@@ -112,3 +112,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# AI/voice layer API keys - never commit (copy secrets.example.json to secrets.json)
+/[Aa]ssets/StreamingAssets/secrets.json
+/[Aa]ssets/StreamingAssets/secrets.json.meta
