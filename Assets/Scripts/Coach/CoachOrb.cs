@@ -23,6 +23,22 @@ public class CoachOrb : MonoBehaviour
     public TextMeshPro textLabel;
     [Tooltip("URP/Unlit (uses _BaseColor). Leave empty to auto-create at runtime.")]
     public Material orbMaterial;
+    [Tooltip("Soft halo quad behind the sphere (additive).")]
+    public Renderer glowRenderer;
+    [Tooltip("URP/Unlit, transparent + additive. Leave empty to auto-create at runtime (the prefab references an asset so the shader variant ships in builds).")]
+    public Material glowMaterial;
+
+    [Header("Glow")]
+    [Tooltip("Halo size relative to the sphere.")]
+    public float glowScale = 3.2f;
+    [Range(0f, 1f)] public float idleGlow = 0.12f;
+    [Range(0f, 1f)] public float listeningGlow = 0.3f;
+    [Range(0f, 1f)] public float thinkingGlow = 0.22f;
+    [Tooltip("Halo strength while speaking, at silence and at full voice.")]
+    [Range(0f, 1f)] public float speakingGlowMin = 0.45f;
+    [Range(0f, 1f)] public float speakingGlowMax = 1f;
+    [Tooltip("While speaking, how far the core is pushed toward white at full voice.")]
+    [Range(0f, 1f)] public float speakingWhiteBoost = 0.4f;
 
     [Header("Orb")]
     public float orbDiameter = 0.07f;
@@ -82,6 +98,11 @@ public class CoachOrb : MonoBehaviour
     public bool IsTextVisible => _textTarget > 0f;
 
     MaterialPropertyBlock _mpb;
+    MaterialPropertyBlock _glowMpb;
+    static Texture2D s_glowTexture;
+    static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+    static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+    float _glow;
     Color _color;
     float _voiceTarget, _voiceLevel, _lastVoiceTime = -10f;
     float _textAlpha, _textTarget, _hideAt = -1f;
@@ -123,6 +144,22 @@ public class CoachOrb : MonoBehaviour
         float duration = seconds > 0f ? seconds : Mathf.Max(minSeconds, words * secondsPerWord);
         _hideAt = Time.time + duration;
         _textTarget = 1f;
+        textLabel.maxVisibleCharacters = AllCharacters; // fully revealed unless SetRevealedCharacters says otherwise
+    }
+
+    const int AllCharacters = 99999;
+
+    /// <summary>The text currently shown (after truncation), for callers that reveal it gradually.</summary>
+    public string DisplayedText => textLabel ? textLabel.text : "";
+
+    /// <summary>
+    /// Show only the first <paramref name="count"/> characters of the current text (the rest keeps its layout, so lines
+    /// don't reflow as words appear). Negative = show everything. Used to reveal words in time with speech.
+    /// </summary>
+    public void SetRevealedCharacters(int count)
+    {
+        if (!textLabel) return;
+        textLabel.maxVisibleCharacters = count < 0 ? AllCharacters : count;
     }
 
     /// <summary>Fade the message out.</summary>
@@ -145,6 +182,7 @@ public class CoachOrb : MonoBehaviour
     void Awake()
     {
         _mpb = new MaterialPropertyBlock();
+        _glowMpb = new MaterialPropertyBlock();
         EnsureParts();
         _color = idleColor;
         textLabel.alpha = 0f;
@@ -279,24 +317,31 @@ public class CoachOrb : MonoBehaviour
 
         Color target;
         float scale = 1f;
+        float glowTarget;
         switch (State)
         {
             case OrbState.Listening:
                 target = listeningColor * (0.9f + 0.1f * Mathf.Sin(t * Mathf.PI * 2f / 1.2f));
                 scale = 1.08f;
+                glowTarget = listeningGlow;
                 break;
             case OrbState.Thinking:
                 target = Color.Lerp(thinkingColorA, thinkingColorB, 0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2f / 1.6f)) * 0.85f;
+                glowTarget = thinkingGlow * (0.8f + 0.2f * Mathf.Sin(t * Mathf.PI * 2f / 1.6f));
                 break;
             case OrbState.Speaking:
-                target = speakingColor * (0.55f + 0.45f * _voiceLevel);
+                // Brightest state: full-strength core pushed toward white with the voice, plus a strong halo.
+                target = Color.Lerp(speakingColor, Color.white, speakingWhiteBoost * _voiceLevel) * (0.85f + 0.15f * _voiceLevel);
                 scale = 1f + 0.18f * _voiceLevel;
+                glowTarget = Mathf.Lerp(speakingGlowMin, speakingGlowMax, _voiceLevel);
                 break;
             default: // Idle: slow, subtle breathing
                 target = idleColor * (0.5f + 0.15f * Mathf.Sin(t * Mathf.PI * 2f / 4f));
+                glowTarget = idleGlow;
                 break;
         }
 
+        _glow = Mathf.Lerp(_glow, glowTarget, 1f - Mathf.Exp(-(glowTarget > _glow ? 20f : 6f) * dt));
         _color = Color.Lerp(_color, target, 1f - Mathf.Exp(-8f * dt));
         var c = _color; c.a = 1f;
         orbRenderer.GetPropertyBlock(_mpb);
@@ -306,15 +351,67 @@ public class CoachOrb : MonoBehaviour
         orbRenderer.transform.localScale = Vector3.one * (orbDiameter * scale);
 
         // Slight floating: smooth up/down bob with a much smaller, slower sideways drift so it doesn't look mechanical.
+        Vector3 bob = Vector3.zero;
         if (floatAmplitude > 0f && floatPeriod > 0.1f)
         {
             float w = Mathf.PI * 2f / floatPeriod;
-            orbRenderer.transform.localPosition = new Vector3(
-                floatAmplitude * 0.3f * Mathf.Sin(t * w * 0.53f + 1.1f),
-                floatAmplitude * Mathf.Sin(t * w),
-                0f);
+            bob = new Vector3(floatAmplitude * 0.3f * Mathf.Sin(t * w * 0.53f + 1.1f), floatAmplitude * Mathf.Sin(t * w), 0f);
         }
-        else orbRenderer.transform.localPosition = Vector3.zero;
+        orbRenderer.transform.localPosition = bob;
+
+        // Halo: additive quad just behind the sphere (the root turns to face the player), tinted with the core color.
+        if (glowRenderer)
+        {
+            var gt = glowRenderer.transform;
+            gt.localPosition = bob + new Vector3(0f, 0f, orbDiameter * 0.6f);
+            gt.localScale = Vector3.one * (orbDiameter * glowScale * (0.9f + 0.25f * _glow));
+            var gc = _color * _glow; gc.a = 1f;
+            glowRenderer.GetPropertyBlock(_glowMpb);
+            _glowMpb.SetColor(BaseColorId, gc);
+            _glowMpb.SetColor(ColorId, gc);
+            _glowMpb.SetTexture(BaseMapId, GlowTexture());
+            _glowMpb.SetTexture(MainTexId, GlowTexture());
+            glowRenderer.SetPropertyBlock(_glowMpb);
+        }
+    }
+
+    /// <summary>Soft radial falloff (white center → black edge). Black adds nothing on an additive display.</summary>
+    static Texture2D GlowTexture()
+    {
+        if (s_glowTexture) return s_glowTexture;
+        const int n = 64;
+        s_glowTexture = new Texture2D(n, n, TextureFormat.RGBA32, false) { name = "CoachOrbGlow (runtime)", wrapMode = TextureWrapMode.Clamp };
+        var px = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                float v = Mathf.Clamp01(1f - r);
+                v = v * v * (3f - 2f * v); // smoothstep
+                v *= v;                     // tighter core, long soft tail
+                byte b = (byte)Mathf.RoundToInt(v * 255f);
+                px[y * n + x] = new Color32(b, b, b, b);
+            }
+        s_glowTexture.SetPixels32(px);
+        s_glowTexture.Apply(false, true);
+        return s_glowTexture;
+    }
+
+    /// <summary>Turn a URP/Unlit material into transparent + additive (One, One), no depth write.</summary>
+    public static void MakeAdditive(Material m)
+    {
+        if (!m) return;
+        m.SetFloat("_Surface", 1f);   // Transparent
+        m.SetFloat("_Blend", 2f);     // Additive
+        m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.One);
+        m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
+        m.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+        m.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+        m.SetFloat("_ZWrite", 0f);
+        m.SetOverrideTag("RenderType", "Transparent");
+        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
     }
 
     void AnimateText()
@@ -358,6 +455,26 @@ public class CoachOrb : MonoBehaviour
             orbMaterial = new Material(shader) { name = "CoachOrbUnlit (runtime)" };
         }
         if (orbRenderer.sharedMaterial != orbMaterial) orbRenderer.sharedMaterial = orbMaterial;
+
+        if (!glowRenderer)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Quad); // faces -Z = toward the player (root +Z points away)
+            go.name = "Glow";
+            if (Application.isPlaying) Destroy(go.GetComponent<Collider>()); else DestroyImmediate(go.GetComponent<Collider>());
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = new Vector3(0f, 0f, orbDiameter * 0.6f);
+            go.transform.localScale = Vector3.one * (orbDiameter * glowScale);
+            glowRenderer = go.GetComponent<Renderer>();
+            glowRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            glowRenderer.receiveShadows = false;
+        }
+        if (!glowMaterial)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
+            glowMaterial = new Material(shader) { name = "CoachOrbGlow (runtime)" };
+            MakeAdditive(glowMaterial);
+        }
+        if (glowRenderer.sharedMaterial != glowMaterial) glowRenderer.sharedMaterial = glowMaterial;
 
         if (!textLabel)
         {

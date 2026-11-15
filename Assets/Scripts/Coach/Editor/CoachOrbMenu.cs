@@ -41,6 +41,7 @@ public static class CoachOrbMenu
         {
             var orb = temp.AddComponent<CoachOrb>();
             orb.orbMaterial = GetOrCreateUnlit("CoachOrbUnlit", orb.idleColor);
+            orb.glowMaterial = GetOrCreateGlowMaterial();
             orb.EnsureParts();
             temp.AddComponent<CoachOrbBridge>(); // finds the orb on this object and the AI coach in the scene by itself
             Directory.CreateDirectory(Path.GetDirectoryName(PrefabPath));
@@ -185,6 +186,23 @@ public static class CoachOrbMenu
         var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
         Undo.RegisterCreatedObjectUndo(go, "Add XR rig");
         return go;
+    }
+
+    /// <summary>URP/Unlit transparent + additive, saved as an asset so the shader variant is included in Android builds.</summary>
+    public static Material GetOrCreateGlowMaterial()
+    {
+        string path = $"{MaterialDir}/CoachOrbGlow.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat) return mat;
+        Directory.CreateDirectory(MaterialDir);
+        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (!shader) { Debug.LogError("[CoachOrbMenu] URP Unlit shader not found."); shader = Shader.Find("Unlit/Color"); }
+        mat = new Material(shader) { name = "CoachOrbGlow" };
+        CoachOrb.MakeAdditive(mat);
+        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
+        AssetDatabase.CreateAsset(mat, path);
+        AssetDatabase.SaveAssets();
+        return mat;
     }
 
     static Material GetOrCreateUnlit(string name, Color color)

@@ -80,6 +80,7 @@ No dependency on the AI scripts.
 | `void SetVoiceLevel(float level01)` | 0 to 1 loudness of the AI voice; drives the pulse while Speaking. Call every frame during speech (decays to 0 if not called for 0.25 s). |
 | `void ShowText(string text, float seconds = -1)` | Show a message beside the orb, replacing any current one. `seconds <= 0` = auto (0.3 s/word, min 3 s). Over 120 chars is cut at a word with "...". Fades in/out. Typical use: `orb.ShowText(coachResponse.say)`. |
 | `void HideText()` | Fade the message out now. |
+| `void SetRevealedCharacters(int count)` / `string DisplayedText` | Show only the first `count` characters of the current text (layout doesn't reflow; `-1` = all). Used for words-in-time-with-speech. |
 | `void Replace()` | Re-measure eye height and re-place on the next tracked frame. |
 | `OrbState State`, `bool IsTextVisible` | Current state. |
 
@@ -92,8 +93,10 @@ Glue between the AI layer and the orb; the AI scripts are not modified. Add it t
 `AICoach`, `VoiceOutput` and `VoiceInput` itself (only the orb is required).
 - **State** (polled each frame, by priority): `VoiceInput.IsListening` → Listening, `AICoach.IsThinking` → Thinking
   (shows `"..."`), `VoiceOutput.IsSpeaking` → Speaking, else Idle.
-- **Text:** `AICoach.OnResponse` → `ShowText(result.say)` (fallback replies too; empty = nothing). Held while speaking,
-  then `lingerSeconds` (2 s) or the orb's reading time, whichever is longer.
+- **Text:** `AICoach.OnResponse` → the reply appears **word by word in time with the voice** (fallback replies too; empty = nothing).
+  Groq: progress = playback position of VoiceOutput's single TTS clip, weighted for pauses after `, ; :` and `. ! ?`.
+  Native TTS: estimated pace (`charsPerSecond`, 14). Until Groq audio starts, the orb stays Thinking with `"..."`.
+  When speech ends the whole line shows, then `lingerSeconds` (2 s) or the reading time. `revealWithSpeech` off = whole line at once.
 - **Voice level:** RMS of `VoiceOutput.source` (Groq TTS) × `voiceGain`; synthetic pulse when nothing measurable plays
   on that source (Android native TTS, or the TTS request still downloading).
 - Editor debug: `G` = send `AIDebugPanel.Improving()` (a fake "run finished") to the coach. `logChanges` logs state/text changes.

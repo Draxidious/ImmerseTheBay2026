@@ -4,6 +4,20 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~19:20 — Claude Code (for Nehemiah): orb glows brighter when speaking; words appear in time with the voice
+- **Glow:** new `Glow` child in the CoachOrb prefab: additive halo quad (`Assets/Scripts/Coach/Materials/CoachOrbGlow.mat`,
+  URP Unlit transparent/additive, runtime radial texture) behind the sphere, strength per state (idle 0.12 → speaking 0.45–1.0
+  with the voice). Speaking core is pushed toward white with the voice. Also: the sphere floats (6 mm bob).
+- **Words in time with speech (CoachOrbBridge):** Groq joins the line into one clip, so words follow `source.time / clip.length`
+  (lead/tail silence trimmed, extra weight for pauses at punctuation). Native TTS: estimated 14 chars/s. Orb stays Thinking
+  with "..." while Groq audio downloads. Uses read-only reflection on VoiceOutput's private `groq` to know if Groq gave up.
+- **Verified (Editor):** reveal mapping over a 6 s line: 0.6 s "Nice and steady." … 3.3 s "...thumb on C, index on D," … 6 s full;
+  simulated clip → "words follow the audio"; glow 0.63–0.67 speaking vs 0.12 idle; 0 errors.
+- **⚠ Groq TTS quota:** hit the free tier's **3,600 tokens/day** limit for `canopylabs/orpheus-v1-english` (HTTP 429, org-wide,
+  shared by everyone using that key) — roughly a few dozen spoken replies a day. Coach falls back to native TTS (silent in the
+  Editor, works on Android). For the demo: upgrade the Groq org (Dev Tier) or rely on native TTS on the Aura.
+- Unity keeps re-serializing three XRI sample prefabs in `Assets/Samples/` (new `m_Priority` fields); reverted, not committed.
+
 ## 2026-11-14 ~19:00 — Claude Code (for Nehemiah): CoachOrb drag-and-drop prefab, BasicScene_Coach
 - **Prefab:** `Assets/Scripts/Coach/Prefabs/CoachOrb.prefab` = CoachOrb + Text + CoachOrbBridge, no scene references.
   Bridge now looks for the orb on its own object first and searches the scene at most once a second when something is missing.
