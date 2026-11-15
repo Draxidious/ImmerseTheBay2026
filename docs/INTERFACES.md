@@ -97,7 +97,9 @@ Windows Editor/standalone via winmm.dll; Android/Aura puck via `Assets/Plugins/A
 
 Events must be raised on Unity's main thread. Not yet wired to `PianoOverlay`.
 
-## LessonEngine — owner: TBD 📝
+## LessonEngine — owner: TBD 📝 (not built)
+Listens to `MidiPianoReader.NoteOn/NoteOff`, drives `PianoOverlay.SetKey`, and at the end of each phrase fills a
+`PerformanceMetrics` for `AICoach.GetCoachResponse` (the `PhraseResult` below is superseded by `PerformanceMetrics`).
 | Member | Purpose |
 |---|---|
 | `void StartPiece(string pieceId, LessonMode mode)` | `LessonMode { Curriculum, Freeplay }` |
@@ -123,7 +125,32 @@ gitignored `Assets/StreamingAssets/secrets.json`.
 | `event Action<CoachResponse> OnResponse` | Raised with each response. |
 | Drives `CoachOrb.SetState(...)` / `SetVoiceLevel(...)` | 📝 not yet (CoachOrb not built). |
 
+`PerformanceMetrics` (filled by the LessonEngine, sent to the coach as JSON):
+```csharp
+public class PerformanceMetrics {
+    string songName; List<WrongNote> wrongNotes;   // WrongNote { int bar; string expectedNote; string playedNote; } e.g. "E4"
+    float avgTimingErrorMs; List<int> rushedBars; List<int> draggedBars; float accuracyPercent; // 0-100
+}
+```
+`CoachResponse { string say; string action; int bar; }`; `action` = `loop_bar` / `slow_down` / `next_song` / `none`
+(`CoachAction { None, LoopBar, SlowDown, NextSong }`). The LessonEngine acts on it (e.g. loop bar N).
+
+Voice and config:
+| Member | Purpose |
+|---|---|
+| `VoiceInput.StartListening()` / `StopListening()` | Push-to-talk. On release the clip goes to Groq Whisper. |
+| `event Action<VoiceCommand, string> VoiceInput.OnCommand` | `VoiceCommand { Again, Slower, HowDidIDo, NextSong, Unknown }` + transcript. |
+| `Task VoiceOutput.Speak(string text)` / `Stop()` / `IsSpeaking` | Speaks a line (Groq TTS or native Android TTS); a new call cuts off the current one. |
+| `AIConfig` (`Assets/Resources/AIConfig.asset`, `AIConfig.Get()`) | Provider (`Claude`/`Groq`), models (coach `claude-haiku-5-5`), TTS (`Groq`/`Native`), timeouts, fallback lines, system prompts. |
+
+Editor test: `AIDebugPanel` in the `AITest` scene.
+
 ---
 
 ## Requested (add asks for other owners here)
 - _example: "SheetPanel needs measure-to-page mapping from LessonEngine — Ari"_
+- LessonEngine needs an owner: wait mode (MIDI → `PianoOverlay.SetKey`), scoring, `PerformanceMetrics` for the coach.
+- MIDI → overlay wiring (light the pressed key): on hold until Ari says go.
+- `MidiPianoReader.IsConnected` (agreed above, not in the code yet) — for Jordan.
+- AICoach → `CoachOrb` state + voice level, once CoachOrb exists — Ari + Canady.
+- Move `MidiPianoReader` / `MidiLogUI` into `Assets/Scripts/Midi/` to match the folder convention — Jordan.

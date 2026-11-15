@@ -17,6 +17,9 @@ and an AI coach gives short spoken feedback between phrases.
 - Devpost + **public Git repo** + **30-second vertical demo video**.
 - **All team code is MIT-licensed** (`LICENSE` at repo root).
 - **Never commit API keys or secrets.** The repo is public. Keys go in gitignored files only. Check `git status` before every commit.
+- **AI keys:** copy `Assets/StreamingAssets/secrets.example.json` to `secrets.json` (gitignored) and fill in
+  `ANTHROPIC_API_KEY` / `GROQ_API_KEY`. Files in `StreamingAssets` are **packed inside the APK**, so every build carries the
+  keys: never upload or share an APK built with real keys.
 
 ## Stack
 - **Unity 6000.6.8f1** (everyone must use exactly this version). Fallback: 6000.3 LTS if Android XR breaks.
@@ -45,10 +48,10 @@ and coaches; it doesn't compose.
 ## Ownership (update when this changes)
 | Area | Owner | Folder |
 |---|---|---|
-| UI: PianoOverlay, SheetPanel, CoachOrb | Ari | `Assets/Scripts/UI/` |
-| MIDI input (Android bridge) | TBD | `Assets/Scripts/Midi/`, `Assets/Plugins/Android/` |
-| LessonEngine (wait mode, scoring, metrics) | TBD | `Assets/Scripts/Lesson/` |
-| AICoach (LLM, speech) | TBD | `Assets/Scripts/AI/` |
+| UI: PianoOverlay, PianoCalibrator (+ hand occlusion), SheetPanel, CoachOrb | Ari | `Assets/Scripts/UI/` |
+| MIDI input (`MidiPianoReader`, `MidiLogUI`, Android `MidiBridge.java`) | Jordan | `Assets/Scripts/` (root, not yet in `Midi/`), `Assets/Plugins/Android/` |
+| LessonEngine (wait mode, scoring, fills `PerformanceMetrics`) | TBD | `Assets/Scripts/Lesson/` |
+| AICoach (LLM, speech in/out) | Canady | `Assets/Scripts/AI/` |
 
 Don't edit another owner's folder without telling them. If you need something from their module,
 add a request to `docs/INTERFACES.md` under "Requested".
@@ -56,6 +59,8 @@ add a request to `docs/INTERFACES.md` under "Requested".
 ## Conventions
 - **One scene per person** for development (`Assets/Scenes/Dev_<Name>.unity`). Only `Assets/Scenes/Main.unity`
   is shared, and only one person edits it at a time, announced in chat. Unity scene merges are painful.
+  Current dev scenes: `Dev_Ari` (overlay + calibration, first in the build list), `JordanScene` / `JordanPianoReading` (MIDI),
+  `AITest` (AI coach). `Main.unity` doesn't exist yet.
 - Communicate between modules through the public methods and events listed in `docs/INTERFACES.md`, not by
   reaching into another module's internals.
 - Notes are **MIDI note numbers** everywhere (middle C = 60, P71 range = 21 to 108).
@@ -66,6 +71,10 @@ add a request to `docs/INTERFACES.md` under "Requested".
 - The display is **additive**: it only adds light. **Black = invisible.** There are no dark glass panels.
   Use bright rims, glow and high contrast.
 - Sheet music should be **light notes on a transparent background**, or raise the lens dimming while the panel is visible.
+- Black is invisible **in the lenses**, but it still writes alpha 1: screen captures and recordings (the demo video) show it as
+  solid black. Don't draw black fills; disable the renderer instead.
+- Any material override on the template hand meshes must replace **every** slot: they carry `DepthOnly` plus a grey glove
+  material (`Unity_Hand_Medium`), and leaving the glove draws an outline around the hands.
 - Test on the real glasses early. Colors that look good in the Editor often wash out.
 
 ## Building for the Aura (Android XR) — settings that must stay this way
@@ -95,6 +104,16 @@ add a request to `docs/INTERFACES.md` under "Requested".
 - Direct Preview is flaky → restart Unity, the hub and the device, or use the XR Simulator for in-editor testing.
 - Play mode crashes with the Android XR Extensions package installed → remove it if it's not needed.
 - Prerelease and retail firmware images aren't interchangeable. Don't reflash without checking.
+
+## Device tooling (puck)
+- **See what the glasses show:** `adb shell screencap -d 4626964206039778834 -p /sdcard/x.png` then `adb pull /sdcard/x.png`
+  (display "XREAL 1 Ultra" = camera image + app content). Plain `adb exec-out screencap` fails: the puck has two displays.
+- **Wireless adb:** put the PC and puck on a private network (phone hotspot, not the open venue Wi-Fi), then with USB plugged in
+  `adb tcpip 5555`, unplug, `adb connect <puck-ip>:5555`. Reverts to USB-only on reboot or `adb usb`.
+- **Logs:** `adb logcat -s Unity`; calibration lines are tagged `[PianoCalibrator]`. App files (e.g. logs written by a script)
+  are under `/sdcard/Android/data/com.DefaultCompany.VRTemplate/files/`.
+- **Aura runtime facts (Android XR 1.0, probed 2026-11-14):** marker / QR / planar-image tracking, depth texture, raycast,
+  scene meshing and `XR_ANDROID_hand_mesh` / `XR_FB_hand_tracking_mesh` are listed; Unity scripts get **no camera CPU frames**.
 
 ## Unity MCP setup (lets agents read/drive the Unity Editor)
 - **Package:** `com.coplaydev.unity-mcp` pinned in `Packages/manifest.json` to

@@ -4,6 +4,15 @@ Each entry: date/time, who (person or agent), what changed, what works, what's b
 
 ---
 
+## 2026-11-14 ~18:00 — Claude Code (for Ari): docs caught up with the merged branch
+- CLAUDE.md: owners (MIDI = Jordan, AICoach = Canady, LessonEngine still TBD), current dev scenes, AI key setup (secrets.json
+  in StreamingAssets ships inside the APK), recording/alpha and hand-material-slot rules, new "Device tooling" section
+  (glasses capture, wireless adb, logs, probed Aura runtime features).
+- INTERFACES.md: PerformanceMetrics / CoachResponse shapes, VoiceInput / VoiceOutput / AIConfig, LessonEngine contract, and the
+  open requests (LessonEngine owner, MIDI → overlay on hold, IsConnected, CoachOrb wiring, MIDI folder move).
+- Added the MIT `LICENSE` at the repo root (required for the Devpost submission; CLAUDE.md already referred to it).
+- Merged branch compiles in Unity (0 script errors). Not built for the puck yet.
+
 ## 2026-11-14 ~17:45 — Claude Code (for Ari): branch ARI-MAIN-MERGE-531 = ARI + main
 - New branch from ARI (ARI itself unchanged); main merged in (MIDI reader + Android MidiBridge, AI coach, Jordan's scenes).
 - Conflicts: `Packages/manifest.json` + lock kept ARI's (MCP pinned to v10.0.0, `com.google.xr.extensions` kept, and
